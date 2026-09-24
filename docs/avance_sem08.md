@@ -40,3 +40,19 @@ Cada etapa se cierra con: compilación, todas las pruebas JUnit, un resumen aqu�
 - **20.4** Cabeceras: todas las clases nuevas desde `v-sem07-referencia` (`Averia`, `Contexto`, `EscritorJson`, `GeneradorDatosSinteticos`, `Hito`, `Mantenimiento`, `MapaVial`, `Reloj`, `ServicioSimulacion`, `ValidadorEntradas`), más `Simulador` y `Compartido`, ya tenían comentario en español con su propósito. Ahora llevan además una línea "Supuestos: SI-xx".
   - Los supuestos nuevos **SI-14 a SI-19** se agregaron a la tabla de `docs/propuesta_cambios_IEN.md`: nodo vecino, no evaluable, penalidad de estabilidad, instancia de calibración, avería externa y una simulación por JVM.
 - Sin cambios de comportamiento: **60 pruebas, todas pasan.**
+
+## Etapa 21: integración con el visualizador (sin frontend)
+
+- **21.1** `docs/propuesta_arquitectura_integracion.md`: tres opciones, con pros, contras y esfuerzo.
+  - A: el mismo proceso difunde la instantánea por un canal bidireccional.
+  - B: el mismo proceso sirve HTTP simple (consulta periódica o eventos del servidor).
+  - C: un proceso por escenario y un coordinador.
+  - Cubre cómo se conectan SIM_5D, COLAPSO y DIA_A_DIA, la vista en varios dispositivos (difusión de la instantánea completa), las averías registradas desde el visualizador y el cambio de velocidad en caliente (P6, P16).
+  - No elige framework. Deja como criterios de decisión: escenarios simultáneos, latencia aceptable y experiencia del equipo.
+- **21.2** Capa independiente de la tecnología web (commit `8926be9`):
+  - `Contexto` pasa a ser por hilo (`ThreadLocal`);
+  - `Reloj.esperarHasta` es interrumpible y se agrega `ahora()`;
+  - `Simulador` suma `crear`/`ejecutar`, un cerrojo, `inyectarAveria`, `cambiarVelocidad` (desde la siguiente replanificación), `detener` e `instantaneaJson`;
+  - nuevas clases `EscritorJson` y `ServicioSimulacion`.
+  - `IntegracionTest` tiene 4 pruebas: JSON completo y bien formado, avería externa, cambio de velocidad y servicio en otro hilo con avería en caliente.
+- **Pendiente:** registrar pedidos en vivo (`inyectarPedido`) para DIA_A_DIA, porque el formato no está definido. Varios escenarios en una JVM requieren quitar el estado estático de los algoritmos (SI-19).
