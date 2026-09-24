@@ -1,0 +1,22 @@
+# Compilación (Maven / NetBeans)
+target/
+nbproject/private/
+nbactions*.xml
+.idea/
+*.iml
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# Salidas grandes o regenerables
+verificacion_*/
+analisis/salida*/
+datos/generados/
+/*.png
+/resultados_*.csv
+/eventos_*.csv
+
+# Copias de archivos antiguos (el historial está en la rama "historial" de git)
+obsoleto_sem06/

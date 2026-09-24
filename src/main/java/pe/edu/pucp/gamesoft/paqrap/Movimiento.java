@@ -76,4 +76,11 @@ class Movimiento {
     static Movimiento insercion() {
         return new Movimiento();
     }
+
+    /** Recarga (insertar, cambiar de almacén o quitar una parada RECARGA): no
+     *  lleva atributo tabú; el costo del viaje extra ya desalienta repetirla sin
+     *  motivo. Decisión documentada, a revisar si se observan ciclos. */
+    static Movimiento recarga() {
+        return new Movimiento();
+    }
 }

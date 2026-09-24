@@ -48,13 +48,13 @@ class CompartidoTest {
     }
 
     @Test
-    void cumpleCapacidad() {
+    void laCapacidadEsRestriccionDura() {
         RutaAlg r = new RutaAlg();
         r.unidad = new UnidadTransporte("TM01", TipoUnidad.MOTO);
         r.paradas.add(ParadaAlg.entrega(new Pedido("A", 1, 1, 8, 36)));
-        assertTrue(Compartido.cumpleCapacidad(r));
+        assertTrue(Compartido.evaluarRuta(r).factible);
         r.paradas.add(ParadaAlg.entrega(new Pedido("B", 1, 1, 1, 36)));
-        assertFalse(Compartido.cumpleCapacidad(r));
+        assertFalse(Compartido.evaluarRuta(r).factible);
     }
 
     /** Un pedido original está en plazo solo si TODAS sus partes llegan en plazo. */

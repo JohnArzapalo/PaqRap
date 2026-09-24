@@ -137,12 +137,12 @@ class Heuristicaconstructiva {
                 nueva.unidad = u;
                 candidatas.add(nueva);
             }
-            OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(candidatas, p);
+            OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(solucion, candidatas, p);
             if (mejor == null) {
                 definitivamenteSinAsignar.add(p);
                 continue;
             }
-            mejor.ruta.paradas.add(mejor.posicion, ParadaAlg.entrega(p));
+            mejor.aplicar();
             if (!solucion.rutas.contains(mejor.ruta)) {   // se abrió una ruta en una unidad libre
                 libres.remove(mejor.ruta.unidad);
                 solucion.rutas.add(mejor.ruta);

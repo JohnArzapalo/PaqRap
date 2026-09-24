@@ -37,6 +37,10 @@ import java.util.regex.Pattern;
  *   --salida res_pc1.csv --max-evaluaciones 0 --busqueda-local si|no
  *   Solo modo estático:   --instancias I1,I2 --ventanas 1d08h00m/1,1d09h30m/1
  *   Solo modo simulación: --niveles BAJA,MEDIA,ALTA --sa 60
+ *     --escenario EXPERIMENTO|SIM_5D|COLAPSO|DIA_A_DIA (implica --modo simulacion)
+ *     --bloqueos archivo.bloqueadas|no --averias si|no --archivo-averias f.txt
+ *     --mantenimiento mant.preventivo --parciales ninguna|urgentes
+ *     --acelerado si|no (SIM_5D/DIA_A_DIA sin esperar) --eventos prefijo.csv
  *
  * Los valores por defecto salen de config/parametros.properties.
  *
@@ -71,6 +75,8 @@ public class Experimento {
     static boolean TA_EXPLICITO = false;
     static Set<String> FILTRO_NIVELES = null;      // null = todos (modo simulación)
     static Double SA_MIN = null;                   // null = simulacion.sa_min
+    /** true si se pasó --archivo (o el posicional); si no, la simulación usa el archivo sintético del mes. */
+    static boolean ARCHIVO_EXPLICITO = false;
 
     /** Flota oficial (preguntas 17 y 18): TA01–TA10, TM01–TM15, TB01–TB12. */
     static List<UnidadTransporte> flotaOficial() {
@@ -277,6 +283,7 @@ public class Experimento {
         if (args.length == 0) return;
         if (!args[0].startsWith("--")) {
             ARCHIVO_VENTAS = args[0];
+            ARCHIVO_EXPLICITO = true;
             if (args.length > 1) REPLICAS = Integer.parseInt(args[1]);
             if (args.length > 2) TA_MS = Long.parseLong(args[2]);
             return;
@@ -286,7 +293,18 @@ public class Experimento {
             if (i + 1 >= args.length) throw new IllegalArgumentException("Falta el valor de " + clave);
             String valor = args[i + 1];
             switch (clave) {
-                case "--archivo": ARCHIVO_VENTAS = valor; break;
+                case "--archivo": ARCHIVO_VENTAS = valor; ARCHIVO_EXPLICITO = true; break;
+                case "--escenario":
+                    ExperimentoSimulacion.ESCENARIO = Simulador.Escenario.valueOf(valor.toUpperCase(Locale.ROOT));
+                    MODO = "simulacion";
+                    break;
+                case "--bloqueos": ExperimentoSimulacion.ARCHIVO_BLOQUEOS = valor; break;
+                case "--averias": ExperimentoSimulacion.AVERIAS = !"no".equalsIgnoreCase(valor); break;
+                case "--archivo-averias": ExperimentoSimulacion.ARCHIVO_AVERIAS = valor; ExperimentoSimulacion.AVERIAS = true; break;
+                case "--mantenimiento": ExperimentoSimulacion.ARCHIVO_MANTENIMIENTO = valor; break;
+                case "--parciales": ExperimentoSimulacion.PARCIALES = valor; break;
+                case "--acelerado": ExperimentoSimulacion.ACELERADO = !"no".equalsIgnoreCase(valor); break;
+                case "--eventos": ExperimentoSimulacion.PREFIJO_EVENTOS = valor; break;
                 case "--replicas": REPLICAS = Integer.parseInt(valor); break;
                 case "--ta": TA_MS = Long.parseLong(valor); TA_EXPLICITO = true; break;
                 case "--max-evaluaciones": MAX_EVALUACIONES = Long.parseLong(valor); break;
@@ -305,7 +323,8 @@ public class Experimento {
                 default:
                     throw new IllegalArgumentException("Argumento desconocido: " + clave + ". Válidos: --modo --archivo "
                             + "--replicas --ta --max-evaluaciones --ventanas --instancias --algoritmos --salida "
-                            + "--niveles --sa --busqueda-local");
+                            + "--niveles --sa --busqueda-local --escenario --bloqueos --averias --archivo-averias "
+                            + "--mantenimiento --parciales --acelerado --eventos");
             }
         }
     }

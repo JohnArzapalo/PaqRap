@@ -54,7 +54,7 @@ class AlgoritmosTest {
         List<Pedido> ped = Instancias.sinteticoI1();
         Solucion s = Heuristicaconstructiva.construirSolucionInicial(ped, Experimento.flotaOficial());
         assertTrue(s.vehiculosUsados() < 21, "vehículos usados: " + s.vehiculosUsados());
-        for (RutaAlg r : s.rutas) assertTrue(Compartido.cumpleCapacidad(r));
+        for (RutaAlg r : s.rutas) assertTrue(Compartido.evaluarRuta(r).factible);
     }
 
     /** Criterio 6.3: con la inserción por posición y ruta, C&W baja de H = 2 en I2 de Main. */
@@ -80,7 +80,7 @@ class AlgoritmosTest {
             aplicados++;
             s = m.solucion;
             assertEquals(ped.size(), s.todasLasEntregas().size());
-            for (RutaAlg r : s.rutas) assertTrue(Compartido.cumpleCapacidad(r));
+            for (RutaAlg r : s.rutas) assertTrue(Compartido.evaluarRuta(r).factible);
         }
         assertTrue(aplicados > 100);
     }

@@ -1,6 +1,8 @@
 # Diseño del simulador mínimo (Etapa 4)
 
-> **Estado: IMPLEMENTADO (versión mínima), con la confirmación del equipo.** Clases `Simulador`, `Planificador`, `CapacidadFlota`, `GeneradorCarga` y `ExperimentoSimulacion`; pruebas en `SimuladorTest`. Se usa con `Experimento --modo simulacion`.
+> **Actualización (etapas 8 a 15):** el simulador se reescribió como simulación de eventos discretos con bloqueos, almacenes intermedios, replanificación con estado de todas las unidades, averías y trasvase, mantenimiento, escenarios y registro de eventos. La descripción vigente está en el comentario de la clase `Simulador` y en `docs/avance_sem07.md`; lo que sigue es el diseño original de la versión mínima (etapa 5).
+>
+> **Estado de la versión mínima: IMPLEMENTADO, con la confirmación del equipo.** Clases `Simulador`, `Planificador`, `CapacidadFlota`, `GeneradorCarga` y `ExperimentoSimulacion`; pruebas en `SimuladorTest`. Se usa con `Experimento --modo simulacion`.
 > Objetivo: medir la variable principal del IEN (tiempo hasta el colapso) reutilizando sin cambios los dos algoritmos actuales.
 >
 > **Diferencias entre este diseño y lo implementado:**

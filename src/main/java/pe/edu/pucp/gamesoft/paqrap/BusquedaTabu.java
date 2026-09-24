@@ -39,6 +39,8 @@ class BusquedaTabu {
     static double PESO_INTERCAMBIO = Parametros.decimal("tabu.peso_intercambio", 0.35);
     static double PESO_2OPT = Parametros.decimal("tabu.peso_2opt", 0.15);
     static double PESO_CROSS = Parametros.decimal("tabu.peso_cross", 0.15);
+    /** Peso del operador Recarga (solo en la simulación con estado; Etapa 10.2). */
+    static double PESO_RECARGA = Parametros.decimal("tabu.peso_recarga", 0.10);
 
     // ===== Contadores de la última ejecución (R6) =====
     static long ultimasIteraciones;
@@ -52,16 +54,20 @@ class BusquedaTabu {
     }
 
     /**
-     * Corrida del experimento: construye la solución inicial (Clarke & Wright)
-     * y busca. El cronómetro empieza ANTES de construir la solución inicial,
-     * de modo que C&W consume parte del mismo Ta, igual que la población
-     * inicial del AG consume parte del suyo (R10).
+     * Corrida del experimento: obtiene la solución inicial y busca. El
+     * cronómetro empieza ANTES de obtenerla, de modo que consume parte del
+     * mismo Ta, igual que la población inicial del AG consume parte del suyo (R10).
+     * Solución inicial (Etapa 11.3, "replanificar, no volver a planificar"):
+     * el plan vigente reparado del contexto (con los pedidos nuevos ya
+     * insertados) si existe; si no (primer ciclo o modo estático), Clarke & Wright.
      */
     static Solucion ejecutarDesdeCero(List<Pedido> pedidos, List<UnidadTransporte> flota,
                                       long presupuestoMs, long maxEvaluaciones,
                                       int duracionTabu, int maxSinMejora) {
         long inicio = System.currentTimeMillis();
-        Solucion inicial = Heuristicaconstructiva.construirSolucionInicial(pedidos, flota);
+        Solucion planBase = Contexto.actual().planBase;
+        Solucion inicial = planBase != null ? planBase.copiar()
+                : Heuristicaconstructiva.construirSolucionInicial(pedidos, flota);
         return buscar(inicial, flota, inicio, presupuestoMs, maxEvaluaciones, duracionTabu, maxSinMejora);
     }
 
@@ -142,13 +148,16 @@ class BusquedaTabu {
      *  demás, un operador elegido al azar según sus pesos. */
     private static Movimiento generarVecino(Solucion base, boolean primerCandidato) {
         if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, AZAR);
-        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS;
+        boolean conEstado = Contexto.actual().conEstado;
+        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS + (conEstado ? PESO_RECARGA : 0);
         double r = AZAR.nextDouble() * total;
         if (r < PESO_REUBICACION) return OperadoresVecindario.reubicacion(base, AZAR);
         r -= PESO_REUBICACION;
         if (r < PESO_INTERCAMBIO) return OperadoresVecindario.intercambio(base, AZAR);
         r -= PESO_INTERCAMBIO;
         if (r < PESO_2OPT) return OperadoresVecindario.dosOpt(base, AZAR);
-        return OperadoresVecindario.crossExchange(base, AZAR);
+        r -= PESO_2OPT;
+        if (!conEstado || r < PESO_CROSS) return OperadoresVecindario.crossExchange(base, AZAR);
+        return OperadoresVecindario.recarga(base, AZAR);
     }
 }

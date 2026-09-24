@@ -78,6 +78,7 @@ VARIABLES_SIMULACION = {
     "pct_pedidos_en_plazo": ("% pedidos en plazo", True),
     "costo_acumulado": ("Costo acumulado (S/)", False),
     "planificador_ms_medio": ("Tiempo medio del planificador (ms)", False),
+    "cambios_de_unidad": ("Estabilidad: entregas que cambian de unidad", False),
 }
 REGLA_SIMULACION = ["colapso_h", "pct_pedidos_en_plazo", "costo_acumulado"]
 
@@ -479,9 +480,15 @@ def analizar_simulacion(df, out, alfa):
     df["evento"] = df["censurada"] != "si"
     n_cens = int((~df["evento"]).sum())
 
-    out.tabla(descriptiva(df, "nivel", VARIABLES_SIMULACION), "descriptiva",
+    variables = {k: v for k, v in VARIABLES_SIMULACION.items() if k in df.columns}
+    out.tabla(descriptiva(df, "nivel", variables), "descriptiva",
               "1. Estadística descriptiva por nivel y algoritmo")
     out.texto(f"Corridas censuradas (sin colapso en el horizonte): {n_cens} de {len(df)}.\n")
+    if "causa_colapso" in df.columns:
+        causas = (df[df["evento"]].groupby(["nivel", "algoritmo", "causa_colapso"]).size()
+                  .reset_index(name="corridas"))
+        if not causas.empty:
+            out.tabla(causas, "causas_colapso", "1b. Causas de colapso por nivel y algoritmo")
 
     filas = []
     if n_cens == 0:
@@ -529,7 +536,7 @@ def analizar_simulacion(df, out, alfa):
 
     # Comparaciones por nivel de las demás variables (y de colapso_h si no hay censura)
     for nivel, g in df.groupby("nivel", sort=False):
-        for var, (_, mayor_mejor) in VARIABLES_SIMULACION.items():
+        for var, (_, mayor_mejor) in variables.items():
             if var == "colapso_h" and n_cens > 0:
                 continue
             t = g[g["algoritmo"] == "TABU"][var].astype(float).values
@@ -539,7 +546,7 @@ def analizar_simulacion(df, out, alfa):
     out.tabla(pd.DataFrame(filas), "comparaciones", "3. Tabú vs. AG por nivel")
     out.tabla(decidir(filas, "nivel", REGLA_SIMULACION), "decision",
               "4. Regla de decisión (tiempo hasta el colapso -> % en plazo -> costo acumulado)")
-    cajas(df, "nivel", VARIABLES_SIMULACION, out)
+    cajas(df, "nivel", variables, out)
 
 
 # ============================ programa ============================

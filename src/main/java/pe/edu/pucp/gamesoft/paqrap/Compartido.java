@@ -7,19 +7,32 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 4.1.2 Modelo de red simplificado (un único almacén central; ver Main),
- * 4.1.4 función objetivo, 4.1.5 motor de factibilidad, 4.1.6 evaluación
- * incremental (recalculo directo en esta primera iteración; ver nota) y
- * 4.1.7 control de tiempo.
+ * 4.1.2 Modelo de red, 4.1.4 función objetivo, 4.1.5 motor de factibilidad,
+ * 4.1.6 evaluación (recálculo directo) y 4.1.7 control de tiempo.
+ *
+ * Toda la evaluación de rutas pasa por evaluarRuta, que usa el Contexto de
+ * planificación vigente (Contexto.actual()): posición y hora de inicio de
+ * cada unidad, carga a bordo, almacenes con stock, recargas, trasvases,
+ * bloqueos (MapaVial) y alimentación. Con el contexto por defecto
+ * reproduce exactamente el modelo anterior (salida del central en la hora 0,
+ * Manhattan, regreso al central), que es el que usan Main y el modo estático.
  */
 class Compartido {
 
     static final Almacen ALMACEN_CENTRAL = new Almacen("AL-CEN", 27, 14);
+    static final Almacen ALMACEN_NOROESTE = new Almacen("AL-NO", 12, 38);
+    static final Almacen ALMACEN_ESTE = new Almacen("AL-ES", 57, 27);
+    /** Stock inicial y de reposición diaria (23:59:59) de los almacenes intermedios. */
+    static final double STOCK_INTERMEDIO = Parametros.decimal("almacenes.stock_intermedio", 1000);
 
     /** Tiempo de acondicionamiento en el cliente: 1 hora por entrega (preguntas 11 y 14).
      *  No cuenta dentro del plazo del pedido, pero retrasa las entregas siguientes.
      *  Configurable con entrega.horas. */
     static final double HORAS_ENTREGA = Parametros.decimal("entrega.horas", 1.0);
+    /** Tiempo de carga en un almacén (no está en el enunciado: 0 por defecto). */
+    static final double HORAS_RECARGA = Parametros.decimal("recarga.minutos", 0) / 60.0;
+    /** Tiempo de trasvase desde una unidad averiada (nota del profesor: 30 min, por confirmar). */
+    static final double HORAS_TRASVASE = Parametros.decimal("trasvase.minutos", 30) / 60.0;
 
     /** Penalidad por pedido tarde dentro del Split: lo bastante grande para que
      *  cumplir plazos siempre tenga prioridad sobre el costo en soles.
@@ -32,68 +45,178 @@ class Compartido {
         return Math.abs(x1 - x2) + Math.abs(y1 - y2);
     }
 
-    /** Distancia de la ruta saliendo y volviendo al almacén central. Una ruta
-     *  vacía mide 0 km (la unidad no sale). */
-    private static double distanciaRuta(RutaAlg r) {
-        double d = 0;
-        int px = ALMACEN_CENTRAL.x, py = ALMACEN_CENTRAL.y;
+    // ============================ Evaluación de una ruta ============================
+
+    /** Resultado de evaluar una ruta en el contexto vigente. */
+    static final class EvalRuta {
+        double km, costo, finH;
+        int tarde;
+        boolean factible = true;
+        String motivo;
+        double[] llegada;     // por parada: llegada (en ENTREGA, cuando se puede atender)
+        int[] usoAlmacen;     // paquetes cargados por almacén del contexto
+
+        void infactible(String m) {
+            if (factible) { factible = false; motivo = m; }
+        }
+    }
+
+    static EvalRuta evaluarRuta(RutaAlg r) {
+        return evaluarRuta(r, null);
+    }
+
+    /**
+     * Evalúa la ruta de una sola pasada: horas de llegada, km, costo, entregas
+     * tarde y factibilidad (restricciones duras):
+     *  - una entrega a bordo solo la hace la unidad que la lleva;
+     *  - una entrega en almacén necesita un punto de carga antes: la salida
+     *    desde un almacén (carga implícita) o una parada RECARGA;
+     *  - una entrega guardada en una unidad averiada necesita antes una parada
+     *    TRASVASE en esa unidad, que debe terminar antes de que la averiada deje el lugar;
+     *  - la carga no supera la capacidad después de cada punto de carga;
+     *  - la ruta termina antes del próximo mantenimiento de la unidad.
+     * Los plazos NO son restricción dura: una entrega tarde suma en H.
+     * Al final la unidad vuelve al almacén más cercano (en el contexto por
+     * defecto, el central). Una ruta vacía no se mueve y cuesta 0.
+     * Si registro no es null, agrega la línea de tiempo (Hito) de la ruta.
+     */
+    static EvalRuta evaluarRuta(RutaAlg r, List<Hito> registro) {
+        Contexto cx = Contexto.actual();
+        Contexto.Inicio ini = cx.inicioDe(r.unidad);
+        TipoUnidad tipo = r.unidad.tipo;
+        int n = r.paradas.size();
+        EvalRuta e = new EvalRuta();
+        e.llegada = new double[n];
+        e.usoAlmacen = new int[cx.almacenes.size()];
+        double reloj = ini.inicioH;
+        int px = ini.x, py = ini.y;
+
+        // Carga a bordo al inicio
+        int carga = 0;
         for (ParadaAlg p : r.paradas) {
-            d += distancia(px, py, p.x(), p.y());
-            px = p.x();
-            py = p.y();
+            if (p.tipo != TipoParada.ENTREGA || p.pedido.aBordoDe == null) continue;
+            if (p.pedido.aBordoDe.equals(r.unidad.codigo)) carga += p.cantidad;
+            else e.infactible("entrega a bordo de otra unidad");
         }
-        d += distancia(px, py, ALMACEN_CENTRAL.x, ALMACEN_CENTRAL.y);
-        return d;
-    }
+        // Carga implícita si la unidad arranca en un almacén
+        int segmento = cargaSegmento(r, 0);
+        if (segmento > 0) {
+            int a = cx.almacenEn(px, py);
+            if (a < 0) {
+                e.infactible("entrega en almacén sin punto de carga");
+            } else {
+                carga += segmento;
+                e.usoAlmacen[a] += segmento;
+                if (registro != null)
+                    registro.add(new Hito(Hito.Tipo.RECARGA, reloj, reloj, px, py, px, py,
+                            ParadaAlg.recarga(cx.almacenes.get(a).almacen), segmento));
+            }
+        }
+        if (carga > tipo.capacidadMaxima) e.infactible("capacidad");
+        if (n == 0) {
+            e.finH = reloj;
+            return e;
+        }
 
-    /** Recalcula distancia y costo de una ruta completa. En esta primera
-     *  iteración se usa recálculo directo, más simple de verificar; la
-     *  versión incremental (delta) del apartado 4.1.6 queda para la
-     *  segunda iteración, cuando el tamaño de vecindario lo justifique. */
-    static void recalcularDistanciaYCosto(RutaAlg r) {
-        r.distanciaKm = distanciaRuta(r);
-        r.costo = r.distanciaKm * r.unidad.tipo.costoPorKilometro;
-    }
-
-    /** 4.1.5 Motor de comprobación de factibilidad — primera iteración:
-     *  restricción DURA de capacidad de carga. Los plazos no son una
-     *  restricción dura: un pedido tarde se permite y se penaliza en H.
-     *  El turno y la hora de alimentación, los bloqueos y el stock de
-     *  almacén se incorporan cuando el CalculadorRecorridos y el
-     *  GestorInventario reales estén integrados (ver apartado 5, supuesto SP-06).
-     *  La usan los operadores de Búsqueda Tabú para descartar vecinos. */
-    static boolean cumpleCapacidad(RutaAlg r) {
-        return r.cargaTotal() <= r.unidad.tipo.capacidadMaxima;
-    }
-
-    /** Hora de llegada (en horas desde el inicio) a cada parada de la ruta.
-     *  La unidad sale del almacén central en la hora 0, viaja a la velocidad
-     *  promedio de su tipo y permanece HORAS_ENTREGA en cada cliente. */
-    static double[] horasLlegada(RutaAlg r) {
-        double[] llegada = new double[r.paradas.size()];
-        double reloj = 0;
-        int px = ALMACEN_CENTRAL.x, py = ALMACEN_CENTRAL.y;
-        for (int i = 0; i < r.paradas.size(); i++) {
+        Set<String> trasvasados = null;
+        double km = 0;
+        for (int i = 0; i < n; i++) {
             ParadaAlg p = r.paradas.get(i);
-            reloj += distancia(px, py, p.x(), p.y()) / r.unidad.tipo.velocidadPromedio;
-            llegada[i] = reloj;
-            if (p.tipo == TipoParada.ENTREGA) reloj += HORAS_ENTREGA;
-            px = p.x();
-            py = p.y();
+            int qx = p.x(), qy = p.y();
+            double d = cx.distanciaTramo(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+            double salida = reloj;
+            reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+            km += d;
+            if (registro != null && d > 0)
+                registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, qx, qy, null, 0));
+            switch (p.tipo) {
+                case ENTREGA: {
+                    Pedido ped = p.pedido;
+                    if (ped.enAveriada != null && (trasvasados == null || !trasvasados.contains(ped.enAveriada)))
+                        e.infactible("entrega sin trasvase previo");
+                    reloj = cx.esperaDestino(qx, qy, reloj);
+                    e.llegada[i] = reloj;
+                    if (reloj > ped.horaLimite()) e.tarde++;
+                    double fin = cx.avanzar(reloj, HORAS_ENTREGA);
+                    if (registro != null) registro.add(new Hito(Hito.Tipo.ENTREGA, reloj, fin, qx, qy, qx, qy, p, p.cantidad));
+                    reloj = fin;
+                    carga -= p.cantidad;
+                    break;
+                }
+                case RECARGA: {
+                    e.llegada[i] = reloj;
+                    int a = cx.indiceAlmacen(p.almacen);
+                    int seg = cargaSegmento(r, i + 1);
+                    if (a < 0) e.infactible("almacén fuera del contexto");
+                    else e.usoAlmacen[a] += seg;
+                    carga += seg;
+                    double fin = cx.avanzar(reloj, HORAS_RECARGA);
+                    if (registro != null) registro.add(new Hito(Hito.Tipo.RECARGA, reloj, fin, qx, qy, qx, qy, p, seg));
+                    reloj = fin;
+                    if (carga > tipo.capacidadMaxima) e.infactible("capacidad");
+                    break;
+                }
+                default: {   // TRASVASE
+                    e.llegada[i] = reloj;
+                    Contexto.Averiada av = cx.averiadas.get(p.unidadAveriada);
+                    double fin = cx.avanzar(reloj, HORAS_TRASVASE);
+                    if (av == null || fin > av.hastaH) e.infactible("trasvase fuera de tiempo");
+                    if (trasvasados == null) trasvasados = new HashSet<>();
+                    int seg = 0;
+                    if (trasvasados.add(p.unidadAveriada)) {
+                        for (int k = i + 1; k < n; k++) {
+                            ParadaAlg q = r.paradas.get(k);
+                            if (q.tipo == TipoParada.ENTREGA && p.unidadAveriada.equals(q.pedido.enAveriada)) seg += q.cantidad;
+                        }
+                    }
+                    carga += seg;
+                    if (registro != null) registro.add(new Hito(Hito.Tipo.TRASVASE, reloj, fin, qx, qy, qx, qy, p, seg));
+                    reloj = fin;
+                    if (carga > tipo.capacidadMaxima) e.infactible("capacidad");
+                }
+            }
+            px = qx;
+            py = qy;
         }
-        return llegada;
+        // Regreso al almacén más cercano
+        Contexto.AlmacenPlan fin = cx.almacenMasCercano(px, py, reloj);
+        double d = cx.distanciaTramo(px, py, fin.almacen.x, fin.almacen.y, reloj, tipo.velocidadPromedio);
+        double salida = reloj;
+        reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+        km += d;
+        if (registro != null) {
+            if (d > 0) registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, fin.almacen.x, fin.almacen.y, null, 0));
+            registro.add(new Hito(Hito.Tipo.FIN, reloj, reloj, fin.almacen.x, fin.almacen.y,
+                    fin.almacen.x, fin.almacen.y, null, 0));
+        }
+        if (reloj > ini.noDisponibleDesdeH) e.infactible("mantenimiento");
+        e.finH = reloj;
+        e.km = km;
+        e.costo = km * tipo.costoPorKilometro;
+        return e;
     }
 
-    /** Horas desde la salida del central hasta el regreso al central: viaje,
-     *  HORAS_ENTREGA en cada cliente y retorno. Una ruta vacía dura 0 h.
-     *  Misma base de tiempo que horasLlegada (la salida es la hora 0). */
-    static double duracionRuta(RutaAlg r) {
-        if (r.paradas.isEmpty()) return 0;
-        double[] llegada = horasLlegada(r);
-        int ultima = r.paradas.size() - 1;
-        ParadaAlg p = r.paradas.get(ultima);
-        double reloj = llegada[ultima] + (p.tipo == TipoParada.ENTREGA ? HORAS_ENTREGA : 0);
-        return reloj + distancia(p.x(), p.y(), ALMACEN_CENTRAL.x, ALMACEN_CENTRAL.y) / r.unidad.tipo.velocidadPromedio;
+    /** Paquetes en almacén de las entregas desde "desde" hasta la próxima RECARGA. */
+    private static int cargaSegmento(RutaAlg r, int desde) {
+        int s = 0;
+        for (int k = desde; k < r.paradas.size(); k++) {
+            ParadaAlg q = r.paradas.get(k);
+            if (q.tipo == TipoParada.RECARGA) break;
+            if (q.tipo == TipoParada.ENTREGA && q.pedido.enAlmacen()) s += q.cantidad;
+        }
+        return s;
+    }
+
+    /** Recalcula distancia y costo de una ruta completa (recálculo directo). */
+    static void recalcularDistanciaYCosto(RutaAlg r) {
+        EvalRuta e = evaluarRuta(r);
+        r.distanciaKm = e.km;
+        r.costo = e.costo;
+    }
+
+    /** Hora de llegada (relativa al instante de planificación) a cada parada de la ruta. */
+    static double[] horasLlegada(RutaAlg r) {
+        return evaluarRuta(r).llegada;
     }
 
     /** true si la parada es una entrega y se llega después de la hora límite del pedido. */
@@ -101,31 +224,48 @@ class Compartido {
         return p.tipo == TipoParada.ENTREGA && horaLlegada > p.pedido.horaLimite();
     }
 
-    /** Número de pedidos de la ruta que llegan fuera de plazo. */
+    /** Número de entregas de la ruta que llegan fuera de plazo. */
     static int pedidosTarde(RutaAlg r) {
-        double[] llegada = horasLlegada(r);
-        int tarde = 0;
-        for (int i = 0; i < llegada.length; i++) {
-            if (llegaTarde(r.paradas.get(i), llegada[i])) tarde++;
-        }
-        return tarde;
+        return evaluarRuta(r).tarde;
     }
 
     /** 4.1.4 Función objetivo jerárquica de dos niveles: recalcula H y S
      *  de una Solución completa a partir de sus rutas.
      *  H = entregas sin asignar + entregas fuera de plazo.
      *  S = costo total en soles. Se compara primero H y luego S.
-     *  Siempre usa la unidad REAL de cada ruta (tipo, velocidad y costo). */
+     *  Siempre usa la unidad REAL de cada ruta (tipo, velocidad y costo).
+     *  Además registra las violaciones de restricciones duras (rutas
+     *  infactibles, stock excedido); los operadores rechazan esos vecinos y,
+     *  como resguardo, cada violación suma en H. */
     static void evaluarSolucion(Solucion s) {
+        Contexto cx = Contexto.actual();
         int h = s.pedidosSinAsignar.size();
         double total = 0;
+        int[] uso = new int[cx.almacenes.size()];
+        int infactibles = 0;
         for (RutaAlg r : s.rutas) {
-            recalcularDistanciaYCosto(r);
-            total += r.costo;
-            h += pedidosTarde(r);   // un pedido fuera de plazo incumple la política: cuenta en H
+            EvalRuta e = evaluarRuta(r);
+            r.distanciaKm = e.km;
+            r.costo = e.costo;
+            total += e.costo;
+            h += e.tarde;   // un pedido fuera de plazo incumple la política: cuenta en H
+            if (!e.factible) { infactibles++; h += r.paradas.size() + 1; }
+            for (int i = 0; i < uso.length; i++) uso[i] += e.usoAlmacen[i];
         }
-        s.H = h;
+        int exceso = 0;
+        for (int i = 0; i < uso.length; i++) {
+            double stock = cx.almacenes.get(i).stock;
+            if (uso[i] > stock) exceso += (int) Math.ceil(uso[i] - stock);
+        }
+        s.rutasInfactibles = infactibles;
+        s.excesoStock = exceso;
+        s.H = h + exceso;
         s.S = total;
+    }
+
+    /** true si la solución (ya evaluada) cumple todas las restricciones duras. */
+    static boolean esFactible(Solucion s) {
+        return s.rutasInfactibles == 0 && s.excesoStock == 0;
     }
 
     /** true si "a" es mejor que "b": primero por H, luego por S. */

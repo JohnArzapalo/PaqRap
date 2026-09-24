@@ -8,13 +8,17 @@ import java.util.List;
 class Solucion {
     List<RutaAlg> rutas = new ArrayList<>();
     List<Pedido> pedidosSinAsignar = new ArrayList<>();
-    int H;       // nivel 1: pedidos sin asignar + pedidos fuera de plazo
+    int H;       // nivel 1: pedidos sin asignar + pedidos fuera de plazo (+ violaciones, como resguardo)
     double S;    // nivel 2: costo total en soles
+    int rutasInfactibles;   // calculado por Compartido.evaluarSolucion
+    int excesoStock;        // paquetes cargados por encima del stock de algún almacén
 
     Solucion copiar() {
         Solucion s = new Solucion();
         s.H = H;
         s.S = S;
+        s.rutasInfactibles = rutasInfactibles;
+        s.excesoStock = excesoStock;
         s.pedidosSinAsignar = new ArrayList<>(pedidosSinAsignar);
         for (RutaAlg r : rutas) {
             RutaAlg nr = new RutaAlg();
@@ -50,7 +54,7 @@ class Solucion {
         for (RutaAlg r : rutas) {
             if (r.estaVacia()) continue;
             sb.append(r.unidad.codigo).append(':');
-            for (ParadaAlg p : r.paradas) sb.append(p.pedido.id).append(',');
+            for (ParadaAlg p : r.paradas) sb.append(p.id()).append(',');
             sb.append(';');
         }
         sb.append("sinAsignar=").append(pedidosSinAsignar);
