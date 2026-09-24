@@ -67,6 +67,46 @@ Cómo leer la tabla: `costo_acumulado` depende de cuánto dura la corrida (una c
    - Si ninguna unidad llega en ese margen, con la regla `esperar` llega tarde y la causa es "destino bloqueado". Todo el AG en MEDIA colapsa en ese pedido, por eso su desviación es 0.
    - Sin esas corridas quedan muy pocas por grupo (1 o 2); la tabla completa está en `tabla_estabilidad.csv`. Queda como pregunta para el equipo si conviene priorizar estos pedidos con ventana corta antes de un bloqueo (ver pendientes).
 
+## Etapa 19: experimento en tres PC, calibración, potencia y validación
+
+- **19.1** Scripts por PC:
+  - `ejecutar_pc1.bat` (BAJA), `ejecutar_pc2.bat` (MEDIA), `ejecutar_pc3.bat` (ALTA), con la lógica común en `ejecutar_nivel.bat`;
+  - compilan si hace falta, verifican que existan las entradas y corren `ValidadorEntradas` (si hay errores, se detienen);
+  - ejecutan el experimento con `resultados_<PC>_<etiqueta>_<nivel>.csv` y registran el SHA-256 de las entradas en `*_hashes.txt` (Java) y en `*_certutil.txt` (Windows).
+  - Probado en esta PC con `ejecutar_pc3.bat`: los hashes de Java y de certutil coinciden (`verificacion_etapas16a21/scripts_pc/`).
+- **19.2** `--calibrar-evaluaciones si`: mide cuántas evaluaciones hace cada algoritmo en Ta (**SI-17**) y fija ese tope por algoritmo (`modo_parada = evaluaciones_calibradas`).
+  - En esta PC, con Ta = 1000 ms, sobre 15 entregas del nivel BAJA: **TABU = 83 759, AG = 10 386 evaluaciones**.
+  - La calibración se hizo con la PC cargada (otras 6 corridas en paralelo). En el experimento real hay que calibrar con la PC libre y **la misma** calibración para las 3 PC; si no, los topes dependen de la carga.
+  - La corrida calibrada BAJA-Tabú quedó censurada a las 720 h y tardó 34 min.
+- **19.3** `analisis/potencia.py` con los datos de la Etapa 18: diferencia de 24 h en `colapso_h`, α = 0.05, potencia 0.8, t de dos colas con varianzas distintas; tiempos reescalados a Ta = 2000 ms.
+
+*** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***
+
+| Nivel | Penal. | de Tabú (h) | de AG (h) | Réplicas por algoritmo | ¿Alcanzan 5? | min por corrida | h de cómputo (2 × n) |
+|---|---|---|---|---|---|---|---|
+| BAJA | 16 | 0 | 0 | 2 (todas censuradas) | sí* | 24.1 | 1.6 |
+| MEDIA | 16 | 64.4 | 0 | **58** | no | 5.5 | 10.7 |
+| ALTA | 16 | 8.5 | 29.2 | **14** | no | 6.0 | 2.8 |
+| BAJA | 0 | 0 | 362.7 | 1 794* | no | 20.6 | — |
+| MEDIA | 0 | 41.3 | 0 | 25 | no | 5.9 | 4.9 |
+| ALTA | 0 | 45.9 | 54.9 | 71 | no | 5.0 | 11.7 |
+
+Notas sobre la tabla:
+- \* En BAJA casi todas las corridas quedan censuradas a los 30 días. La t sobre `colapso_h` no sirve: una sola corrida que colapsa (92 h frente a 720 h) dispara la varianza. En BAJA hay que comparar con Kaplan-Meier y log-rank (ya en `analisis_experimento.py`) o por la proporción de censuradas.
+- Las desviaciones salen de **3 réplicas por grupo**, así que el n es solo orientativo.
+- Los minutos por corrida se midieron con 6 procesos en paralelo, así que sobrestiman lo que tardaría una PC libre.
+
+**Conclusión:** **5 réplicas no alcanzan** para detectar 24 h en MEDIA y ALTA con la variabilidad observada. Con la penalidad por defecto harían falta unas 14 en ALTA y unas 58 en MEDIA.
+- El valor de MEDIA está inflado porque todo el AG colapsa en el mismo pedido (de = 0) y Tabú varía mucho.
+- Cómputo con 5 réplicas por algoritmo y Ta = 2000 ms: unas 4 h en la PC de BAJA (corridas censuradas de 30 días), unas 0.9 h en MEDIA y 1.0 h en ALTA.
+- Con 15 réplicas: unas 12 h en BAJA, unas 2.8 h en MEDIA y unas 3 h en ALTA. Con las 3 PC en paralelo, lo que tarde la más lenta.
+- **Recomendación:** al menos 15 réplicas por algoritmo en MEDIA y ALTA, y en BAJA reducir el horizonte o analizar con supervivencia. La decisión depende del tiempo disponible y queda para el equipo.
+- **19.4** `docs/protocolo_experimento.md`: pasos del 0 al 8, desde los requisitos hasta qué se lleva al IEN.
+- **19.5** `ValidadorEntradas`:
+  - revisa el formato de ventas, bloqueos y mantenimiento, y que las coordenadas estén dentro de la retícula;
+  - detecta nodos inalcanzables con un BFS exacto por intervalo de bloqueo (sale con código 1 si hay errores);
+  - `ValidadorEntradasTest` tiene 4 pruebas; los datos sintéticos del mes son válidos.
+
 ## Etapa 20: documentación para defender el código
 
 - **20.1** `docs/guia_del_codigo.md`:
