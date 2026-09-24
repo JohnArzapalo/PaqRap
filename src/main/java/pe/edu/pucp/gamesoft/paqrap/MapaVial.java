@@ -118,6 +118,11 @@ final class MapaVial {
         return bloqueadosEn(tH).get(nodo(x, y));
     }
 
+    /** true si el nodo está bloqueado durante TODO el intervalo [t1, t2]. */
+    boolean bloqueadoDurante(int x, int y, double t1, double t2) {
+        return bloqueado(x, y, t1) && finBloqueo(x, y, t1) >= t2;
+    }
+
     /** Primer instante >= tH en que el nodo queda libre (tH si ya lo está). */
     double finBloqueo(int x, int y, double tH) {
         int n = nodo(x, y);

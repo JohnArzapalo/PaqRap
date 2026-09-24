@@ -50,6 +50,8 @@ final class ExperimentoSimulacion {
     static String PARCIALES = null;                 // null = parámetro parciales.estrategia
     static boolean ACELERADO = false;
     static String PREFIJO_EVENTOS = null;
+    static String DESTINO_BLOQUEADO = null;          // null = parámetro red.destino_bloqueado
+    static boolean EXCLUIR_DESTINOS_BLOQUEADOS = false;   // solo datos sintéticos (Etapa 17.2)
 
     private ExperimentoSimulacion() {
     }
@@ -75,6 +77,7 @@ final class ExperimentoSimulacion {
         String bloqueos = ARCHIVO_BLOQUEOS != null ? ARCHIVO_BLOQUEOS
                 : Files.exists(Paths.get(BLOQUEOS_MES)) ? BLOQUEOS_MES : "no";
         boolean sintetico = (archivo + bloqueos).toUpperCase(Locale.ROOT).contains("SINTETICO");
+        boolean ventasSinteticas = archivo.toUpperCase(Locale.ROOT).contains("SINTETICO");
         List<UnidadTransporte> flota = Experimento.flotaOficial();
         Simulador.Config base = new Simulador.Config();
         base.escenario = ESCENARIO;
@@ -83,6 +86,7 @@ final class ExperimentoSimulacion {
         base.maxEvaluaciones = Experimento.MAX_EVALUACIONES;
         base.detenerEnColapso = !"no".equalsIgnoreCase(Parametros.texto("sim5d.detener_en_colapso", "si"));
         if (PARCIALES != null) base.estrategiaParciales = PARCIALES;
+        if (DESTINO_BLOQUEADO != null) base.reglaDestino = Contexto.ReglaDestino.desde(DESTINO_BLOQUEADO);
         base.mapa = "no".equalsIgnoreCase(bloqueos) || "no".equalsIgnoreCase(Parametros.texto("red.bloqueos", "si"))
                 ? null : MapaVial.leer(bloqueos);
         if (ARCHIVO_MANTENIMIENTO != null) base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO);
@@ -129,6 +133,8 @@ final class ExperimentoSimulacion {
             archivoAverias = Paths.get(ARCHIVO_AVERIAS).getFileName().toString();
             System.out.println("Averías: " + base.averias.size() + " eventos (" + ARCHIVO_AVERIAS + ")");
         }
+        if (EXCLUIR_DESTINOS_BLOQUEADOS && !ventasSinteticas)
+            System.out.println("AVISO: --excluir-destinos-bloqueados se ignora con datos oficiales (se usa red.destino_bloqueado)");
         List<Nivel> niveles = new ArrayList<>();
         System.out.println("\n=== Niveles de carga (" + dias + " días; archivos en " + carpeta + ") ===");
         for (int k = 0; k < NIVELES.length; k++) {
@@ -137,8 +143,12 @@ final class ExperimentoSimulacion {
             n.nombre = NIVELES[k];
             n.fraccion = Parametros.decimal("carga.nivel." + n.nombre, FRACCION_POR_DEFECTO[k]);
             n.semillaCarga = semillaBase + k + 1;
-            Path destino = carpeta.resolve(GeneradorCarga.nombreArchivo(n.nombre, n.fraccion, n.semillaCarga, archivo));
-            GeneradorCarga.generar(registros, n.fraccion * cmax, dias, n.semillaCarga, destino);
+            boolean excluir = EXCLUIR_DESTINOS_BLOQUEADOS && ventasSinteticas && base.mapa != null;
+            Path destino = carpeta.resolve(GeneradorCarga.nombreArchivo(n.nombre, n.fraccion, n.semillaCarga, archivo, excluir));
+            int descartados = GeneradorCarga.generar(registros, n.fraccion * cmax, dias, n.semillaCarga, destino,
+                    excluir ? base.mapa : null);
+            if (excluir) System.out.println("  " + n.nombre + ": " + descartados
+                    + " pedidos sorteados descartados por destino bloqueado en toda su ventana");
             n.archivoCarga = destino.getFileName().toString();
             n.pedidos = LectorPedidos.leerAbsoluto(destino.toString());
             Set<String> orig = new LinkedHashSet<>();
@@ -173,7 +183,8 @@ final class ExperimentoSimulacion {
                     + "pedidos_entregados,pedidos_evaluables,pct_pedidos_en_plazo,entregas_tarde,replanificaciones,"
                     + "replan_por_evento,planificador_ms_medio,planificador_ms_max,iteraciones_totales,evaluaciones_totales,"
                     + "aplazamientos,cambios_de_unidad,viajes_totales,viajes_por_vehiculo_medio,viajes_por_vehiculo_max,"
-                    + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms");
+                    + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
+                    + "pedidos_inentregables_bloqueo");
             int orden = 0;
             for (Corrida c : corridas) {
                 orden++;
@@ -203,7 +214,7 @@ final class ExperimentoSimulacion {
 
                 out.println(String.format(Locale.US,
                         "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d",
+                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d",
                         orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
                         c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
                         base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), archivoAverias, c.algoritmo,
@@ -216,7 +227,7 @@ final class ExperimentoSimulacion {
                         r.replanificaciones, r.replanPorEvento, r.planificadorMsMedio, r.planificadorMsMax,
                         r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
                         r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
-                        r.trasvases, r.parcialesCreadas, ms));
+                        r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo));
                 out.flush();
                 resumen.computeIfAbsent(c.nivel.nombre + " " + c.algoritmo, k -> new ArrayList<>()).add(r);
                 System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
@@ -257,6 +268,7 @@ final class ExperimentoSimulacion {
         c.almacenesIntermedios = b.almacenesIntermedios;
         c.alimentacion = b.alimentacion;
         c.estrategiaParciales = b.estrategiaParciales;
+        c.reglaDestino = b.reglaDestino;
         c.umbralUrgenciaH = b.umbralUrgenciaH;
         c.tamanoParcial = b.tamanoParcial;
         c.averias = b.averias;

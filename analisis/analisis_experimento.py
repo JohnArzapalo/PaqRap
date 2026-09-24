@@ -79,6 +79,7 @@ VARIABLES_SIMULACION = {
     "costo_acumulado": ("Costo acumulado (S/)", False),
     "planificador_ms_medio": ("Tiempo medio del planificador (ms)", False),
     "cambios_de_unidad": ("Estabilidad: entregas que cambian de unidad", False),
+    "pedidos_inentregables_bloqueo": ("Pedidos inentregables por bloqueo (datos)", False),
 }
 REGLA_SIMULACION = ["colapso_h", "pct_pedidos_en_plazo", "costo_acumulado"]
 
@@ -589,6 +590,20 @@ def main():
               f"- statsmodels: {'sí' if HAY_STATSMODELS else 'no'}; lifelines: {'sí' if HAY_LIFELINES else 'no'}\n")
     if simulacion:
         analizar_simulacion(df, out, alfa)
+        # Etapa 17.3: el mismo análisis sin las corridas cuyo colapso lo decidieron los datos
+        # (destino bloqueado), para separar ese efecto del efecto del algoritmo
+        if "causa_colapso" in df.columns and (df["causa_colapso"] == "destino bloqueado").any():
+            sub = df[df["causa_colapso"] != "destino bloqueado"]
+            carpeta_sub = Path(args.salida) / "sin_destino_bloqueado"
+            out.texto(f"\n## Análisis sin las corridas con colapso por destino bloqueado\n\n"
+                      f"Se excluyen {len(df) - len(sub)} de {len(df)} corridas. Resultados en "
+                      f"`{carpeta_sub.name}/resumen.md`.\n")
+            out_sub = Salida(carpeta_sub, sintetico)
+            out_sub.texto(f"# Análisis SIN las corridas con colapso por \"destino bloqueado\" "
+                          f"({len(sub)} de {len(df)} corridas)\n")
+            if len(sub) > 0:
+                analizar_simulacion(sub, out_sub, alfa)
+            out_sub.cerrar()
     else:
         analizar_estatico(df, out, alfa)
     out.cerrar()

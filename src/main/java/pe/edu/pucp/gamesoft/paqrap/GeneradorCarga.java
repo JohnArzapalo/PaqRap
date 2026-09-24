@@ -42,9 +42,21 @@ final class GeneradorCarga {
      */
     static void generar(List<LectorPedidos.Registro> base, double paquetesPorDia, int dias, long semilla,
                         Path destino) throws IOException {
+        generar(base, paquetesPorDia, dias, semilla, destino, null);
+    }
+
+    /**
+     * Igual que el anterior; si excluirBloqueados no es null (Etapa 17.2, SOLO con
+     * datos sintéticos), descarta los pedidos sorteados cuyo destino queda
+     * bloqueado durante TODA su ventana [registro, hora límite] y sortea otro.
+     * @return pedidos descartados
+     */
+    static int generar(List<LectorPedidos.Registro> base, double paquetesPorDia, int dias, long semilla,
+                       Path destino, MapaVial excluirBloqueados) throws IOException {
         if (base.isEmpty()) throw new IllegalArgumentException("El archivo base no tiene pedidos válidos");
         Random azar = new Random(semilla);
         List<LectorPedidos.Registro> generados = new ArrayList<>();
+        int descartados = 0;
         for (int dia = 1; dia <= dias; dia++) {
             long paquetes = 0;
             while (paquetes < paquetesPorDia) {
@@ -57,6 +69,12 @@ final class GeneradorCarga {
                 r.cliente = o.cliente;
                 r.cantidad = o.cantidad;
                 r.hl = o.hl;
+                if (excluirBloqueados != null
+                        && excluirBloqueados.bloqueadoDurante(r.x, r.y, r.llegadaHoras, r.llegadaHoras + r.hl)) {
+                    if (++descartados > 1_000_000)
+                        throw new IllegalStateException("Casi todos los destinos quedan bloqueados: revisar los bloqueos");
+                    continue;
+                }
                 generados.add(r);
                 paquetes += r.cantidad;
             }
@@ -67,12 +85,20 @@ final class GeneradorCarga {
         try (PrintWriter out = new PrintWriter(Files.newBufferedWriter(destino, StandardCharsets.UTF_8))) {
             for (LectorPedidos.Registro r : generados) out.println(r.aLinea());
         }
+        return descartados;
     }
 
     /** Nombre trazable del archivo generado; conserva el nombre del archivo base
      *  (así la marca SINTETICO se propaga a todas las salidas). */
     static String nombreArchivo(String nivel, double fraccion, long semilla, String archivoBase) {
+        return nombreArchivo(nivel, fraccion, semilla, archivoBase, false);
+    }
+
+    /** Con sinDestinosBloqueados, el nombre lo indica ("_sinDestBloq") para no confundir conjuntos. */
+    static String nombreArchivo(String nivel, double fraccion, long semilla, String archivoBase,
+                                boolean sinDestinosBloqueados) {
         String base = Path.of(archivoBase).getFileName().toString().replaceFirst("\\.txt$", "");
-        return String.format(Locale.US, "carga_%s_%.0fpct_semilla%d_de_%s.txt", nivel, fraccion * 100, semilla, base);
+        return String.format(Locale.US, "carga_%s_%.0fpct_semilla%d%s_de_%s.txt", nivel, fraccion * 100, semilla,
+                sinDestinosBloqueados ? "_sinDestBloq" : "", base);
     }
 }

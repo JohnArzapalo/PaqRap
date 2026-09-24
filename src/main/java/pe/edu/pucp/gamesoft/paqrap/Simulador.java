@@ -61,6 +61,8 @@ class Simulador {
         double horizonteMin = -1;
         boolean detenerEnColapso = true;
         MapaVial mapa = null;
+        /** Regla para destinos bloqueados (Etapa 17; red.destino_bloqueado). */
+        Contexto.ReglaDestino reglaDestino = Contexto.ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
         boolean almacenesIntermedios = !"no".equalsIgnoreCase(Parametros.texto("almacenes.intermedios", "si"));
         boolean alimentacion = !"no".equalsIgnoreCase(Parametros.texto("turnos.alimentacion", "si"));
         String estrategiaParciales = Parametros.texto("parciales.estrategia", "urgentes");
@@ -98,6 +100,8 @@ class Simulador {
         int viajesTotales, viajesMax;
         double viajesMedio;
         int averiasAplicadas, trasvases, bloqueosEncontrados, parcialesCreadas, entregasTarde;
+        /** Pedidos originales inentregables por bloqueo (regla NO_EVALUABLE): excluidos del colapso. */
+        int pedidosInentregablesBloqueo;
         final List<Evt> registro = new ArrayList<>();   // eventos principales (para pruebas)
 
         double pctPedidosEnPlazo() {
@@ -167,6 +171,8 @@ class Simulador {
     private final Map<String, List<String>> partesDe = new LinkedHashMap<>();
     /** Entregas cuyo plazo ya venció sin entregarse (siguen planificándose, tarde). */
     private final Set<String> vencidas = new java.util.HashSet<>();
+    /** Pedidos originales inentregables por bloqueo (regla NO_EVALUABLE). */
+    private final Set<String> inentregables = new java.util.HashSet<>();
     private final PriorityQueue<Pedido> plazos = new PriorityQueue<>(Comparator.comparingDouble(Pedido::horaLimite));
     private final double[] stock = new double[3];   // central (infinito), Nor-Oeste, Este
     private final Resultado res = new Resultado();
@@ -512,6 +518,15 @@ class Simulador {
         // Llegada de pedidos
         while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= t) {
             Pedido p = porLlegar.get(siguiente++);
+            if (cfg.mapa != null && cfg.reglaDestino == Contexto.ReglaDestino.NO_EVALUABLE
+                    && cfg.mapa.bloqueadoDurante(p.x, p.y, p.horaRegistro, p.horaLimite())) {
+                // Destino bloqueado desde el registro hasta la hora límite: nadie puede cumplir.
+                // Se excluye del colapso y se cuenta aparte (Etapa 17.1).
+                if (inentregables.add(p.idOriginal)) res.pedidosInentregablesBloqueo++;
+                registrar(new Evt(Evt.T.BLOQUEO, t, p.x, p.y, List.of(p.id), null, t, 0), "",
+                        "pedido inentregable por bloqueo (excluido del colapso)");
+                continue;
+            }
             entregas.put(p.id, p);
             estado.put(p.id, "P");
             partesDe.computeIfAbsent(p.idOriginal, k -> new ArrayList<>()).add(p.id);
@@ -527,6 +542,7 @@ class Simulador {
         Contexto cx = new Contexto();
         cx.instanteBaseH = t / 60.0;
         cx.mapa = cfg.mapa;
+        cx.reglaDestino = cfg.reglaDestino;
         cx.alimentacion = cfg.alimentacion;
         cx.conEstado = true;
         if (cfg.almacenesIntermedios) {

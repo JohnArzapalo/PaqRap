@@ -57,6 +57,20 @@ final class Contexto {
         }
     }
 
+    /**
+     * Qué hacer si el destino de una entrega está bloqueado (Etapa 17; pregunta 11 al profesor):
+     *  - ESPERAR: la entrega se hace cuando el nodo se desbloquea (comportamiento original).
+     *  - NODO_VECINO: la entrega se hace desde el nodo adyacente no bloqueado más cercano (SI-14).
+     *  - NO_EVALUABLE: igual que ESPERAR al planificar, pero el Simulador marca como
+     *    "inentregable por bloqueo" el pedido cuyo destino está bloqueado desde su registro
+     *    hasta su hora límite, lo excluye del criterio de colapso y lo cuenta aparte.
+     */
+    enum ReglaDestino { ESPERAR, NODO_VECINO, NO_EVALUABLE;
+        static ReglaDestino desde(String t) {
+            return valueOf(t.trim().toUpperCase(java.util.Locale.ROOT));
+        }
+    }
+
     private static final Inicio CENTRAL_HORA_0 = new Inicio(Compartido.ALMACEN_CENTRAL.x,
             Compartido.ALMACEN_CENTRAL.y, 0, Double.POSITIVE_INFINITY);
 
@@ -71,6 +85,8 @@ final class Contexto {
     boolean conEstado = false;
     /** Plan vigente reparado con los pedidos nuevos insertados (punto de partida de Tabú y siembra del AG). */
     Solucion planBase = null;
+    /** Regla para destinos bloqueados (red.destino_bloqueado). */
+    ReglaDestino reglaDestino = ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
 
     Contexto() {
         almacenes.add(new AlmacenPlan(Compartido.ALMACEN_CENTRAL, Double.POSITIVE_INFINITY));
@@ -126,10 +142,34 @@ final class Contexto {
     }
 
     /** Hora relativa en que se puede atender un destino al que se llega en t:
-     *  si el nodo está bloqueado, se espera a que se desbloquee (9.2). */
+     *  si el nodo está bloqueado, se espera a que se desbloquee (9.2). Con
+     *  NODO_VECINO no se espera: se entrega desde el nodo vecino (puntoDeEntrega). */
     double esperaDestino(int x, int y, double tRelH) {
-        if (mapa == null) return tRelH;
+        if (mapa == null || reglaDestino == ReglaDestino.NODO_VECINO) return tRelH;
         return mapa.finBloqueo(x, y, instanteBaseH + tRelH) - instanteBaseH;
+    }
+
+    /**
+     * Nodo desde el que se hace una entrega en (x, y) saliendo de (px, py) en t.
+     * Con NODO_VECINO, si el destino está bloqueado al salir o al llegar (estimado),
+     * se usa el nodo adyacente no bloqueado más cercano por la red (SI-14); en
+     * otro caso, el propio destino.
+     */
+    int[] puntoDeEntrega(int px, int py, int x, int y, double tRelH, double v) {
+        if (mapa == null || reglaDestino != ReglaDestino.NODO_VECINO) return new int[]{x, y};
+        double salida = instanteBaseH + tRelH;
+        double llegada = salida + mapa.distanciaTramo(px, py, x, y, salida, v) / v;
+        if (!mapa.bloqueado(x, y, salida) && !mapa.bloqueado(x, y, llegada)) return new int[]{x, y};
+        int[] mejor = {x, y};
+        double dMin = Double.MAX_VALUE;
+        int[][] vecinos = {{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}};
+        for (int[] n : vecinos) {
+            if (n[0] < 0 || n[0] >= MapaVial.ANCHO || n[1] < 0 || n[1] >= MapaVial.ALTO) continue;
+            if (mapa.bloqueado(n[0], n[1], salida) || mapa.bloqueado(n[0], n[1], llegada)) continue;
+            double d = mapa.distanciaTramo(px, py, n[0], n[1], salida, v);
+            if (d < dMin) { dMin = d; mejor = n; }
+        }
+        return mejor;
     }
 
     /** Hora relativa al terminar una actividad de duracionH que empieza en t,

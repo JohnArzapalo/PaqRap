@@ -123,6 +123,11 @@ class Compartido {
         for (int i = 0; i < n; i++) {
             ParadaAlg p = r.paradas.get(i);
             int qx = p.x(), qy = p.y();
+            if (p.tipo == TipoParada.ENTREGA) {   // destino bloqueado con la regla NODO_VECINO (Etapa 17)
+                int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+                qx = punto[0];
+                qy = punto[1];
+            }
             double d = cx.distanciaTramo(px, py, qx, qy, reloj, tipo.velocidadPromedio);
             double salida = reloj;
             reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
