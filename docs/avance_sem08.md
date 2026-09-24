@@ -77,7 +77,7 @@ Cómo leer la tabla: `costo_acumulado` depende de cuánto dura la corrida (una c
 - **19.2** `--calibrar-evaluaciones si`: mide cuántas evaluaciones hace cada algoritmo en Ta (**SI-17**) y fija ese tope por algoritmo (`modo_parada = evaluaciones_calibradas`).
   - En esta PC, con Ta = 1000 ms, sobre 15 entregas del nivel BAJA: **TABU = 83 759, AG = 10 386 evaluaciones**.
   - La calibración se hizo con la PC cargada (otras 6 corridas en paralelo). En el experimento real hay que calibrar con la PC libre y **la misma** calibración para las 3 PC; si no, los topes dependen de la carga.
-  - La corrida calibrada BAJA-Tabú quedó censurada a las 720 h y tardó 34 min.
+  - Corridas calibradas en BAJA (1 réplica por algoritmo): Tabú y AG quedaron censuradas a las 720 h; tardaron 34 y 37 min, con la PC cargada.
 - **19.3** `analisis/potencia.py` con los datos de la Etapa 18: diferencia de 24 h en `colapso_h`, α = 0.05, potencia 0.8, t de dos colas con varianzas distintas; tiempos reescalados a Ta = 2000 ms.
 
 *** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***
