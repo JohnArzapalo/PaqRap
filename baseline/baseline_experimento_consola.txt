@@ -1,0 +1,23 @@
+=== Instancias (archivo: ../datos/ventas202609_SINTETICO_08a12h.txt) ===
+  I1_1h: día 1 desde las 08:00, 21 pedidos, 200 paquetes
+  I2_2h: día 1 desde las 08:00, 42 pedidos, 311 paquetes
+  I3_4h: día 1 desde las 08:00, 67 pedidos, 497 paquetes
+
+=== Ejecutando 6 corridas (Ta = 1000 ms) — duración estimada: 0 min 6 s ===
+  [  1/6] I2_2h  TABU rep= 1 semilla=1001  H=4  S=11644.00  en plazo=90.5%  (1000 ms)
+  [  2/6] I1_1h  AG   rep= 1 semilla=1001  H=0  S=5540.00  en plazo=100.0%  (1005 ms)
+  [  3/6] I1_1h  TABU rep= 1 semilla=1001  H=0  S=6440.00  en plazo=100.0%  (999 ms)
+  [  4/6] I2_2h  AG   rep= 1 semilla=1001  H=2  S=9166.00  en plazo=95.2%  (1001 ms)
+  [  5/6] I3_4h  TABU rep= 1 semilla=1001  H=13  S=11496.00  en plazo=80.6%  (999 ms)
+  [  6/6] I3_4h  AG   rep= 1 semilla=1001  H=10  S=11404.00  en plazo=85.1%  (1002 ms)
+
+=== Resumen por combinación ===
+Combinación       n  H medio      S media      S desv.        S mín    % plazo
+I2_2h TABU        1     4.00     11644.00         0.00     11644.00      90.5%
+I1_1h AG          1     0.00      5540.00         0.00      5540.00     100.0%
+I1_1h TABU        1     0.00      6440.00         0.00      6440.00     100.0%
+I2_2h AG          1     2.00      9166.00         0.00      9166.00      95.2%
+I3_4h TABU        1    13.00     11496.00         0.00     11496.00      80.6%
+I3_4h AG          1    10.00     11404.00         0.00     11404.00      85.1%
+
+Resultados guardados en: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\resultados_experimento.csv

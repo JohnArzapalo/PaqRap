@@ -6,6 +6,7 @@ import java.awt.*;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,9 +28,10 @@ public class Visualizadorrutas extends JPanel {
     static final Almacen ALM_NOROESTE = new Almacen("AL-NO", 12, 38);
     static final Almacen ALM_ESTE = new Almacen("AL-ES", 57, 27);
 
-    // Semáforo configurable (RNF d): % de pedidos entregados en plazo
-    static double UMBRAL_VERDE = 100.0;
-    static double UMBRAL_AMBAR = 95.0;
+    // Semáforo configurable (RNF d): % de pedidos entregados en plazo.
+    // Se leen de config/parametros.properties (semaforo.umbral_verde / _ambar).
+    static double UMBRAL_VERDE = Parametros.decimal("semaforo.umbral_verde", 100.0);
+    static double UMBRAL_AMBAR = Parametros.decimal("semaforo.umbral_ambar", 95.0);
 
     // ===== Parámetros de dibujo =====
     private static final int ESC = 13, MARGEN = 40, ANCHO_LEYENDA = 320;
@@ -63,6 +65,13 @@ public class Visualizadorrutas extends JPanel {
         return Compartido.pedidosTarde(r);
     }
 
+    /** Rutas con al menos una parada: las unidades libres no se dibujan ni se cuentan. */
+    static List<RutaAlg> rutasUsadas(Solucion s) {
+        List<RutaAlg> usadas = new ArrayList<>();
+        for (RutaAlg r : s.rutas) if (!r.estaVacia()) usadas.add(r);
+        return usadas;
+    }
+
     // ===== Dibujo =====
     private static int px(int x) { return MARGEN + x * ESC; }
     private static int py(int y) { return MARGEN + (ALTO_KM - y) * ESC; }
@@ -75,7 +84,8 @@ public class Visualizadorrutas extends JPanel {
         g.setColor(Color.WHITE);
         g.fillRect(0, 0, ANCHO_PX, ALTO_PX);
         dibujarReticula(g);
-        for (int i = 0; i < sol.rutas.size(); i++) dibujarRuta(g, sol.rutas.get(i), i);
+        List<RutaAlg> usadas = rutasUsadas(sol);
+        for (int i = 0; i < usadas.size(); i++) dibujarRuta(g, usadas.get(i), i);
         dibujarSinAsignar(g);
         dibujarAlmacen(g, Compartido.ALMACEN_CENTRAL, "Central", new Color(0x0b3d91), 16);
         dibujarAlmacen(g, ALM_NOROESTE, "Nor-Oeste", new Color(0xe07b00), 13);
@@ -193,14 +203,12 @@ public class Visualizadorrutas extends JPanel {
         g.setFont(new Font("Monospaced", Font.PLAIN, 11));
 
         double km = 0;
-        int ped = 0, tarde = 0;
+        List<RutaAlg> usadas = rutasUsadas(sol);
         int maxFilas = (ALTO_PX - ly - 150) / 15;
-        for (int i = 0; i < sol.rutas.size(); i++) {
-            RutaAlg r = sol.rutas.get(i);
+        for (int i = 0; i < usadas.size(); i++) {
+            RutaAlg r = usadas.get(i);
             int tr = pedidosTarde(r);
             km += r.distanciaKm;
-            tarde += tr;
-            for (ParadaAlg p : r.paradas) if (p.tipo == TipoParada.ENTREGA) ped++;
             if (i < maxFilas) {
                 g.setColor(PALETA[i % PALETA.length]);
                 g.fillRect(lx, ly - 9, 10, 10);
@@ -211,19 +219,20 @@ public class Visualizadorrutas extends JPanel {
                 ly += 15;
             } else if (i == maxFilas) {
                 g.setColor(Color.GRAY);
-                g.drawString("... y " + (sol.rutas.size() - maxFilas) + " rutas más", lx + 14, ly);
+                g.drawString("... y " + (usadas.size() - maxFilas) + " rutas más", lx + 14, ly);
                 ly += 15;
             }
         }
-        int totalPed = ped + sol.pedidosSinAsignar.size();
-        int enPlazo = ped - tarde;
+        // % de pedidos ORIGINALES en plazo: todas sus entregas asignadas y a tiempo
+        int[] enPlazoTotal = Compartido.pedidosOriginalesEnPlazo(sol);
+        int enPlazo = enPlazoTotal[0], totalPed = enPlazoTotal[1];
         double pct = totalPed == 0 ? 100.0 : 100.0 * enPlazo / totalPed;
 
         ly = ALTO_PX - 125;
         g.setColor(Color.BLACK);
         g.drawLine(lx, ly - 14, lx + ANCHO_LEYENDA - 40, ly - 14);
         g.setFont(new Font("SansSerif", Font.BOLD, 12));
-        g.drawString("Unidades usadas: " + sol.rutas.size(), lx, ly); ly += 17;
+        g.drawString("Unidades usadas: " + sol.vehiculosUsados(), lx, ly); ly += 17;
         g.drawString(String.format("Km totales: %.0f", km), lx, ly); ly += 17;
         g.drawString(String.format("Función objetivo: H = %d   S = S/ %.2f", sol.H, sol.S), lx, ly); ly += 17;
         g.setColor(sol.pedidosSinAsignar.isEmpty() ? Color.BLACK : ROJO);
@@ -232,7 +241,7 @@ public class Visualizadorrutas extends JPanel {
         g.setColor(sem);
         g.fillOval(lx, ly - 11, 13, 13);
         g.setColor(Color.BLACK);
-        g.drawString(String.format("En plazo: %.1f%% (%d/%d)", pct, enPlazo, totalPed), lx + 19, ly);
+        g.drawString(String.format("Pedidos en plazo: %.1f%% (%d/%d)", pct, enPlazo, totalPed), lx + 19, ly);
     }
 
     // ===== API pública =====
@@ -265,7 +274,7 @@ public class Visualizadorrutas extends JPanel {
     /** Tabla en consola con la hora de llegada de cada pedido frente a su plazo. */
     public static void imprimirReporte(Solucion s, String titulo) {
         System.out.println("--- Detalle de plazos: " + titulo + " ---");
-        for (RutaAlg r : s.rutas) {
+        for (RutaAlg r : rutasUsadas(s)) {
             double[] t = horasLlegada(r);
             System.out.printf("  %s (%s, %.0f km/h):%n", r.unidad.codigo, r.unidad.tipo, r.unidad.tipo.velocidadPromedio);
             for (int i = 0; i < r.paradas.size(); i++) {
@@ -278,16 +287,20 @@ public class Visualizadorrutas extends JPanel {
         if (!s.pedidosSinAsignar.isEmpty()) System.out.println("  Sin asignar: " + s.pedidosSinAsignar);
     }
 
-    /** Curva de convergencia (costo S del mejor individuo por generación). */
-    public static void guardarConvergenciaPNG(List<Double> historialCompleto, String titulo, String archivo) {
+    /** Curva de convergencia del mejor individuo por generación (R11), en dos
+     *  paneles: arriba H (entregas sin asignar + tarde) y abajo S (costo).
+     *  Como el criterio es jerárquico (primero H, luego S), S puede SUBIR en
+     *  una generación en la que baja H; por eso se grafican ambos. */
+    public static void guardarConvergenciaPNG(List<double[]> historialCompleto, String titulo, String archivo) {
         // Se recorta la vista hasta un poco después de la última mejora, para que la caída se vea
         int ultimaMejora = 0;
         for (int i = 1; i < historialCompleto.size(); i++) {
-            if (!historialCompleto.get(i).equals(historialCompleto.get(i - 1))) ultimaMejora = i;
+            double[] a = historialCompleto.get(i), b = historialCompleto.get(i - 1);
+            if (a[0] != b[0] || a[1] != b[1]) ultimaMejora = i;
         }
         int corte = Math.min(historialCompleto.size(), Math.max(20, ultimaMejora * 2 + 1));
-        List<Double> historial = historialCompleto.subList(0, corte);
-        int w = 800, h = 450, m = 60;
+        List<double[]> historial = historialCompleto.subList(0, corte);
+        int w = 800, h = 620, m = 70;
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -295,31 +308,18 @@ public class Visualizadorrutas extends JPanel {
         g.fillRect(0, 0, w, h);
         g.setColor(Color.BLACK);
         g.setFont(new Font("SansSerif", Font.BOLD, 14));
-        g.drawString(titulo, m, 30);
-        g.drawLine(m, h - m, w - 30, h - m);
-        g.drawLine(m, h - m, m, 50);
+        g.drawString(titulo, m, 28);
         if (historial.size() > 1) {
-            double min = historial.stream().mapToDouble(Double::doubleValue).min().getAsDouble();
-            double max = historial.stream().mapToDouble(Double::doubleValue).max().getAsDouble();
-            if (max == min) max = min + 1;
+            // Panel superior: H; panel inferior: S
+            dibujarPanelConvergencia(g, historial, 0, "H", "%.0f", new Color(0xd62728), m, 50, w - 30, 250);
+            dibujarPanelConvergencia(g, historial, 1, "S", "S/ %.0f", new Color(0x1f77b4), m, 300, w - 30, h - 60);
+            g.setColor(Color.BLACK);
             g.setFont(new Font("SansSerif", Font.PLAIN, 11));
-            g.drawString(String.format("S/ %.0f", max), 5, 55);
-            g.drawString(String.format("S/ %.0f", min), 5, h - m);
-            g.drawString("0", m, h - m + 15);
-            g.drawString((historial.size() - 1) + " generaciones mostradas", w - 190, h - m + 15);
-            g.drawString(String.format("Última mejora en la generación %d de %d ejecutadas (S/ %.2f -> S/ %.2f)",
-                    ultimaMejora, historialCompleto.size() - 1, historialCompleto.get(0),
-                    historialCompleto.get(historialCompleto.size() - 1)), m, h - 18);
-            g.setColor(new Color(0x1f77b4));
-            g.setStroke(new BasicStroke(2.2f));
-            int n = historial.size();
-            for (int i = 1; i < n; i++) {
-                int x1 = m + (int) ((double) (i - 1) / (n - 1) * (w - m - 30));
-                int x2 = m + (int) ((double) i / (n - 1) * (w - m - 30));
-                int y1 = h - m - (int) ((historial.get(i - 1) - min) / (max - min) * (h - m - 50));
-                int y2 = h - m - (int) ((historial.get(i) - min) / (max - min) * (h - m - 50));
-                g.drawLine(x1, y1, x2, y2);
-            }
+            g.drawString((historial.size() - 1) + " generaciones mostradas", w - 190, h - 45);
+            double[] ini = historialCompleto.get(0), fin = historialCompleto.get(historialCompleto.size() - 1);
+            g.drawString(String.format("Última mejora en la generación %d de %d ejecutadas "
+                    + "(H %.0f -> %.0f, S/ %.2f -> S/ %.2f)", ultimaMejora, historialCompleto.size() - 1,
+                    ini[0], fin[0], ini[1], fin[1]), m, h - 18);
         }
         g.dispose();
         try {
@@ -327,6 +327,34 @@ public class Visualizadorrutas extends JPanel {
             System.out.println("  Imagen guardada: " + new File(archivo).getAbsolutePath());
         } catch (Exception e) {
             System.err.println("  No se pudo guardar la curva: " + e.getMessage());
+        }
+    }
+
+    /** Dibuja la serie historial[i][indice] en el rectángulo (x0, yArriba)-(x1, yAbajo). */
+    private static void dibujarPanelConvergencia(Graphics2D g, List<double[]> historial, int indice, String nombre,
+                                                 String formato, Color color, int x0, int yArriba, int x1, int yAbajo) {
+        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+        for (double[] v : historial) { min = Math.min(min, v[indice]); max = Math.max(max, v[indice]); }
+        if (max == min) max = min + 1;
+        g.setColor(Color.BLACK);
+        g.setStroke(new BasicStroke(1f));
+        g.drawLine(x0, yAbajo, x1, yAbajo);
+        g.drawLine(x0, yAbajo, x0, yArriba);
+        g.setFont(new Font("SansSerif", Font.BOLD, 12));
+        g.drawString(nombre, x0 - 20, (yArriba + yAbajo) / 2);
+        g.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        g.drawString(String.format(formato, max), 5, yArriba + 5);
+        g.drawString(String.format(formato, min), 5, yAbajo);
+        g.drawString("0", x0, yAbajo + 14);
+        g.setColor(color);
+        g.setStroke(new BasicStroke(2.2f));
+        int n = historial.size();
+        for (int i = 1; i < n; i++) {
+            int xa = x0 + (int) ((double) (i - 1) / (n - 1) * (x1 - x0));
+            int xb = x0 + (int) ((double) i / (n - 1) * (x1 - x0));
+            int ya = yAbajo - (int) ((historial.get(i - 1)[indice] - min) / (max - min) * (yAbajo - yArriba));
+            int yb = yAbajo - (int) ((historial.get(i)[indice] - min) / (max - min) * (yAbajo - yArriba));
+            g.drawLine(xa, ya, xb, yb);
         }
     }
 }

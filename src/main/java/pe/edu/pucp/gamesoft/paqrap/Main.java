@@ -51,18 +51,20 @@ public class Main {
         System.out.println("=== Imágenes (se guardan en la carpeta del proyecto) ===");
         Visualizadorrutas.guardarPNG(r1[0], "I1 - Solución inicial (Clarke & Wright)", "01_inicial.png");
         Visualizadorrutas.guardarPNG(r1[1], "I1 - Búsqueda Tabú", "02_tabu.png");
+        Visualizadorrutas.guardarPNG(r1[3], "I1 - AG + Split - generación 0", "03_ag_generacion0.png");
         Visualizadorrutas.guardarPNG(r1[2], "I1 - AG + Split - final", "04_ag_final.png");
         Visualizadorrutas.guardarPNG(r2[0], "I2 (plazos ajustados) - Clarke & Wright", "06_urgente_inicial.png");
         Visualizadorrutas.guardarPNG(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú", "07_urgente_tabu.png");
         Visualizadorrutas.guardarPNG(r2[2], "I2 (plazos ajustados) - AG + Split", "08_urgente_ag.png");
         Visualizadorrutas.guardarConvergenciaPNG(AlgoritmoGenetico.historialConvergencia,
-                "Convergencia del AG en I2 (mejor costo S por generación)", "05_ag_convergencia.png");
+                "Convergencia del AG en I2 (mejor H y S por generación)", "05_ag_convergencia.png");
 
         Visualizadorrutas.mostrar(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú");
         Visualizadorrutas.mostrar(r2[2], "I2 (plazos ajustados) - AG + Split");
     }
 
-    /** Ejecuta C&W, Tabú y AG sobre una instancia y devuelve {inicial, tabu, genetico}. */
+    /** Ejecuta C&W, Tabú y AG sobre una instancia y devuelve
+     *  {inicial, tabu, genetico, mejor de la generación 0 del AG}. */
     private static Solucion[] ejecutarTodo(List<Pedido> pedidos, List<UnidadTransporte> flota) {
         System.out.println("=== Heurística constructiva (Clarke & Wright) ===");
         Solucion inicial = Heuristicaconstructiva.construirSolucionInicial(pedidos, flota);
@@ -70,23 +72,33 @@ public class Main {
 
         System.out.println();
         System.out.println("=== Búsqueda Tabú (2 s de presupuesto) ===");
-        Solucion tabu = BusquedaTabu.ejecutar(inicial, 2000, 8, 300);
+        Solucion tabu = BusquedaTabu.ejecutar(inicial, flota, 2000, 0, 8, 300);
         imprimir(tabu);
+        System.out.printf("  iteraciones=%d  evaluaciones=%d%n",
+                BusquedaTabu.ultimasIteraciones, BusquedaTabu.ultimasEvaluaciones);
 
         System.out.println();
         System.out.println("=== Algoritmo Genético + Split (2 s de presupuesto) ===");
-        Solucion genetico = AlgoritmoGenetico.ejecutar(pedidos, flota, 2000, 30);
+        Solucion genetico = AlgoritmoGenetico.ejecutar(pedidos, flota, 2000, 0, 30);
         imprimir(genetico);
+        System.out.printf("  generaciones=%d  evaluaciones=%d  tramos con cambio de tipo=%d  "
+                        + "búsqueda local: %d aplicaciones, %d mejoras%n",
+                AlgoritmoGenetico.ultimasGeneraciones, AlgoritmoGenetico.ultimasEvaluaciones,
+                AlgoritmoGenetico.ultimosTramosCambioTipo, AlgoritmoGenetico.ultimasAplicacionesBL,
+                AlgoritmoGenetico.ultimasMejorasBL);
+        Solucion generacion0 = AlgoritmoGenetico.solucionGeneracion0;
+        System.out.printf("  generación 0: H=%d S=S/.%.2f%n", generacion0.H, generacion0.S);
 
         System.out.println();
         Visualizadorrutas.imprimirReporte(inicial, "Clarke & Wright");
         Visualizadorrutas.imprimirReporte(tabu, "Búsqueda Tabú");
         Visualizadorrutas.imprimirReporte(genetico, "AG + Split");
-        return new Solucion[]{inicial, tabu, genetico};
+        return new Solucion[]{inicial, tabu, genetico, generacion0};
     }
 
     private static void imprimir(Solucion s) {
         for (RutaAlg r : s.rutas) {
+            if (r.estaVacia()) continue;   // unidad libre: no se usa
             StringBuilder sb = new StringBuilder();
             for (ParadaAlg p : r.paradas) sb.append(p.pedido.id).append(" ");
             System.out.printf("  %s (%s): %-24s carga=%d/%d  dist=%.0fkm  costo=S/.%.2f  tarde=%d%n",

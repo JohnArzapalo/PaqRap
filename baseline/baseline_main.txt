@@ -1,0 +1,126 @@
+################ INSTANCIA 1: plazos holgados ################
+=== Heurística constructiva (Clarke & Wright) ===
+  U1 (AUTO): P2 P4 P6 P1 P3           carga=22/24  dist=102km  costo=S/.816.00  tarde=0
+  U2 (MOTO): P5                       carga=6/8  dist=6km  costo=S/.36.00  tarde=0
+  evaluar(solucion) = (H=0, S=S/.852.00)   H = sin asignar + fuera de plazo
+
+=== Búsqueda Tabú (2 s de presupuesto) ===
+  U1 (AUTO): P6 P2 P4 P1 P3           carga=22/24  dist=84km  costo=S/.672.00  tarde=0
+  U2 (MOTO): P5                       carga=6/8  dist=6km  costo=S/.36.00  tarde=0
+  evaluar(solucion) = (H=0, S=S/.708.00)   H = sin asignar + fuera de plazo
+
+=== Algoritmo Genético + Split (2 s de presupuesto) ===
+  U1 (AUTO): P5 P1 P4 P2 P6           carga=20/24  dist=66km  costo=S/.528.00  tarde=0
+  U2 (MOTO): P3                       carga=8/8  dist=24km  costo=S/.144.00  tarde=0
+  evaluar(solucion) = (H=0, S=S/.672.00)   H = sin asignar + fuera de plazo
+
+--- Detalle de plazos: Clarke & Wright ---
+  U1 (AUTO, 40 km/h):
+     P2  en (10,20)  llega  0.58 h  límite  8.00 h  OK
+     P4  en (20,25)  llega  1.95 h  límite 12.00 h  OK
+     P6  en (15,12)  llega  3.40 h  límite 36.00 h  OK
+     P1  en (30,18)  llega  4.93 h  límite 36.00 h  OK
+     P3  en (35,10)  llega  6.25 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P5  en (28,16)  llega  0.12 h  límite 36.00 h  OK
+--- Detalle de plazos: Búsqueda Tabú ---
+  U1 (AUTO, 40 km/h):
+     P6  en (15,12)  llega  0.35 h  límite 36.00 h  OK
+     P2  en (10,20)  llega  1.68 h  límite  8.00 h  OK
+     P4  en (20,25)  llega  3.05 h  límite 12.00 h  OK
+     P1  en (30,18)  llega  4.48 h  límite 36.00 h  OK
+     P3  en (35,10)  llega  5.80 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P5  en (28,16)  llega  0.12 h  límite 36.00 h  OK
+--- Detalle de plazos: AG + Split ---
+  U1 (AUTO, 40 km/h):
+     P5  en (28,16)  llega  0.08 h  límite 36.00 h  OK
+     P1  en (30,18)  llega  1.18 h  límite 36.00 h  OK
+     P4  en (20,25)  llega  2.60 h  límite 12.00 h  OK
+     P2  en (10,20)  llega  3.97 h  límite  8.00 h  OK
+     P6  en (15,12)  llega  5.30 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P3  en (35,10)  llega  0.48 h  límite 36.00 h  OK
+
+################ INSTANCIA 2: plazos ajustados ################
+=== Heurística constructiva (Clarke & Wright) ===
+  U1 (AUTO): P3 P2 P4 P6 P1           carga=22/24  dist=108km  costo=S/.864.00  tarde=2
+  U2 (MOTO): P5                       carga=6/8  dist=6km  costo=S/.36.00  tarde=0
+  evaluar(solucion) = (H=2, S=S/.900.00)   H = sin asignar + fuera de plazo
+
+=== Búsqueda Tabú (2 s de presupuesto) ===
+  U1 (AUTO): P2 P4 P6 P3 P1           carga=22/24  dist=98km  costo=S/.784.00  tarde=1
+  U2 (MOTO): P5                       carga=6/8  dist=6km  costo=S/.36.00  tarde=0
+  evaluar(solucion) = (H=1, S=S/.820.00)   H = sin asignar + fuera de plazo
+
+=== Algoritmo Genético + Split (2 s de presupuesto) ===
+  U1 (AUTO): P2 P4 P6 P5 P1           carga=20/24  dist=84km  costo=S/.672.00  tarde=0
+  U2 (MOTO): P3                       carga=8/8  dist=24km  costo=S/.144.00  tarde=0
+  evaluar(solucion) = (H=0, S=S/.816.00)   H = sin asignar + fuera de plazo
+
+--- Detalle de plazos: Clarke & Wright ---
+  U1 (AUTO, 40 km/h):
+     P3  en (35,10)  llega  0.30 h  límite  1.00 h  OK
+     P2  en (10,20)  llega  2.18 h  límite  1.00 h  TARDE
+     P4  en (20,25)  llega  3.55 h  límite  3.00 h  TARDE
+     P6  en (15,12)  llega  5.00 h  límite 36.00 h  OK
+     P1  en (30,18)  llega  6.53 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P5  en (28,16)  llega  0.12 h  límite 36.00 h  OK
+--- Detalle de plazos: Búsqueda Tabú ---
+  U1 (AUTO, 40 km/h):
+     P2  en (10,20)  llega  0.58 h  límite  1.00 h  OK
+     P4  en (20,25)  llega  1.95 h  límite  3.00 h  OK
+     P6  en (15,12)  llega  3.40 h  límite 36.00 h  OK
+     P3  en (35,10)  llega  4.95 h  límite  1.00 h  TARDE
+     P1  en (30,18)  llega  6.28 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P5  en (28,16)  llega  0.12 h  límite 36.00 h  OK
+--- Detalle de plazos: AG + Split ---
+  U1 (AUTO, 40 km/h):
+     P2  en (10,20)  llega  0.58 h  límite  1.00 h  OK
+     P4  en (20,25)  llega  1.95 h  límite  3.00 h  OK
+     P6  en (15,12)  llega  3.40 h  límite 36.00 h  OK
+     P5  en (28,16)  llega  4.83 h  límite 36.00 h  OK
+     P1  en (30,18)  llega  5.93 h  límite 36.00 h  OK
+  U2 (MOTO, 25 km/h):
+     P3  en (35,10)  llega  0.48 h  límite  1.00 h  OK
+
+=== Imágenes (se guardan en la carpeta del proyecto) ===
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\01_inicial.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\02_tabu.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\04_ag_final.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\06_urgente_inicial.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\07_urgente_tabu.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\08_urgente_ag.png
+  Imagen guardada: C:\Users\johnm\OneDrive\Desktop\DP1\PaqRap\baseline\05_ag_convergencia.png
+Exception in thread "AWT-EventQueue-0" java.awt.HeadlessException
+	at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:158)
+	at java.desktop/java.awt.Window.<init>(Window.java:518)
+	at java.desktop/java.awt.Frame.<init>(Frame.java:428)
+	at java.desktop/javax.swing.JFrame.<init>(JFrame.java:224)
+	at pe.edu.pucp.gamesoft.paqrap.Visualizadorrutas.lambda$mostrar$0(Visualizadorrutas.java:241)
+	at java.desktop/java.awt.event.InvocationEvent.dispatch(InvocationEvent.java:318)
+	at java.desktop/java.awt.EventQueue.dispatchEventImpl(EventQueue.java:723)
+	at java.desktop/java.awt.EventQueue.dispatchEvent(EventQueue.java:702)
+	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(EventDispatchThread.java:203)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(EventDispatchThread.java:124)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(EventDispatchThread.java:113)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
+	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)
+Exception in thread "AWT-EventQueue-0" java.awt.HeadlessException
+	at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:158)
+	at java.desktop/java.awt.Window.<init>(Window.java:518)
+	at java.desktop/java.awt.Frame.<init>(Frame.java:428)
+	at java.desktop/javax.swing.JFrame.<init>(JFrame.java:224)
+	at pe.edu.pucp.gamesoft.paqrap.Visualizadorrutas.lambda$mostrar$0(Visualizadorrutas.java:241)
+	at java.desktop/java.awt.event.InvocationEvent.dispatch(InvocationEvent.java:318)
+	at java.desktop/java.awt.EventQueue.dispatchEventImpl(EventQueue.java:723)
+	at java.desktop/java.awt.EventQueue.dispatchEvent(EventQueue.java:702)
+	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(EventDispatchThread.java:203)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(EventDispatchThread.java:124)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(EventDispatchThread.java:113)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
+	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)

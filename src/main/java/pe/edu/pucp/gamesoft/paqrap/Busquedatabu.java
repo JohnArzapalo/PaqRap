@@ -1,138 +1,154 @@
 package pe.edu.pucp.gamesoft.paqrap;
-import java.util.ArrayList;
-import java.util.HashMap;
+
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Random;
 
-/** 4.2.1 Estructuras específicas de Búsqueda Tabú. */
-class ParTabu {
-    String idPedido;
-    String idUnidadAnterior;
-
-    ParTabu(String idPedido, String idUnidadAnterior) {
-        this.idPedido = idPedido;
-        this.idUnidadAnterior = idUnidadAnterior;
-    }
-
-    public boolean equals(Object o) {
-        if (!(o instanceof ParTabu)) return false;
-        ParTabu p = (ParTabu) o;
-        return idPedido.equals(p.idPedido) && idUnidadAnterior.equals(p.idUnidadAnterior);
-    }
-
-    public int hashCode() {
-        return Objects.hash(idPedido, idUnidadAnterior);
-    }
-}
-
-class ListaTabu {
-    Map<ParTabu, Integer> prohibidos = new HashMap<>();   // par -> iteración en que vence
-
-    boolean contiene(ParTabu mov) {
-        return prohibidos.getOrDefault(mov, -1) > 0;
-    }
-
-    void limpiarVencidos(int iteracion) {
-        prohibidos.entrySet().removeIf(e -> e.getValue() <= iteracion);
-    }
-}
-
-/** 4.2.2 Pseudocódigo, ya traducido a Java. Primera iteración: implementa
- *  el operador Reubicación (apartado 4.2, punto 1 de 5); los otros cuatro
- *  operadores del ISA siguen la misma lógica de copiar-modificar-evaluar
- *  y se incorporan en la segunda iteración. */
+/**
+ * 4.2.2 Búsqueda Tabú, ya traducida a Java.
+ *
+ * En cada iteración se genera una LISTA DE CANDIDATOS de N vecinos y se
+ * acepta el mejor que no sea tabú (o el mejor tabú que cumpla aspiración).
+ * Si todos son tabú y ninguno aspira, se acepta el menos malo para no
+ * quedar bloqueado.
+ *
+ * Operadores (en OperadoresVecindario, compartidos con el AG):
+ *  - Reubicación, Intercambio, 2-opt y Cross-exchange, elegidos al azar con
+ *    pesos configurables (tabu.peso_*). 2-opt y Cross-exchange son
+ *    PROVISIONALES: verificar contra el ISA §4.2.
+ *  - Inserción: si hay entregas sin asignar, el primer candidato de cada
+ *    iteración es una Inserción en la mejor posición factible.
+ *
+ * La solución de trabajo contiene TODAS las unidades de la flota: las que
+ * no tienen pedidos aparecen como rutas vacías (0 km, S/ 0, no cuentan como
+ * vehículos usados) para poder recibir entregas.
+ *
+ * Parada: por presupuesto de tiempo Ta (criterio principal, hace justa la
+ * comparación entre algoritmos con costos por evaluación distintos) o, si
+ * maxEvaluaciones > 0, por número de evaluaciones (modo reproducible: con
+ * la misma semilla da exactamente la misma solución). Una "evaluación" es
+ * una llamada a Compartido.evaluarSolucion sobre una solución completa.
+ */
 class BusquedaTabu {
 
     private static Random AZAR = new Random(7);   // semilla por defecto (reproducible)
+
+    /** Vecinos candidatos por iteración (tabu.candidatos). */
+    static int CANDIDATOS = (int) Parametros.entero("tabu.candidatos", 20);
+    /** Pesos relativos de los operadores (no necesitan sumar 1). */
+    static double PESO_REUBICACION = Parametros.decimal("tabu.peso_reubicacion", 0.35);
+    static double PESO_INTERCAMBIO = Parametros.decimal("tabu.peso_intercambio", 0.35);
+    static double PESO_2OPT = Parametros.decimal("tabu.peso_2opt", 0.15);
+    static double PESO_CROSS = Parametros.decimal("tabu.peso_cross", 0.15);
+
+    // ===== Contadores de la última ejecución (R6) =====
+    static long ultimasIteraciones;
+    static long ultimasEvaluaciones;
+    /** Milisegundos desde el inicio hasta que se encontró la mejor solución. */
+    static long ultimoTiempoMejorMs;
 
     /** Fija la semilla antes de ejecutar. Cada réplica del experimento usa una distinta. */
     static void setSemilla(long semilla) {
         AZAR = new Random(semilla);
     }
 
-    static Solucion ejecutar(Solucion solucionInicial, long presupuestoMs,
-                              int duracionTabu, int maxSinMejora) {
-        Solucion actual = solucionInicial.copiar();
-        Solucion mejorGlobal = solucionInicial.copiar();
+    /**
+     * Corrida del experimento: construye la solución inicial (Clarke & Wright)
+     * y busca. El cronómetro empieza ANTES de construir la solución inicial,
+     * de modo que C&W consume parte del mismo Ta, igual que la población
+     * inicial del AG consume parte del suyo (R10).
+     */
+    static Solucion ejecutarDesdeCero(List<Pedido> pedidos, List<UnidadTransporte> flota,
+                                      long presupuestoMs, long maxEvaluaciones,
+                                      int duracionTabu, int maxSinMejora) {
+        long inicio = System.currentTimeMillis();
+        Solucion inicial = Heuristicaconstructiva.construirSolucionInicial(pedidos, flota);
+        return buscar(inicial, flota, inicio, presupuestoMs, maxEvaluaciones, duracionTabu, maxSinMejora);
+    }
+
+    /** Busca a partir de una solución inicial ya construida (demo de Main). */
+    static Solucion ejecutar(Solucion solucionInicial, List<UnidadTransporte> flota,
+                             long presupuestoMs, long maxEvaluaciones,
+                             int duracionTabu, int maxSinMejora) {
+        return buscar(solucionInicial, flota, System.currentTimeMillis(), presupuestoMs,
+                      maxEvaluaciones, duracionTabu, maxSinMejora);
+    }
+
+    private static Solucion buscar(Solucion solucionInicial, List<UnidadTransporte> flota, long inicio,
+                                   long presupuestoMs, long maxEvaluaciones,
+                                   int duracionTabu, int maxSinMejora) {
+        Solucion actual = OperadoresVecindario.conUnidadesLibres(solucionInicial, flota);
+        Compartido.evaluarSolucion(actual);
+        long evaluaciones = 1;
+        Solucion mejorGlobal = actual.copiar();
+        long tiempoMejor = System.currentTimeMillis() - inicio;
+
         ListaTabu tabu = new ListaTabu();
         int iteracion = 0;
         int iteracionesSinMejora = 0;
-        long inicioEjecucion = System.currentTimeMillis();
 
-        while (!Compartido.debeDetenerse(inicioEjecucion, presupuestoMs)
-                && iteracionesSinMejora < maxSinMejora) {
+        while (iteracionesSinMejora < maxSinMejora
+                && !debeDetenerse(inicio, presupuestoMs, maxEvaluaciones, evaluaciones, iteracion)) {
 
-            Movimiento mov = generarVecino(actual);
-            if (mov == null) {
-                iteracion++;
-                continue;
+            Movimiento mejorPermitido = null;   // mejor no tabú, o tabú que cumple aspiración
+            Movimiento menosMaloTabu = null;    // respaldo si todos son tabú
+            for (int c = 0; c < CANDIDATOS; c++) {
+                Movimiento m = generarVecino(actual, c == 0);
+                if (m == null) continue;
+                evaluaciones++;
+                boolean aspira = Compartido.mejorQue(m.solucion, mejorGlobal);
+                if (!m.esTabu(tabu, iteracion) || aspira) {
+                    if (mejorPermitido == null || Compartido.mejorQue(m.solucion, mejorPermitido.solucion))
+                        mejorPermitido = m;
+                } else if (menosMaloTabu == null || Compartido.mejorQue(m.solucion, menosMaloTabu.solucion)) {
+                    menosMaloTabu = m;
+                }
             }
 
-            boolean esTabu = tabu.contiene(mov.par);
-            boolean cumpleAspiracion = Compartido.mejorQue(mov.solucion, mejorGlobal);
-
-            if (esTabu && !cumpleAspiracion) {
-                iteracionesSinMejora++;
-                iteracion++;
-                continue;
-            }
-
-            actual = mov.solucion;
-            tabu.prohibidos.put(mov.par, iteracion + duracionTabu);
-            tabu.limpiarVencidos(iteracion);
-
-            if (Compartido.mejorQue(actual, mejorGlobal)) {
-                mejorGlobal = actual.copiar();
-                iteracionesSinMejora = 0;
+            Movimiento aceptado = mejorPermitido != null ? mejorPermitido : menosMaloTabu;
+            if (aceptado != null) {
+                actual = aceptado.solucion;
+                for (ParTabu p : aceptado.prohibir) tabu.registrar(p, iteracion + duracionTabu);
+                tabu.limpiarVencidos(iteracion);
+                if (Compartido.mejorQue(actual, mejorGlobal)) {
+                    mejorGlobal = actual.copiar();
+                    iteracionesSinMejora = 0;
+                    tiempoMejor = System.currentTimeMillis() - inicio;
+                } else {
+                    iteracionesSinMejora++;
+                }
             } else {
-                iteracionesSinMejora++;
+                iteracionesSinMejora++;   // ningún vecino factible en esta iteración
             }
             iteracion++;
         }
+
+        ultimasIteraciones = iteracion;
+        ultimasEvaluaciones = evaluaciones;
+        ultimoTiempoMejorMs = tiempoMejor;
         return mejorGlobal;
     }
 
-    private static class Movimiento {
-        Solucion solucion;
-        ParTabu par;
+    /** Modo por evaluaciones (si maxEvaluaciones > 0; se ignora el tiempo) o por Ta.
+     *  El tope de iteraciones evita un ciclo infinito si en el modo por
+     *  evaluaciones ninguna iteración produjera vecinos factibles. */
+    private static boolean debeDetenerse(long inicio, long presupuestoMs, long maxEvaluaciones,
+                                         long evaluaciones, int iteracion) {
+        if (maxEvaluaciones > 0) return evaluaciones >= maxEvaluaciones || iteracion >= maxEvaluaciones;
+        return Compartido.debeDetenerse(inicio, presupuestoMs);
     }
 
-    /** Reubicación: mueve una parada de entrega hacia otra posición, dentro
-     *  de la misma ruta o hacia otra unidad. Si origen y destino resultan
-     *  ser la misma ruta, ambas variables apuntan al mismo objeto y el
-     *  movimiento simplemente reordena dentro de esa ruta. */
-    private static Movimiento generarVecino(Solucion base) {
-        if (base.rutas.isEmpty()) return null;
-        Solucion s = base.copiar();
-
-        int io = AZAR.nextInt(s.rutas.size());
-        RutaAlg rutaOrigen = s.rutas.get(io);
-        List<ParadaAlg> entregas = new ArrayList<>();
-        for (ParadaAlg p : rutaOrigen.paradas) {
-            if (p.tipo == TipoParada.ENTREGA) entregas.add(p);
-        }
-        if (entregas.isEmpty()) return null;
-        ParadaAlg parada = entregas.get(AZAR.nextInt(entregas.size()));
-
-        int id = AZAR.nextInt(s.rutas.size());
-        RutaAlg rutaDestino = s.rutas.get(id);
-
-        int cargaDestino = rutaDestino.cargaTotal() - (id == io ? parada.cantidad : 0);
-        if (cargaDestino + parada.cantidad > rutaDestino.unidad.tipo.capacidadMaxima) return null;
-
-        rutaOrigen.paradas.remove(parada);
-        int posDestino = AZAR.nextInt(rutaDestino.paradas.size() + 1);
-        rutaDestino.paradas.add(Math.min(posDestino, rutaDestino.paradas.size()), parada);
-
-        Compartido.recalcularDistanciaYCosto(rutaOrigen);
-        Compartido.recalcularDistanciaYCosto(rutaDestino);
-        Compartido.evaluarSolucion(s);
-
-        Movimiento m = new Movimiento();
-        m.solucion = s;
-        m.par = new ParTabu(parada.pedido.id, rutaOrigen.unidad.codigo);
-        return m;
+    /** Genera un vecino evaluado, o null si no hay uno factible. Si hay entregas
+     *  sin asignar, el primer candidato de cada iteración es una Inserción; los
+     *  demás, un operador elegido al azar según sus pesos. */
+    private static Movimiento generarVecino(Solucion base, boolean primerCandidato) {
+        if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, AZAR);
+        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS;
+        double r = AZAR.nextDouble() * total;
+        if (r < PESO_REUBICACION) return OperadoresVecindario.reubicacion(base, AZAR);
+        r -= PESO_REUBICACION;
+        if (r < PESO_INTERCAMBIO) return OperadoresVecindario.intercambio(base, AZAR);
+        r -= PESO_INTERCAMBIO;
+        if (r < PESO_2OPT) return OperadoresVecindario.dosOpt(base, AZAR);
+        return OperadoresVecindario.crossExchange(base, AZAR);
     }
 }
