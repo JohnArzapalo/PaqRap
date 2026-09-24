@@ -85,6 +85,15 @@ final class Contexto {
     boolean conEstado = false;
     /** Plan vigente reparado con los pedidos nuevos insertados (punto de partida de Tabú y siembra del AG). */
     Solucion planBase = null;
+    /**
+     * Estabilidad (Etapa 18; P6 "replanificar, no volver a planificar"): unidad a la
+     * que el plan vigente asignaba cada entrega (id -> código). Si no es null, cada
+     * entrega que el plan nuevo pone en OTRA unidad cuesta penalidadCambio soles, que
+     * se suman a S (nunca a H: no se sacrifican plazos). La usan ambos algoritmos,
+     * porque va dentro de Compartido.evaluarRuta.
+     */
+    Map<String, String> asignacionVigente = null;
+    double penalidadCambio = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
     /** Regla para destinos bloqueados (red.destino_bloqueado). */
     ReglaDestino reglaDestino = ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
 

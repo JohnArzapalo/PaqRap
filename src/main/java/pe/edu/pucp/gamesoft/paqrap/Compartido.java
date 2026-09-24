@@ -49,8 +49,9 @@ class Compartido {
 
     /** Resultado de evaluar una ruta en el contexto vigente. */
     static final class EvalRuta {
-        double km, costo, finH;
+        double km, costo, finH;   // costo = km × costo/km + penalidad de estabilidad (si hay plan vigente)
         int tarde;
+        int cambiosDeUnidad;      // entregas que cambian de unidad frente al plan vigente
         boolean factible = true;
         String motivo;
         double[] llegada;     // por parada: llegada (en ENTREGA, cuando se puede atender)
@@ -198,6 +199,15 @@ class Compartido {
         e.finH = reloj;
         e.km = km;
         e.costo = km * tipo.costoPorKilometro;
+        // Costo de estabilidad (Etapa 18): entregas que el plan vigente tenía en otra unidad
+        if (cx.asignacionVigente != null && cx.penalidadCambio > 0) {
+            for (ParadaAlg p : r.paradas) {
+                if (p.tipo != TipoParada.ENTREGA) continue;
+                String antes = cx.asignacionVigente.get(p.pedido.id);
+                if (antes != null && !antes.equals(r.unidad.codigo)) e.cambiosDeUnidad++;
+            }
+            e.costo += e.cambiosDeUnidad * cx.penalidadCambio;
+        }
         return e;
     }
 

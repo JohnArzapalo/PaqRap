@@ -587,11 +587,15 @@ class AlgoritmoGenetico {
         String averiada = tramo.get(0).enAveriada;
         RutaAlg mejorRuta = null;
         List<ParadaAlg> mejorPrefijo = null;
-        int mejorAlmacen = -1, mejorDeltaTarde = Integer.MAX_VALUE;
+        int mejorAlmacen = -1, mejorDeltaTarde = Integer.MAX_VALUE, mejorPrevias = -1;
         double mejorDeltaCosto = Double.MAX_VALUE;
         for (UnidadTransporte u : flota) {
             if ((tipo != null && u.tipo != tipo) || u.tipo.capacidadMaxima < carga) continue;
             RutaAlg r = rutaDe.get(u.codigo);
+            // Estabilidad (18.2): entregas del tramo que el plan vigente ya tenía en esta unidad
+            int previas = 0;
+            if (cx.asignacionVigente != null)
+                for (Pedido p : tramo) if (u.codigo.equals(cx.asignacionVigente.get(p.id))) previas++;
             Compartido.EvalRuta antes = Compartido.evaluarRuta(r);
             // Puntos de carga posibles: {prefijo de paradas, índice del almacén (-1 = trasvase)}
             List<List<ParadaAlg>> prefijos = new ArrayList<>();
@@ -623,9 +627,12 @@ class AlgoritmoGenetico {
                 if (!e.factible) continue;
                 int dT = e.tarde - antes.tarde;
                 double dC = e.costo - antes.costo;
-                if (dT < mejorDeltaTarde || (dT == mejorDeltaTarde && dC < mejorDeltaCosto)) {
+                // (H, S) primero; a igualdad exacta, la unidad que ya tenía más entregas del tramo
+                if (dT < mejorDeltaTarde || (dT == mejorDeltaTarde && dC < mejorDeltaCosto)
+                        || (dT == mejorDeltaTarde && dC == mejorDeltaCosto && previas > mejorPrevias)) {
                     mejorDeltaTarde = dT;
                     mejorDeltaCosto = dC;
+                    mejorPrevias = previas;
                     mejorRuta = r;
                     mejorPrefijo = prefijos.get(k);
                     mejorAlmacen = almacenDelPrefijo.get(k);

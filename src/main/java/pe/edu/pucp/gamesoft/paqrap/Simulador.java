@@ -63,6 +63,8 @@ class Simulador {
         MapaVial mapa = null;
         /** Regla para destinos bloqueados (Etapa 17; red.destino_bloqueado). */
         Contexto.ReglaDestino reglaDestino = Contexto.ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
+        /** Soles por entrega que cambia de unidad frente al plan vigente (Etapa 18; 0 = sin penalidad). */
+        double penalidadEstabilidad = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
         boolean almacenesIntermedios = !"no".equalsIgnoreCase(Parametros.texto("almacenes.intermedios", "si"));
         boolean alimentacion = !"no".equalsIgnoreCase(Parametros.texto("turnos.alimentacion", "si"));
         String estrategiaParciales = Parametros.texto("parciales.estrategia", "urgentes");
@@ -543,6 +545,7 @@ class Simulador {
         cx.instanteBaseH = t / 60.0;
         cx.mapa = cfg.mapa;
         cx.reglaDestino = cfg.reglaDestino;
+        cx.penalidadCambio = cfg.penalidadEstabilidad;
         cx.alimentacion = cfg.alimentacion;
         cx.conEstado = true;
         if (cfg.almacenesIntermedios) {
@@ -598,6 +601,8 @@ class Simulador {
 
         Contexto.usar(cx);
         try {
+            // Estabilidad (Etapa 18): el costo de cambiar entregas de unidad se mide contra el plan vigente
+            if (!primerPlan) cx.asignacionVigente = asignacionAnterior;
             cx.planBase = primerPlan ? null : planVigenteReparado(operativas, aPlanificar, disponibles);
             primerPlan = false;
             long semillaCiclo = cfg.semilla * 1_000_003L + ciclo++;

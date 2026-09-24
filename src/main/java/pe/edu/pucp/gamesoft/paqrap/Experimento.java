@@ -42,6 +42,7 @@ import java.util.regex.Pattern;
  *     --mantenimiento mant.preventivo --parciales ninguna|urgentes
  *     --acelerado si|no (SIM_5D/DIA_A_DIA sin esperar) --eventos prefijo.csv
  *     --destino-bloqueado esperar|nodo_vecino|no_evaluable --excluir-destinos-bloqueados si|no
+ *     --penalidad-estabilidad soles (por entrega que cambia de unidad; 0 = sin penalidad)
  *
  * Los valores por defecto salen de config/parametros.properties.
  *
@@ -307,6 +308,7 @@ public class Experimento {
                 case "--acelerado": ExperimentoSimulacion.ACELERADO = !"no".equalsIgnoreCase(valor); break;
                 case "--eventos": ExperimentoSimulacion.PREFIJO_EVENTOS = valor; break;
                 case "--destino-bloqueado": ExperimentoSimulacion.DESTINO_BLOQUEADO = valor; break;
+                case "--penalidad-estabilidad": ExperimentoSimulacion.PENALIDAD_ESTABILIDAD = Double.parseDouble(valor); break;
                 case "--excluir-destinos-bloqueados":
                     ExperimentoSimulacion.EXCLUIR_DESTINOS_BLOQUEADOS = !"no".equalsIgnoreCase(valor);
                     break;
@@ -329,7 +331,8 @@ public class Experimento {
                     throw new IllegalArgumentException("Argumento desconocido: " + clave + ". Válidos: --modo --archivo "
                             + "--replicas --ta --max-evaluaciones --ventanas --instancias --algoritmos --salida "
                             + "--niveles --sa --busqueda-local --escenario --bloqueos --averias --archivo-averias "
-                            + "--mantenimiento --parciales --acelerado --eventos --destino-bloqueado --excluir-destinos-bloqueados");
+                            + "--mantenimiento --parciales --acelerado --eventos --destino-bloqueado --excluir-destinos-bloqueados "
+                            + "--penalidad-estabilidad");
             }
         }
     }

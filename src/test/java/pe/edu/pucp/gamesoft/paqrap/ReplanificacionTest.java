@@ -138,6 +138,29 @@ class ReplanificacionTest {
         }
     }
 
+    /** 18.1: con plan vigente, cada entrega que cambia de unidad suma la penalidad a S (no a H);
+     *  sin plan vigente (contexto por defecto) no hay penalidad. */
+    @Test
+    void penalidadDeEstabilidadSumaASyNoAH() {
+        Pedido n = new Pedido("N", 30, 30, 5, 36);
+        RutaAlg r = new RutaAlg();
+        r.unidad = U2;
+        r.paradas.add(ParadaAlg.entrega(n));
+        double sinPlan = Compartido.evaluarRuta(r).costo;
+
+        Contexto cx = new Contexto();
+        cx.asignacionVigente = java.util.Map.of("N", "TA01");   // el plan vigente la tenía en TA01
+        cx.penalidadCambio = 16;
+        Contexto.usar(cx);
+        Compartido.EvalRuta e = Compartido.evaluarRuta(r);
+        assertEquals(1, e.cambiosDeUnidad);
+        assertEquals(sinPlan + 16, e.costo, 1e-9);
+        assertEquals(0, e.tarde);
+
+        r.unidad = U1;   // en la misma unidad que el plan vigente: sin penalidad
+        assertEquals(0, Compartido.evaluarRuta(r).cambiosDeUnidad);
+    }
+
     /** 10.2: el AG con estado arma varios viajes con RECARGA cuando la carga supera la capacidad. */
     @Test
     void splitConEstadoArmaVariosViajes() {

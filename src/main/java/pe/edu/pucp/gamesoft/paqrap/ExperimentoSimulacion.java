@@ -52,6 +52,7 @@ final class ExperimentoSimulacion {
     static String PREFIJO_EVENTOS = null;
     static String DESTINO_BLOQUEADO = null;          // null = parámetro red.destino_bloqueado
     static boolean EXCLUIR_DESTINOS_BLOQUEADOS = false;   // solo datos sintéticos (Etapa 17.2)
+    static Double PENALIDAD_ESTABILIDAD = null;      // null = parámetro estabilidad.penalidad_por_cambio
 
     private ExperimentoSimulacion() {
     }
@@ -87,6 +88,7 @@ final class ExperimentoSimulacion {
         base.detenerEnColapso = !"no".equalsIgnoreCase(Parametros.texto("sim5d.detener_en_colapso", "si"));
         if (PARCIALES != null) base.estrategiaParciales = PARCIALES;
         if (DESTINO_BLOQUEADO != null) base.reglaDestino = Contexto.ReglaDestino.desde(DESTINO_BLOQUEADO);
+        if (PENALIDAD_ESTABILIDAD != null) base.penalidadEstabilidad = PENALIDAD_ESTABILIDAD;
         base.mapa = "no".equalsIgnoreCase(bloqueos) || "no".equalsIgnoreCase(Parametros.texto("red.bloqueos", "si"))
                 ? null : MapaVial.leer(bloqueos);
         if (ARCHIVO_MANTENIMIENTO != null) base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO);
@@ -184,7 +186,7 @@ final class ExperimentoSimulacion {
                     + "replan_por_evento,planificador_ms_medio,planificador_ms_max,iteraciones_totales,evaluaciones_totales,"
                     + "aplazamientos,cambios_de_unidad,viajes_totales,viajes_por_vehiculo_medio,viajes_por_vehiculo_max,"
                     + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
-                    + "pedidos_inentregables_bloqueo");
+                    + "pedidos_inentregables_bloqueo,penalidad_estabilidad");
             int orden = 0;
             for (Corrida c : corridas) {
                 orden++;
@@ -214,7 +216,7 @@ final class ExperimentoSimulacion {
 
                 out.println(String.format(Locale.US,
                         "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d",
+                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f",
                         orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
                         c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
                         base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), archivoAverias, c.algoritmo,
@@ -227,7 +229,8 @@ final class ExperimentoSimulacion {
                         r.replanificaciones, r.replanPorEvento, r.planificadorMsMedio, r.planificadorMsMax,
                         r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
                         r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
-                        r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo));
+                        r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
+                        cfg.penalidadEstabilidad));
                 out.flush();
                 resumen.computeIfAbsent(c.nivel.nombre + " " + c.algoritmo, k -> new ArrayList<>()).add(r);
                 System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
@@ -269,6 +272,7 @@ final class ExperimentoSimulacion {
         c.alimentacion = b.alimentacion;
         c.estrategiaParciales = b.estrategiaParciales;
         c.reglaDestino = b.reglaDestino;
+        c.penalidadEstabilidad = b.penalidadEstabilidad;
         c.umbralUrgenciaH = b.umbralUrgenciaH;
         c.tamanoParcial = b.tamanoParcial;
         c.averias = b.averias;
