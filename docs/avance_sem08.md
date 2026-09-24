@@ -21,9 +21,51 @@ Cada etapa se cierra con: compilación, todas las pruebas JUnit, un resumen aqu�
 - **17.3** El análisis mantiene la tabla de causas de colapso y agrega el análisis completo repetido sin las corridas con causa "destino bloqueado" (subcarpeta `sin_destino_bloqueado/`); se reportan ambos. Con la corrida de la Etapa 14.2 se excluyen 3 de 6 corridas.
 - **17.4** `DestinoBloqueadoTest` (4 pruebas: esperar, nodo_vecino, no_evaluable frente a esperar en el simulador, y exclusión en el generador). **Total: 51 pruebas, todas pasan.**
 
-<!-- ETAPA18 -->
+## Etapa 18: penalidad de estabilidad
 
-<!-- ETAPA19 -->
+- **18.1** `estabilidad.penalidad_por_cambio = 16` soles por cada entrega que cambia de unidad frente al plan vigente (**SI-16**; argumento `--penalidad-estabilidad`; columna `penalidad_estabilidad`).
+  - Se suma a S dentro de `Compartido.evaluarRuta`, **nunca a H**, así que ninguna entrega a tiempo se sacrifica por estabilidad. Rige en ambos algoritmos porque los dos evalúan con `evaluarRuta`.
+  - Por qué 16 soles: equivale a 2 km en auto (8 soles/km) o a unos 2.7 km en moto. Solo se cambia de unidad si eso ahorra más de unos 2 km de recorrido.
+  - Con 0 se desactiva. En el modo estático y en `Main` no hay plan vigente, así que no influye.
+- **18.2** `AlgoritmoGenetico.asignarTramo`: si dos opciones empatan en tardanzas y costo, se prefiere la unidad que ya tenía más entregas del tramo. Prueba: `ReplanificacionTest.penalidadDeEstabilidadSumaASyNoAH`.
+- **18.3** Medición: 3 réplicas × 3 niveles × 2 algoritmos × penalidad {0, 16}, con Ta = 1000 ms, datos SINTÉTICOS y `red.destino_bloqueado = no_evaluable`.
+  - Salidas en `verificacion_etapas16a21/estabilidad/`.
+  - Las 6 combinaciones de nivel y penalidad corrieron **en paralelo** en la misma PC. Por eso el tiempo de CPU por ciclo fue menor que con la PC libre.
+
+*** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***
+
+| Nivel | Alg. | Penal. | Censuradas | colapso_h (media ± de) | cambios_de_unidad | cambios / 100 entregas | costo_acumulado | costo / pedido |
+|---|---|---|---|---|---|---|---|---|
+| BAJA | TABU | 0 | 3/3 | 720.0 ± 0 | 292.3 | 18.1 | 288 183 | 178.6 |
+| BAJA | TABU | 16 | 3/3 | 720.0 ± 0 | **141.3** | 8.8 | 289 838 | 179.6 |
+| BAJA | AG | 0 | 2/3 | 510.6 ± 362.7 | 1 853.3 | 159.2 | 182 636 | 156.7 |
+| BAJA | AG | 16 | 3/3 | 720.0 ± 0 | **1 043.3** | 64.8 | 263 335 | 163.4 |
+| MEDIA | TABU | 0 | 0/3 | 196.1 ± 41.3 | 45.3 | 6.0 | 145 015 | 186.7 |
+| MEDIA | TABU | 16 | 0/3 | 173.2 ± 64.4 | **36.0** | 5.5 | 126 204 | 186.1 |
+| MEDIA | AG | 0 | 0/3 | 150.3 ± 0 | 1 418.7 | 250.6 | 98 811 | 174.6 |
+| MEDIA | AG | 16 | 0/3 | 150.3 ± 0 | **351.0** | 61.8 | 102 475 | 180.5 |
+| ALTA | TABU | 0 | 0/3 | 147.8 ± 45.9 | 37.0 | 4.7 | 167 064 | 186.3 |
+| ALTA | TABU | 16 | 0/3 | 155.2 ± 8.5 | **28.7** | 3.0 | 177 816 | 185.9 |
+| ALTA | AG | 0 | 0/3 | 129.1 ± 54.9 | 1 192.7 | 159.9 | 142 689 | 184.9 |
+| ALTA | AG | 16 | 0/3 | 175.4 ± 29.2 | **346.0** | 31.3 | 207 056 | 186.7 |
+
+Cómo leer la tabla: `costo_acumulado` depende de cuánto dura la corrida (una corrida que colapsa más tarde recorre más), así que para comparar costos conviene `costo / pedido` entregado.
+
+**Resultados**
+1. **La penalidad reduce mucho la inestabilidad.**
+   - AG: de −44 % (BAJA) a −75 % (MEDIA) en cambios de unidad.
+   - Tabú: de −20 % a −52 %.
+   - El AG sin penalidad reasigna mucho (160 a 250 cambios por cada 100 entregas) porque decodifica cada cromosoma desde cero. Tabú parte del plan vigente con movimientos locales y ya era estable (3 a 18 por cada 100).
+2. **Costo:** el AG gasta algo más por pedido con la penalidad (+3 % en MEDIA, +4 % en BAJA): conserva asignaciones un poco más largas. En Tabú no hay diferencia apreciable.
+3. **Colapso:** no hay un adelanto sistemático.
+   - Con la penalidad, el colapso llega más tarde en ALTA-AG (129 → 175 h) y en BAJA-AG (una corrida colapsaba y ahora ninguna). En ALTA-Tabú (148 → 155 h) y MEDIA-AG (150.3 en ambos) queda igual.
+   - MEDIA-Tabú baja en promedio (196 → 173 h), pero con 3 réplicas y desviaciones de 41 a 64 h no es concluyente. Réplica por réplica: 220 → 150, 220 → 123 y 148 → 246.
+   - **Mecanismo por el que la penalidad podría adelantar el colapso:** H va primero, así que la penalidad nunca acepta una tardanza **en el plan del ciclo**. Pero, entre planes con el mismo H, conserva asignaciones que dejan a las unidades peor ubicadas para los pedidos **futuros**, que el planificador aún no ve. Es un efecto miope que puede aparecer con cargas altas.
+   - Por eso el parámetro queda **configurable** (0 lo desactiva) y se recomienda medirlo en el experimento real con más réplicas.
+4. **Colapsos por "destino bloqueado" pese a `no_evaluable`** (16 de las 24 corridas de ALTA y MEDIA).
+   - Todos se deben a solo tres pedidos (c9862, c4679 y c8269). Un ejemplo: c9862, registrado a las 142.33 h, con plazo de 8 h y destino (51,35) bloqueado de 143.88 a 150.87 h. Había **93 min** para entregarlo antes del bloqueo, así que según SI-15 no es inentregable.
+   - Si ninguna unidad llega en ese margen, con la regla `esperar` llega tarde y la causa es "destino bloqueado". Todo el AG en MEDIA colapsa en ese pedido, por eso su desviación es 0.
+   - Sin esas corridas quedan muy pocas por grupo (1 o 2); la tabla completa está en `tabla_estabilidad.csv`. Queda como pregunta para el equipo si conviene priorizar estos pedidos con ventana corta antes de un bloqueo (ver pendientes).
 
 ## Etapa 20: documentación para defender el código
 
