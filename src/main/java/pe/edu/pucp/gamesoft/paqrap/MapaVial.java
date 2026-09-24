@@ -110,6 +110,21 @@ final class MapaVial {
         return i >= 0 ? i + 1 : -i - 1;
     }
 
+    /** Número de intervalos de estado constante (para validar la red en cada uno). */
+    int numeroIntervalos() {
+        return estados.length;
+    }
+
+    /** Nodos bloqueados en el intervalo i. */
+    BitSet estadoIntervalo(int i) {
+        return estados[i];
+    }
+
+    /** Inicio (h) del intervalo i (el intervalo 0 empieza en -infinito). */
+    double inicioIntervalo(int i) {
+        return i == 0 ? Double.NEGATIVE_INFINITY : cambios[i - 1];
+    }
+
     BitSet bloqueadosEn(double tH) {
         return estados[intervalo(tH)];
     }

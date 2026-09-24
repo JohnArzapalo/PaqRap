@@ -53,6 +53,8 @@ final class ExperimentoSimulacion {
     static String DESTINO_BLOQUEADO = null;          // null = parámetro red.destino_bloqueado
     static boolean EXCLUIR_DESTINOS_BLOQUEADOS = false;   // solo datos sintéticos (Etapa 17.2)
     static Double PENALIDAD_ESTABILIDAD = null;      // null = parámetro estabilidad.penalidad_por_cambio
+    /** Etapa 19.2: calibra un tope de evaluaciones por algoritmo equivalente a Ta en esta PC. */
+    static boolean CALIBRAR_EVALUACIONES = false;
 
     private ExperimentoSimulacion() {
     }
@@ -94,7 +96,8 @@ final class ExperimentoSimulacion {
         if (ARCHIVO_MANTENIMIENTO != null) base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO);
         String salida = Experimento.SALIDA_CSV != null ? Experimento.SALIDA_CSV
                 : "resultados_simulacion" + (sintetico ? "_SINTETICO" : "") + ".csv";
-        String modoParada = base.maxEvaluaciones > 0 ? "evaluaciones" : "tiempo";
+        String modoParada = CALIBRAR_EVALUACIONES ? "evaluaciones_calibradas"
+                : base.maxEvaluaciones > 0 ? "evaluaciones" : "tiempo";
 
         if (sintetico) System.out.println("*** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***");
         System.out.println("=== Modo simulación, escenario " + ESCENARIO + " (pedidos base: " + archivo + ") ===");
@@ -173,6 +176,37 @@ final class ExperimentoSimulacion {
                 }
             }
         Collections.shuffle(corridas, new Random(Experimento.SEMILLA_ORDEN));
+
+        // Trazabilidad (19.1): hash SHA-256 de todos los archivos de entrada
+        Map<String, String> hashes = new LinkedHashMap<>();
+        hashes.put(archivo, sha256(Paths.get(archivo)));
+        if (base.mapa != null) hashes.put(bloqueos, sha256(Paths.get(bloqueos)));
+        if (AVERIAS) hashes.put(ARCHIVO_AVERIAS, sha256(Paths.get(ARCHIVO_AVERIAS)));
+        if (ARCHIVO_MANTENIMIENTO != null) hashes.put(ARCHIVO_MANTENIMIENTO, sha256(Paths.get(ARCHIVO_MANTENIMIENTO)));
+        String config = System.getProperty("paqrap.config", Parametros.RUTA_POR_DEFECTO);
+        if (Files.exists(Paths.get(config))) hashes.put(config, sha256(Paths.get(config)));
+        for (Nivel n : niveles) hashes.put(carpeta.resolve(n.archivoCarga).toString(), sha256(carpeta.resolve(n.archivoCarga)));
+        String pc = System.getenv().getOrDefault("COMPUTERNAME", "desconocida");
+        Path archivoHashes = Paths.get(salida.replaceFirst("[.]csv$", "") + "_hashes.txt");
+        try (PrintWriter h = new PrintWriter(Files.newBufferedWriter(archivoHashes, StandardCharsets.UTF_8))) {
+            h.println("# SHA-256 de los archivos de entrada (compare entre PCs: deben coincidir)");
+            h.println("# PC: " + pc);
+            for (Map.Entry<String, String> e : hashes.entrySet()) h.println(e.getValue() + "  " + e.getKey());
+        }
+        System.out.println("\nHashes de entrada guardados en " + archivoHashes.toAbsolutePath());
+        String hashVentas = hashes.get(archivo), hashBloqueos = base.mapa == null ? "" : hashes.get(bloqueos);
+
+        // Calibración opcional (19.2): tope de evaluaciones por algoritmo equivalente a Ta en esta PC
+        Map<String, Long> topes = new LinkedHashMap<>();
+        if (CALIBRAR_EVALUACIONES) {
+            topes = calibrar(niveles.get(0), flota, base);
+            Path archivoCal = Paths.get(salida.replaceFirst("[.]csv$", "") + "_calibracion.txt");
+            try (PrintWriter c = new PrintWriter(Files.newBufferedWriter(archivoCal, StandardCharsets.UTF_8))) {
+                c.println("# Topes de evaluaciones equivalentes a Ta = " + base.taMs + " ms en la PC " + pc);
+                for (Map.Entry<String, Long> e : topes.entrySet()) c.println(e.getKey() + "=" + e.getValue());
+            }
+            System.out.println("Topes calibrados: " + topes + " (" + archivoCal.toAbsolutePath() + ")");
+        }
         System.out.printf("%n=== Ejecutando %d corridas ===%n", corridas.size());
 
         // 4. Ejecución y registro
@@ -186,12 +220,13 @@ final class ExperimentoSimulacion {
                     + "replan_por_evento,planificador_ms_medio,planificador_ms_max,iteraciones_totales,evaluaciones_totales,"
                     + "aplazamientos,cambios_de_unidad,viajes_totales,viajes_por_vehiculo_medio,viajes_por_vehiculo_max,"
                     + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
-                    + "pedidos_inentregables_bloqueo,penalidad_estabilidad");
+                    + "pedidos_inentregables_bloqueo,penalidad_estabilidad,pc,sha256_ventas,sha256_bloqueos");
             int orden = 0;
             for (Corrida c : corridas) {
                 orden++;
                 Simulador.Config cfg = copiar(base);
                 cfg.semilla = c.semilla;
+                if (CALIBRAR_EVALUACIONES) cfg.maxEvaluaciones = topes.get(c.algoritmo);
                 if (ESCENARIO == Simulador.Escenario.SIM_5D && !ACELERADO)
                     cfg.reloj = Reloj.escalado(5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 30));
                 if (ESCENARIO == Simulador.Escenario.DIA_A_DIA && !ACELERADO) cfg.reloj = Reloj.real();
@@ -216,7 +251,7 @@ final class ExperimentoSimulacion {
 
                 out.println(String.format(Locale.US,
                         "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f",
+                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s",
                         orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
                         c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
                         base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), archivoAverias, c.algoritmo,
@@ -230,7 +265,7 @@ final class ExperimentoSimulacion {
                         r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
                         r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
                         r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
-                        cfg.penalidadEstabilidad));
+                        cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos));
                 out.flush();
                 resumen.computeIfAbsent(c.nivel.nombre + " " + c.algoritmo, k -> new ArrayList<>()).add(r);
                 System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
@@ -257,6 +292,58 @@ final class ExperimentoSimulacion {
         }
         if (sintetico) System.out.println("*** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***");
         System.out.println("\nResultados guardados en: " + Paths.get(salida).toAbsolutePath());
+    }
+
+    /** SHA-256 del archivo, en hexadecimal. */
+    static String sha256(Path archivo) throws IOException {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(archivo));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : d) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Calibración (19.2): cuántas evaluaciones hace cada algoritmo en Ta en ESTA PC,
+     * sobre una instancia representativa del nivel: los pedidos que llegaron el
+     * día 2 entre las 08:00 y las 12:00, planificados a las 12:00 con toda la flota
+     * en el central, con bloqueos, almacenes y alimentación. Se toma la media de 3
+     * corridas por algoritmo. Es una aproximación: el tamaño de la instancia varía
+     * durante la simulación. El modo por tiempo sigue siendo el principal del IEN.
+     */
+    static Map<String, Long> calibrar(Nivel nivel, List<UnidadTransporte> flota, Simulador.Config base) {
+        double instante = 36.0;   // día 2, 12:00
+        List<Pedido> instancia = new ArrayList<>();
+        for (Pedido p : nivel.pedidos)
+            if (p.horaRegistro >= 32.0 && p.horaRegistro < instante) instancia.add(p.copiaRelativa(instante));
+        Map<String, Long> topes = new LinkedHashMap<>();
+        for (String alg : Experimento.ALGORITMOS) {
+            long suma = 0;
+            for (int rep = 1; rep <= 3; rep++) {
+                Contexto cx = new Contexto();
+                cx.conEstado = true;
+                cx.instanteBaseH = instante;
+                cx.mapa = base.mapa;
+                cx.alimentacion = base.alimentacion;
+                cx.reglaDestino = base.reglaDestino;
+                if (base.almacenesIntermedios) {
+                    cx.almacenes.add(new Contexto.AlmacenPlan(Compartido.ALMACEN_NOROESTE, Compartido.STOCK_INTERMEDIO));
+                    cx.almacenes.add(new Contexto.AlmacenPlan(Compartido.ALMACEN_ESTE, Compartido.STOCK_INTERMEDIO));
+                }
+                Planificador p = alg.equals("TABU") ? Planificador.tabu(Experimento.TABU_DURACION)
+                        : Planificador.genetico(Experimento.AG_POBLACION);
+                suma += p.planificar(new Planificador.EstadoPlanificacion(cx, new ArrayList<>(instancia), flota,
+                        base.taMs, 0, rep)).evaluaciones;
+                Contexto.restablecer();
+            }
+            topes.put(alg, Math.max(1, suma / 3));
+        }
+        System.out.println("Calibración sobre " + instancia.size() + " entregas (día 2, 08:00-12:00, nivel "
+                + nivel.nombre + ")");
+        return topes;
     }
 
     private static Simulador.Config copiar(Simulador.Config b) {
