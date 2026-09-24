@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Simulador de eventos discretos con replanificación con estado (Etapas 9 a 13).
@@ -186,6 +188,18 @@ class Simulador {
     private double ultimaReplanEvento = -1;
     private int repeticionesEnInstante = 0;
 
+    // ===== Integración con el visualizador (Etapa 21) =====
+    /** Protege el estado mientras otro hilo arma una instantánea; se libera durante la
+     *  espera del reloj y mientras el planificador trabaja. */
+    private final ReentrantLock cerrojo = new ReentrantLock();
+    /** Averías registradas desde fuera (visualizador): {código de unidad, tipo}. */
+    private final ConcurrentLinkedQueue<Object[]> averiasExternas = new ConcurrentLinkedQueue<>();
+    /** Cambios de velocidad pendientes (se aplican en la siguiente replanificación, P16). */
+    private final ConcurrentLinkedQueue<Object[]> velocidadesPendientes = new ConcurrentLinkedQueue<>();
+    private volatile Thread hilo;
+    private volatile boolean detenerSolicitado;
+    private double tActual = 0;
+
     private Simulador(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador, Config cfg) {
         this.cfg = cfg;
         this.flota = flota;
@@ -209,13 +223,44 @@ class Simulador {
      */
     static Resultado simular(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
                              Config cfg) {
-        Simulador s = new Simulador(pedidos, flota, planificador, cfg);
+        return crear(pedidos, flota, planificador, cfg).ejecutar();
+    }
+
+    /** Crea la simulación sin correrla (para ejecutarla en otro hilo: ServicioSimulacion). */
+    static Simulador crear(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
+                           Config cfg) {
+        return new Simulador(pedidos, flota, planificador, cfg);
+    }
+
+    /** Corre la simulación en el hilo actual hasta el colapso, el horizonte o una detención. */
+    Resultado ejecutar() {
+        hilo = Thread.currentThread();
         try {
-            s.correr();
+            correr();
         } finally {
             Contexto.restablecer();
+            Thread.interrupted();   // limpia una interrupción pendiente
         }
-        return s.res;
+        return res;
+    }
+
+    /** Evento externo (visualizador): avería de la unidad AHORA. Seguro desde otro hilo. */
+    void inyectarAveria(String codigoUnidad, int tipo) {
+        averiasExternas.add(new Object[]{codigoUnidad, tipo});
+        Thread h = hilo;
+        if (h != null) h.interrupt();   // corta la espera del reloj para atenderla ya
+    }
+
+    /** Cambio de velocidad en caliente: se aplica en la siguiente replanificación (P16). */
+    void cambiarVelocidad(TipoUnidad tipo, double kmPorHora) {
+        velocidadesPendientes.add(new Object[]{tipo, kmPorHora});
+    }
+
+    /** Pide terminar la simulación en el próximo instante procesado. */
+    void detener() {
+        detenerSolicitado = true;
+        Thread h = hilo;
+        if (h != null) h.interrupt();
     }
 
     private void correr() {
@@ -229,6 +274,8 @@ class Simulador {
         double proximaReposicion = 1440 - 1.0 / 60;   // 23:59:59
         boolean terminar = false;
 
+        cerrojo.lock();
+        try {
         while (!terminar) {
             // 1. Próximo instante
             double T = Math.min(proximaReplan, fin);
@@ -249,8 +296,27 @@ class Simulador {
             if (prox != null) T = Math.min(T, prox.horaLimite() * 60);
             if (cfg.almacenesIntermedios) T = Math.min(T, proximaReposicion);
             T = Math.max(T, t);
-            cfg.reloj.esperarHasta(T);
+            cerrojo.unlock();   // la instantánea puede leerse mientras se espera
+            boolean completo;
+            try {
+                completo = cfg.reloj.esperarHasta(T);
+            } finally {
+                cerrojo.lock();
+            }
+            if (!completo || !averiasExternas.isEmpty() || detenerSolicitado) {
+                Thread.interrupted();
+                T = Math.max(t, Math.min(T, cfg.reloj.ahora(T)));   // se atiende en el instante real actual
+            }
             t = T;
+            tActual = t;
+            if (detenerSolicitado) {
+                aplicarEventosHasta(t);
+                res.censurada = !colapsoRegistrado;
+                if (res.censurada) res.colapsoMin = t;
+                res.finMin = t;
+                registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "", "simulación detenida desde fuera");
+                break;
+            }
 
             // 2. Eventos de las unidades hasta T (entregas, cargas, trasvases, nodos)
             aplicarEventosHasta(t);
@@ -283,6 +349,10 @@ class Simulador {
             }
             while (iAveria < averias.size() && averias.get(iAveria).tiempoMin <= t) {
                 replanEvento |= aplicarAveria(averias.get(iAveria++), t);
+            }
+            Object[] externa;
+            while ((externa = averiasExternas.poll()) != null) {   // registradas desde el visualizador
+                replanEvento |= aplicarAveria(new Averia(t, (String) externa[0], (Integer) externa[1]), t);
             }
             for (Unidad un : unidades) {
                 if (un.estado != EstadoUnidad.AVERIADA) continue;
@@ -345,7 +415,10 @@ class Simulador {
                 while (proximaReplan <= t) proximaReplan += cfg.saMin;
             }
         }
-        cerrarMetricas();
+        } finally {
+            cerrarMetricas();
+            cerrojo.unlock();
+        }
     }
 
     // ============================ Eventos ============================
@@ -517,6 +590,13 @@ class Simulador {
     // ============================ Replanificación ============================
 
     private void replanificar(double t) {
+        // Cambios de velocidad en caliente: rigen desde esta planificación (P16)
+        Object[] v;
+        while ((v = velocidadesPendientes.poll()) != null) {
+            ((TipoUnidad) v[0]).velocidadPromedio = (Double) v[1];
+            registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
+                    "velocidad de " + v[0] + " = " + v[1] + " km/h");
+        }
         // Llegada de pedidos
         while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= t) {
             Pedido p = porLlegar.get(siguiente++);
@@ -593,12 +673,6 @@ class Simulador {
         aPlanificar.sort(Comparator.comparing(p -> p.id));   // orden estable (reproducible)
         if (aPlanificar.isEmpty() || disponibles.isEmpty()) return;   // nada que cambiar: sigue el plan vigente
 
-        for (Unidad un : operativas) {
-            un.eventos.clear();
-            if (compromiso.containsKey(un)) un.eventos.add(compromiso.get(un));
-            un.encuentroMin = Double.POSITIVE_INFINITY;
-        }
-
         Contexto.usar(cx);
         try {
             // Estabilidad (Etapa 18): el costo de cambiar entregas de unidad se mide contra el plan vigente
@@ -607,8 +681,14 @@ class Simulador {
             primerPlan = false;
             long semillaCiclo = cfg.semilla * 1_000_003L + ciclo++;
             long t0 = System.nanoTime();
-            Planificador.Plan plan = planificador.planificar(new Planificador.EstadoPlanificacion(
-                    cx, aPlanificar, disponibles, cfg.taMs, cfg.maxEvaluaciones, semillaCiclo));
+            Planificador.Plan plan;
+            cerrojo.unlock();   // la instantánea puede leerse mientras el planificador trabaja
+            try {
+                plan = planificador.planificar(new Planificador.EstadoPlanificacion(
+                        cx, aPlanificar, disponibles, cfg.taMs, cfg.maxEvaluaciones, semillaCiclo));
+            } finally {
+                cerrojo.lock();
+            }
             double ms = (System.nanoTime() - t0) / 1e6;
             Contexto.usar(cx);   // el planificador pudo cambiarlo
             res.replanificaciones++;
@@ -617,6 +697,11 @@ class Simulador {
             res.iteracionesTotales += plan.iteraciones;
             res.evaluacionesTotales += plan.evaluaciones;
             res.aplazamientos += plan.sinAsignar.size();
+            for (Unidad un : operativas) {   // se reemplazan las líneas de tiempo por las del plan nuevo
+                un.eventos.clear();
+                if (compromiso.containsKey(un)) un.eventos.add(compromiso.get(un));
+                un.encuentroMin = Double.POSITIVE_INFINITY;
+            }
             comprometer(t, cx, plan, operativas);
             registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
                     aPlanificar.size() + " entregas, " + disponibles.size() + " unidades, "
@@ -897,6 +982,102 @@ class Simulador {
         String pedidos = e.entregas == null ? "" : String.join("|", e.entregas);
         cfg.eventos.println(String.format(Locale.US, "%.2f,%s,%s,%s,%s,%d,%d,%s", e.min, formatear(e.min), e.tipo,
                 unidad, pedidos, e.x, e.y, detalle.replace(',', ';')));
+    }
+
+    // ============================ Instantánea (Etapa 21) ============================
+
+    /**
+     * Estado completo en JSON, en el instante actual, para cualquier visualizador:
+     * reloj simulado y real; semáforo; colapso; almacenes con stock; unidades con
+     * posición, estado, carga, próximas paradas y camino restante; bloqueos
+     * activos; pedidos pendientes y en curso; indicadores. Seguro desde otro hilo.
+     */
+    String instantaneaJson() {
+        cerrojo.lock();
+        try {
+            double t = tActual;
+            EscritorJson j = new EscritorJson().abrirObjeto(null);
+            j.abrirObjeto("reloj").valor("simulado_min", t).valor("simulado", formatear(t))
+             .valor("real_ms", System.currentTimeMillis()).valor("escenario", cfg.escenario.name()).cerrarObjeto();
+            // Semáforo: % de entregas cuyo resultado ya se conoce que llegaron en plazo
+            int enPlazo = 0, conocidas = 0;
+            for (Map.Entry<String, Double> e : entregadaEn.entrySet()) {
+                conocidas++;
+                if (e.getValue() <= entregas.get(e.getKey()).horaLimite() * 60) enPlazo++;
+            }
+            for (String id : vencidas) if (!entregadaEn.containsKey(id)) conocidas++;
+            double pct = conocidas == 0 ? 100.0 : 100.0 * enPlazo / conocidas;
+            String color = pct >= Visualizadorrutas.UMBRAL_VERDE ? "verde" : pct >= Visualizadorrutas.UMBRAL_AMBAR ? "ambar" : "rojo";
+            j.abrirObjeto("semaforo").valor("pct_entregas_en_plazo", pct).valor("color", color)
+             .valor("umbral_verde", Visualizadorrutas.UMBRAL_VERDE).valor("umbral_ambar", Visualizadorrutas.UMBRAL_AMBAR)
+             .cerrarObjeto();
+            j.abrirObjeto("colapso").valor("ocurrio", colapsoRegistrado);
+            if (colapsoRegistrado) j.valor("min", res.colapsoMin).valor("pedido", res.pedidoColapso)
+                    .valor("unidad", res.unidadColapso).valor("causa", res.causaColapso);
+            j.cerrarObjeto();
+            j.abrirArreglo("almacenes");
+            Almacen[] alm = {Compartido.ALMACEN_CENTRAL, Compartido.ALMACEN_NOROESTE, Compartido.ALMACEN_ESTE};
+            for (int i = 0; i < alm.length; i++) {
+                if (i > 0 && !cfg.almacenesIntermedios) continue;
+                j.abrirObjeto(null).valor("codigo", alm[i].codigo).valor("x", alm[i].x).valor("y", alm[i].y)
+                 .valor("stock", stock[i]).cerrarObjeto();   // stock null = infinito (central)
+            }
+            j.cerrarArreglo();
+            j.abrirArreglo("unidades");
+            for (Unidad un : unidades) {
+                int carga = 0;
+                for (String id : un.aBordo) carga += entregas.get(id).cantidad;
+                j.abrirObjeto(null).valor("codigo", un.u.codigo).valor("tipo", un.u.tipo.name())
+                 .valor("estado", un.estado.name()).valor("x", un.x).valor("y", un.y)
+                 .valor("carga", carga).valor("capacidad", un.u.tipo.capacidadMaxima)
+                 .valor("velocidad", un.u.tipo.velocidadPromedio).valor("ocupado_hasta_min", un.ocupadoHasta);
+                j.abrirArreglo("a_bordo");
+                for (String id : un.aBordo) j.valor(null, id);
+                j.cerrarArreglo();
+                j.abrirArreglo("paradas");
+                for (ParadaAlg pa : un.rutaVigente)
+                    j.abrirObjeto(null).valor("tipo", pa.tipo.name()).valor("id", pa.id())
+                     .valor("x", pa.x()).valor("y", pa.y()).cerrarObjeto();
+                j.cerrarArreglo();
+                j.abrirArreglo("camino");
+                for (Evt e : un.eventos) if (e.tipo == Evt.T.NODO) j.punto(e.x, e.y);
+                j.cerrarArreglo();
+                j.cerrarObjeto();
+            }
+            j.cerrarArreglo();
+            j.abrirArreglo("bloqueos_activos");
+            if (cfg.mapa != null) {
+                double h = t / 60.0;
+                for (MapaVial.Bloqueo b : cfg.mapa.bloqueos) {
+                    if (b.inicioH > h || h >= b.finH) continue;
+                    j.abrirObjeto(null).valor("inicio_min", b.inicioH * 60).valor("fin_min", b.finH * 60);
+                    j.abrirArreglo("nodos");
+                    for (int n : b.nodos) j.punto(MapaVial.x(n), MapaVial.y(n));
+                    j.cerrarArreglo().cerrarObjeto();
+                }
+            }
+            j.cerrarArreglo();
+            j.abrirArreglo("pedidos");
+            for (Map.Entry<String, String> e : estado.entrySet()) {
+                String est = e.getValue();
+                if (est.equals("E") || est.equals("X")) continue;
+                Pedido p = entregas.get(e.getKey());
+                String situacion = est.equals("P") ? "pendiente" : est.startsWith("U:") ? "en_curso" : "en_averiada";
+                j.abrirObjeto(null).valor("id", p.id).valor("pedido", p.idOriginal).valor("x", p.x).valor("y", p.y)
+                 .valor("cantidad", p.cantidad).valor("limite_min", p.horaLimite() * 60).valor("estado", situacion)
+                 .valor("unidad", est.length() > 2 ? est.substring(2) : null).valor("vencida", vencidas.contains(p.id))
+                 .cerrarObjeto();
+            }
+            j.cerrarArreglo();
+            j.abrirObjeto("indicadores").valor("entregas_realizadas", entregadaEn.size())
+             .valor("replanificaciones", res.replanificaciones).valor("costo_acumulado", res.costoAcumulado)
+             .valor("km_acumulados", res.kmAcumulados).valor("averias", res.averiasAplicadas)
+             .valor("trasvases", res.trasvases).valor("pedidos_inentregables_bloqueo", res.pedidosInentregablesBloqueo)
+             .cerrarObjeto();
+            return j.cerrarObjeto().toString();
+        } finally {
+            cerrojo.unlock();
+        }
     }
 
     static String formatear(double min) {

@@ -101,18 +101,21 @@ final class Contexto {
         almacenes.add(new AlmacenPlan(Compartido.ALMACEN_CENTRAL, Double.POSITIVE_INFINITY));
     }
 
-    private static Contexto actual = new Contexto();
+    /** Contexto vigente POR HILO (Etapa 21): cada simulación corre en su hilo y el
+     *  planificador se ejecuta en ese mismo hilo, así dos simulaciones no se pisan.
+     *  (Los algoritmos aún tienen estado estático propio: semilla y contadores; ver SI-19.) */
+    private static final ThreadLocal<Contexto> ACTUAL = ThreadLocal.withInitial(Contexto::new);
 
     static Contexto actual() {
-        return actual;
+        return ACTUAL.get();
     }
 
     static void usar(Contexto c) {
-        actual = c;
+        ACTUAL.set(c);
     }
 
     static void restablecer() {
-        actual = new Contexto();
+        ACTUAL.set(new Contexto());
     }
 
     Inicio inicioDe(UnidadTransporte u) {
