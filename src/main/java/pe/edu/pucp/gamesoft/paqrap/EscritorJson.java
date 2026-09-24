@@ -7,6 +7,8 @@ import java.util.Locale;
  * orden: abrir objeto o arreglo, escribir pares clave-valor y cerrar. Pone las
  * comas y escapa las cadenas. Lo usa Simulador.instantaneaJson para la capa
  * de integración con el visualizador, independiente de la tecnología web.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): ninguno propio (la instantánea que escribe se describe en ServicioSimulacion, SI-18 y SI-19).
  */
 final class EscritorJson {
     private final StringBuilder sb = new StringBuilder();

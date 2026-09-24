@@ -25,6 +25,8 @@ import java.util.Random;
  *   horizontales/verticales, de 2 a 12 h, que nunca bloquean un almacén ni
  *   dejan un nodo libre inalcanzable (se verifica con BFS contra todos los
  *   bloqueos que se superponen en el tiempo).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-13 (datos sintéticos, siempre marcados).
  */
 final class GeneradorDatosSinteticos {
 

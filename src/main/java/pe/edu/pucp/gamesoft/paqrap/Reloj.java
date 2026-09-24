@@ -10,6 +10,8 @@ package pe.edu.pucp.gamesoft.paqrap;
  * avería registrada desde el visualizador), el hilo de la simulación se
  * interrumpe, esperarHasta devuelve false y ahora() da el minuto simulado que
  * corresponde al tiempo real transcurrido.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-18 (el evento externo se aplica en el minuto simulado que corresponde al tiempo real).
  */
 interface Reloj {
 

@@ -49,6 +49,12 @@
 | SI-11 | Entregas parciales: estrategia `urgentes` (plazo ≤ 8 h, partes de hasta 8 paquetes). | `Simulador.dividirUrgentes` |
 | SI-12 | Velocidades del enunciado (40 / 25 / 12 km/h), **pendiente de confirmar** frente a la hoja (20 / 40 / 14). | `config/parametros.properties` |
 | SI-13 | Datos sintéticos (pedidos del mes y bloqueos) mientras no estén los oficiales; todas las salidas llevan la marca. | `GeneradorDatosSinteticos`, `docs/datos_sinteticos.md` |
+| SI-14 | `red.destino_bloqueado = nodo_vecino`: si el destino está bloqueado al salir o al llegar, se entrega en el nodo vecino libre más cercano por la red (**supuesto nuestro, por confirmar**). | `Contexto.puntoDeEntrega` |
+| SI-15 | `red.destino_bloqueado = no_evaluable`: un pedido es "inentregable por bloqueo" solo si su destino está bloqueado **durante toda** la ventana [registro, hora límite]; se excluye del colapso y se cuenta en `pedidos_inentregables_bloqueo`. | `MapaVial.bloqueadoDurante`, `Simulador.replanificar` |
+| SI-16 | Estabilidad: cada entrega que cambia de unidad frente al plan vigente suma `estabilidad.penalidad_por_cambio = 16` soles a S (nunca a H), equivalente a 2 km en auto o a 2.7 km en moto. | `Compartido.evaluarRuta`, `AlgoritmoGenetico.asignarTramo` |
+| SI-17 | Calibración de evaluaciones: la instancia de referencia son los pedidos registrados el día 2 de 08:00 a 12:00 del nivel, planificados en la hora 36, con 3 repeticiones por algoritmo con el mismo Ta; el tope es la media entera (truncada) de las evaluaciones. | `ExperimentoSimulacion.calibrar` |
+| SI-18 | Una avería registrada desde el visualizador se aplica en el minuto simulado que corresponde al tiempo real de registro, con la unidad detenida en el último nodo alcanzado; un cambio de velocidad rige desde la siguiente replanificación (P16). | `Simulador.inyectarAveria`, `Reloj.ahora`, `Simulador.cambiarVelocidad` |
+| SI-19 | Una simulación por JVM: el `Contexto` es por hilo, pero los algoritmos guardan estado estático (semilla, contadores) y la velocidad es global por tipo de unidad. | `ServicioSimulacion`, `TipoUnidad` |
 
 ---
 

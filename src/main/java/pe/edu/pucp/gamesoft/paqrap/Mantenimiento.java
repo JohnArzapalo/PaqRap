@@ -18,6 +18,8 @@ import java.util.regex.Pattern;
  * parámetro mantenimiento.horas.TIPO (24 h por defecto, POR CONFIRMAR).
  * El planificador no asigna rutas que terminen después del inicio del
  * mantenimiento (Contexto.Inicio.noDisponibleDesdeH).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-10 (24 h por defecto, en el central; las rutas terminan antes).
  */
 final class Mantenimiento {
     private static final Pattern REGISTRO = Pattern.compile("(\\d{4})(\\d{2})(\\d{2}):(\\w+)");

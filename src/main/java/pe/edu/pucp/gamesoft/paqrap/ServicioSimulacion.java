@@ -19,6 +19,8 @@ import java.util.List;
  * hilo, pero los algoritmos aún guardan estado estático (semilla, contadores)
  * y la velocidad es un dato global del tipo de unidad (SI-19): para correr
  * varios escenarios a la vez, usar un proceso (JVM) por escenario.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-18 (avería externa en el instante actual), SI-19 (una simulación por JVM).
  */
 final class ServicioSimulacion {
 

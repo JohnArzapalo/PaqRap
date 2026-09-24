@@ -30,6 +30,8 @@ import java.util.regex.Pattern;
  *    15:00 a 23:00; permanece en el lugar 4 h y luego pasa al central.
  * Mientras está en el lugar es un almacén temporal (TRASVASE); los paquetes
  * no trasvasados viajan con la unidad al central y vuelven a su stock.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-05 (trasvase 30 min), SI-09 (se detiene en el último nodo; formato provisional), SI-18 (avería externa en el instante actual).
  */
 final class Averia {
     private static final Pattern REGISTRO = Pattern.compile("(\\d+)d(\\d+)h(\\d+)m:(\\w+):([123])");

@@ -16,6 +16,8 @@ import java.util.Set;
  * bloqueos (MapaVial) y alimentación. Con el contexto por defecto
  * reproduce exactamente el modelo anterior (salida del central en la hora 0,
  * Manhattan, regreso al central), que es el que usan Main y el modo estático.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02, SI-03, SI-04, SI-05, SI-07, SI-14, SI-16 (la penalidad de estabilidad va a S, nunca a H).
  */
 class Compartido {
 

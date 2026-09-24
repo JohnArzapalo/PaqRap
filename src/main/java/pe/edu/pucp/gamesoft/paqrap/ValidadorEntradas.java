@@ -27,6 +27,8 @@ import java.util.regex.Pattern;
  *
  * Uso:  java ... ValidadorEntradas --ventas f.txt --bloqueos f.bloqueadas --mantenimiento f
  * Código de salida: 0 si no hay errores; 1 si hay al menos uno.
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula), SI-13 (valida también los datos sintéticos).
  */
 final class ValidadorEntradas {
 

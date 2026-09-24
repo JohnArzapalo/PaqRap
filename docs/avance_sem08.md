@@ -20,3 +20,23 @@ Cada etapa se cierra con: compilación, todas las pruebas JUnit, un resumen aqu�
 - **17.2** `--excluir-destinos-bloqueados si`: `GeneradorCarga` descarta los pedidos sorteados cuyo destino queda bloqueado durante toda su ventana. Solo se aplica si el archivo de ventas es SINTÉTICO; con datos oficiales se avisa y no se filtra. El archivo generado lleva `_sinDestBloq` en el nombre.
 - **17.3** El análisis mantiene la tabla de causas de colapso y agrega el análisis completo repetido sin las corridas con causa "destino bloqueado" (subcarpeta `sin_destino_bloqueado/`); se reportan ambos. Con la corrida de la Etapa 14.2 se excluyen 3 de 6 corridas.
 - **17.4** `DestinoBloqueadoTest` (4 pruebas: esperar, nodo_vecino, no_evaluable frente a esperar en el simulador, y exclusión en el generador). **Total: 51 pruebas, todas pasan.**
+
+<!-- ETAPA18 -->
+
+<!-- ETAPA19 -->
+
+## Etapa 20: documentación para defender el código
+
+- **20.1** `docs/guia_del_codigo.md`:
+  - mapa de clases por módulo;
+  - flujo de una corrida del simulador y de `replanificar` paso a paso, con los nombres de los métodos;
+  - flujo de una llamada a Tabú y al AG con estado;
+  - evaluación de una ruta (`Compartido.evaluarRuta` + `Contexto`);
+  - traza a mano del ejemplo del profesor (`AveriaTest`): avería tipo 1 de TM01 en el minuto 36; TA01 sale del central, trasvasa en (42,14) y entrega a los **111 min** (límite 180). Sin el auto y con avería tipo 2, el colapso ocurre exactamente en el minuto 180 con la causa "a bordo de unidad averiada".
+- **20.2** Diagramas en Mermaid a partir del código real:
+  - `docs/diseno/diagrama_clases.md`: tres vistas (modelo y evaluación; algoritmos; simulador e integración); los atributos y métodos se verificaron contra las fuentes;
+  - `docs/diseno/diagrama_secuencia_replanificacion.md`: un ciclo de `replanificar`, incluida la avería externa y la lectura de la instantánea.
+- **20.3** `docs/modulos_por_integrante.md` (**propuesta**): 6 módulos con un responsable principal y un respaldo. Tabú: Arzapalo + Alcca. AG: Alvarado + Torres. Simulador, mapa, averías y experimento, repartidos entre los cuatro. Cada módulo tiene 5 preguntas del JP con respuestas que citan la clase y el método.
+- **20.4** Cabeceras: todas las clases nuevas desde `v-sem07-referencia` (`Averia`, `Contexto`, `EscritorJson`, `GeneradorDatosSinteticos`, `Hito`, `Mantenimiento`, `MapaVial`, `Reloj`, `ServicioSimulacion`, `ValidadorEntradas`), más `Simulador` y `Compartido`, ya tenían comentario en español con su propósito. Ahora llevan además una línea "Supuestos: SI-xx".
+  - Los supuestos nuevos **SI-14 a SI-19** se agregaron a la tabla de `docs/propuesta_cambios_IEN.md`: nodo vecino, no evaluable, penalidad de estabilidad, instancia de calibración, avería externa y una simulación por JVM.
+- Sin cambios de comportamiento: **60 pruebas, todas pasan.**

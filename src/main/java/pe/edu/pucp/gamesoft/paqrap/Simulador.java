@@ -48,6 +48,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * de cualquier pedido supera su hora límite sin haberse entregado (a bordo,
  * en una unidad averiada o sin asignar). Se registra el pedido, la unidad y
  * la causa, y la simulación termina (salvo SIM_5D con detenerEnColapso = no).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-04, SI-07, SI-08, SI-09, SI-11, SI-15 (inentregables por bloqueo), SI-16 (estabilidad), SI-18 (averías externas), SI-19.
  */
 class Simulador {
 

@@ -15,6 +15,8 @@ import java.util.Map;
  *
  * Base de tiempo: la hora 0 relativa es el instante de planificación
  * (instanteBaseH, en horas absolutas desde el día 1 00:00).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02 (ventana del tramo), SI-03 (espera en destino bloqueado), SI-06 (alimentación), SI-14 (nodo vecino), SI-16 (penalidad de estabilidad), SI-19 (contexto por hilo).
  */
 final class Contexto {
 

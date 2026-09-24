@@ -8,6 +8,8 @@ package pe.edu.pucp.gamesoft.paqrap;
  *  - ENTREGA: llegada a la entrega en inicioH (cuenta para el plazo) y fin del acondicionamiento en finH.
  *  - RECARGA / TRASVASE: carga de "cantidad" paquetes, entre inicioH y finH.
  *  - FIN: la unidad llega al almacén final (queda libre en finH).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-04 (regreso al almacén más cercano), SI-05 (tiempos de carga y trasvase).
  */
 final class Hito {
     enum Tipo { TRAMO, ENTREGA, RECARGA, TRASVASE, FIN }
