@@ -17,7 +17,7 @@ import java.util.Set;
  * reproduce exactamente el modelo anterior (salida del central en la hora 0,
  * Manhattan, regreso al central), que es el que usan Main y el modo estático.
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-02, SI-03, SI-04, SI-05, SI-07, SI-14, SI-16 (la penalidad de estabilidad va a S, nunca a H).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02, SI-03, SI-04, SI-05, SI-07, SI-14, SI-16 (la penalidad de estabilidad va a S, nunca a H), SI-20 (holgura de seguridad, también solo en S).
  */
 class Compartido {
 
@@ -54,6 +54,7 @@ class Compartido {
         double km, costo, finH;   // costo = km × costo/km + penalidad de estabilidad (si hay plan vigente)
         int tarde;
         int cambiosDeUnidad;      // entregas que cambian de unidad frente al plan vigente
+        double faltaHolguraH;     // horas de margen que faltan (entregas a tiempo con margen < holgura)
         boolean factible = true;
         String motivo;
         double[] llegada;     // por parada: llegada (en ENTREGA, cuando se puede atender)
@@ -145,6 +146,8 @@ class Compartido {
                     reloj = cx.esperaDestino(qx, qy, reloj);
                     e.llegada[i] = reloj;
                     if (reloj > ped.horaLimite()) e.tarde++;
+                    else if (cx.conEstado && cx.holguraH > 0 && ped.horaLimite() - reloj < cx.holguraH)
+                        e.faltaHolguraH += cx.holguraH - (ped.horaLimite() - reloj);
                     double fin = cx.avanzar(reloj, HORAS_ENTREGA);
                     if (registro != null) registro.add(new Hito(Hito.Tipo.ENTREGA, reloj, fin, qx, qy, qx, qy, p, p.cantidad));
                     reloj = fin;
@@ -210,6 +213,8 @@ class Compartido {
             }
             e.costo += e.cambiosDeUnidad * cx.penalidadCambio;
         }
+        // Holgura de seguridad (Etapa 22): solo S
+        e.costo += e.faltaHolguraH * cx.penalidadHolgura;
         return e;
     }
 

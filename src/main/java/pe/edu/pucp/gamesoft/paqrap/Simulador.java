@@ -49,7 +49,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * en una unidad averiada o sin asignar). Se registra el pedido, la unidad y
  * la causa, y la simulación termina (salvo SIM_5D con detenerEnColapso = no).
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-04, SI-07, SI-08, SI-09, SI-11, SI-15 (inentregables por bloqueo), SI-16 (estabilidad), SI-18 (averías externas), SI-19.
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-04, SI-07, SI-08, SI-09, SI-11, SI-15 (inentregables por bloqueo), SI-16 (estabilidad), SI-18 (averías externas), SI-19, SI-20 (holgura), SI-21 (tolerancia en el límite), SI-22 (ventana del tramo con alimentación).
  */
 class Simulador {
 
@@ -69,6 +69,11 @@ class Simulador {
         Contexto.ReglaDestino reglaDestino = Contexto.ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
         /** Soles por entrega que cambia de unidad frente al plan vigente (Etapa 18; 0 = sin penalidad). */
         double penalidadEstabilidad = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
+        double holguraMin = Parametros.decimal("plan.holgura_min", 60);
+        /** Minuto absoluto en que empieza la simulación (Etapa 22: ventanas de 5 días que no
+         *  empiezan el día 1). El horizonte se cuenta desde aquí. */
+        double inicioMin = 0;
+        double penalidadHolgura = Parametros.decimal("plan.penalidad_holgura", 200);
         boolean almacenesIntermedios = !"no".equalsIgnoreCase(Parametros.texto("almacenes.intermedios", "si"));
         boolean alimentacion = !"no".equalsIgnoreCase(Parametros.texto("turnos.alimentacion", "si"));
         String estrategiaParciales = Parametros.texto("parciales.estrategia", "urgentes");
@@ -267,13 +272,15 @@ class Simulador {
 
     private void correr() {
         if (cfg.eventos != null) cfg.eventos.println("tiempo_min,dia_hora,evento,unidad,pedido,x,y,detalle");
-        double fin = cfg.horizonte();
-        double t = 0;
-        double proximaReplan = 0;
+        double fin = cfg.inicioMin + cfg.horizonte();
+        double t = cfg.inicioMin;
+        tActual = t;
+        double proximaReplan = t;
         int iAveria = 0;
         List<Averia> averias = new ArrayList<>(cfg.averias);
         averias.sort(Comparator.comparingDouble(a -> a.tiempoMin));
-        double proximaReposicion = 1440 - 1.0 / 60;   // 23:59:59
+        while (iAveria < averias.size() && averias.get(iAveria).tiempoMin < t) iAveria++;   // anteriores al inicio
+        double proximaReposicion = Math.floor(t / 1440) * 1440 + 1440 - 1.0 / 60;   // 23:59:59 del día de inicio
         boolean terminar = false;
 
         cerrojo.lock();
@@ -295,7 +302,7 @@ class Simulador {
                 if (m.finMin > t) T = Math.min(T, m.finMin);
             }
             Pedido prox = siguientePlazo();
-            if (prox != null) T = Math.min(T, prox.horaLimite() * 60);
+            if (prox != null) T = Math.min(T, prox.horaLimite() * 60 + TOLERANCIA_MIN);
             if (cfg.almacenesIntermedios) T = Math.min(T, proximaReposicion);
             T = Math.max(T, t);
             cerrojo.unlock();   // la instantánea puede leerse mientras se espera
@@ -454,7 +461,7 @@ class Simulador {
                     estado.put(id, "E");
                     entregadaEn.put(id, e.min);
                     un.aBordo.remove(id);
-                    if (e.min > entregas.get(id).horaLimite() * 60) res.entregasTarde++;
+                    if (e.min > entregas.get(id).horaLimite() * 60 + TOLERANCIA_MIN) res.entregasTarde++;
                 }
                 un.ocupadoHasta = e.finMin;
                 un.rutaVigente.remove(e.parada);
@@ -521,10 +528,20 @@ class Simulador {
 
     /** true si en t hay (o ya hubo) colapso. Solo el primero se registra; en
      *  SIM_5D sin detención, los siguientes vencimientos se cuentan como tarde. */
+    /** Tolerancia numérica (min): una entrega que llega en el mismo instante que la hora
+     *  límite (salvo error de redondeo en la conversión horas-minutos) cuenta como a tiempo.
+     *  Sin ella, un plan con holgura exactamente 0 colapsaba por 1e-12 min (Etapa 22). */
+    static final double TOLERANCIA_MIN = 1e-6;
+
+    /** true si en el minuto t ya pasó la hora límite (con la tolerancia numérica). */
+    static boolean vencido(double limiteMin, double t) {
+        return limiteMin + TOLERANCIA_MIN <= t;
+    }
+
     private boolean verificarColapso(double t) {
         boolean hay = false;
         Pedido p;
-        while ((p = siguientePlazo()) != null && p.horaLimite() * 60 <= t) {
+        while ((p = siguientePlazo()) != null && vencido(p.horaLimite() * 60, t)) {
             plazos.poll();
             if (!colapsoRegistrado) {
                 colapsoRegistrado = true;
@@ -628,6 +645,8 @@ class Simulador {
         cx.mapa = cfg.mapa;
         cx.reglaDestino = cfg.reglaDestino;
         cx.penalidadCambio = cfg.penalidadEstabilidad;
+        cx.holguraH = cfg.holguraMin / 60.0;
+        cx.penalidadHolgura = cfg.penalidadHolgura;
         cx.alimentacion = cfg.alimentacion;
         cx.conEstado = true;
         if (cfg.almacenesIntermedios) {
@@ -863,7 +882,7 @@ class Simulador {
                     case TRAMO: {
                         // Mismo camino que midió el planificador (distanciaTramo)
                         List<Integer> camino = cx.mapa != null
-                                ? cx.mapa.caminoTramo(h.x1, h.y1, h.x2, h.y2, cx.instanteBaseH + h.inicioH, v)
+                                ? cx.mapa.caminoTramo(h.x1, h.y1, h.x2, h.y2, cx.instanteBaseH + h.inicioH, v, cx.alimentacion)
                                 : caminoManhattan(h.x1, h.y1, h.x2, h.y2);
                         un.eventos.add(new Evt(Evt.T.SALIDA, ini, h.x1, h.y1, List.of(), null, ini, h.x2 * 1000 + h.y2));
                         double anterior = ini;
@@ -965,7 +984,7 @@ class Simulador {
             if (entregado) res.pedidosEntregados++;
             if (entregado || ol[1] <= fin) {
                 res.pedidosEvaluables++;
-                if (entregado && ultima <= ol[1]) res.pedidosEnPlazo++;
+                if (entregado && ultima <= ol[1] + TOLERANCIA_MIN) res.pedidosEnPlazo++;
             }
         }
         res.planificadorMsMedio = res.replanificaciones == 0 ? 0 : sumaMs / res.replanificaciones;

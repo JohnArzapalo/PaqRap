@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  *   abiertos), se usa la distancia Manhattan.
  * - Tiempos en horas absolutas desde el día 1 a las 00:00.
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula y bloqueos), SI-02 (unión de estados en la ventana del tramo), SI-15 (bloqueadoDurante para no_evaluable).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula y bloqueos), SI-02 (unión de estados en la ventana del tramo), SI-15 (bloqueadoDurante para no_evaluable), SI-22 (la ventana incluye las paradas de alimentación).
  */
 final class MapaVial {
 
@@ -166,21 +166,34 @@ final class MapaVial {
      * de la ventana se evita en todo el tramo.
      */
     double distanciaTramo(int x1, int y1, int x2, int y2, double tH, double v) {
-        int[] rango = rangoTramo(x1, y1, x2, y2, tH, v);
+        return distanciaTramo(x1, y1, x2, y2, tH, v, false);
+    }
+
+    /** Igual, pero si hay alimentación la llegada estimada incluye las paradas de
+     *  1 h (03, 11, 19 h) que caen en el viaje: la ventana del tramo es la real
+     *  (Etapa 22; antes una comida a mitad del viaje dejaba fuera un bloqueo que
+     *  empezaba durante ella y la unidad quedaba detenida hasta que terminara). */
+    double distanciaTramo(int x1, int y1, int x2, int y2, double tH, double v, boolean alimentacion) {
+        int[] rango = rangoTramo(x1, y1, x2, y2, tH, v, alimentacion);
         return distancia(x1, y1, x2, y2, rango[0], rango[1]);
     }
 
     /** Camino del tramo (mismo criterio que distanciaTramo), origen y destino incluidos. */
     List<Integer> caminoTramo(int x1, int y1, int x2, int y2, double tH, double v) {
-        int[] rango = rangoTramo(x1, y1, x2, y2, tH, v);
+        return caminoTramo(x1, y1, x2, y2, tH, v, false);
+    }
+
+    List<Integer> caminoTramo(int x1, int y1, int x2, int y2, double tH, double v, boolean alimentacion) {
+        int[] rango = rangoTramo(x1, y1, x2, y2, tH, v, alimentacion);
         return camino(x1, y1, x2, y2, rango[0], rango[1]);
     }
 
-    private int[] rangoTramo(int x1, int y1, int x2, int y2, double tH, double v) {
+    private int[] rangoTramo(int x1, int y1, int x2, int y2, double tH, double v, boolean alimentacion) {
         int i1 = intervalo(tH), i2 = i1;
         double d = distancia(x1, y1, x2, y2, i1, i2);
         for (int k = 0; k < 3; k++) {
-            int nuevo = intervalo(tH + d / v);
+            double llegada = alimentacion ? Contexto.finConAlimentacion(tH, d / v) : tH + d / v;
+            int nuevo = intervalo(llegada);
             if (nuevo <= i2) break;
             i2 = nuevo;
             d = distancia(x1, y1, x2, y2, i1, i2);

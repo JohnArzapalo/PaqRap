@@ -53,6 +53,11 @@ final class ExperimentoSimulacion {
     static String DESTINO_BLOQUEADO = null;          // null = parámetro red.destino_bloqueado
     static boolean EXCLUIR_DESTINOS_BLOQUEADOS = false;   // solo datos sintéticos (Etapa 17.2)
     static Double PENALIDAD_ESTABILIDAD = null;      // null = parámetro estabilidad.penalidad_por_cambio
+    static Double HOLGURA_MIN = null;                // null = parámetro plan.holgura_min (Etapa 22)
+    /** Etapa 22: día del mes en que empieza la simulación (1 = inicio del archivo). Los pedidos
+     *  registrados antes se descartan; el horizonte (p. ej., 5 días en SIM_5D) se cuenta desde ahí. */
+    static int DIA_INICIO = 1;
+    static Double PENALIDAD_HOLGURA = null;          // null = parámetro plan.penalidad_holgura
     /** Etapa 19.2: calibra un tope de evaluaciones por algoritmo equivalente a Ta en esta PC. */
     static boolean CALIBRAR_EVALUACIONES = false;
 
@@ -91,6 +96,9 @@ final class ExperimentoSimulacion {
         if (PARCIALES != null) base.estrategiaParciales = PARCIALES;
         if (DESTINO_BLOQUEADO != null) base.reglaDestino = Contexto.ReglaDestino.desde(DESTINO_BLOQUEADO);
         if (PENALIDAD_ESTABILIDAD != null) base.penalidadEstabilidad = PENALIDAD_ESTABILIDAD;
+        if (HOLGURA_MIN != null) base.holguraMin = HOLGURA_MIN;
+        base.inicioMin = (DIA_INICIO - 1) * 1440.0;
+        if (PENALIDAD_HOLGURA != null) base.penalidadHolgura = PENALIDAD_HOLGURA;
         base.mapa = "no".equalsIgnoreCase(bloqueos) || "no".equalsIgnoreCase(Parametros.texto("red.bloqueos", "si"))
                 ? null : MapaVial.leer(bloqueos);
         if (ARCHIVO_MANTENIMIENTO != null) base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO);
@@ -163,6 +171,29 @@ final class ExperimentoSimulacion {
             System.out.printf(Locale.US, "  %-5s %3.0f%% de C_max = %.0f paquetes/día -> %d pedidos, %d paquetes en %d días (%s)%n",
                     n.nombre, n.fraccion * 100, n.fraccion * cmax, n.originales, n.paquetes, dias, n.archivoCarga);
         }
+        // Nivel ARCHIVO (solo si se pide con --niveles): el archivo de ventas TAL CUAL, sin remuestreo.
+        // Sirve para verificar la condición de 5 días sin colapso con la demanda del propio archivo.
+        if (Experimento.FILTRO_NIVELES != null && Experimento.FILTRO_NIVELES.contains("ARCHIVO")) {
+            Nivel n = new Nivel();
+            n.nombre = "ARCHIVO";
+            n.archivoCarga = Paths.get(archivo).getFileName().toString();
+            // copia en generados/ (como las cargas de los otros niveles) para el registro de hashes
+            Files.copy(Paths.get(archivo), carpeta.resolve(n.archivoCarga), StandardCopyOption.REPLACE_EXISTING);
+            n.pedidos = LectorPedidos.leerAbsoluto(archivo);
+            Set<String> orig = new LinkedHashSet<>();
+            double ultimaHora = 0;
+            for (Pedido p : n.pedidos) {
+                orig.add(p.idOriginal);
+                n.paquetes += p.cantidad;
+                ultimaHora = Math.max(ultimaHora, p.horaRegistro);
+            }
+            n.originales = orig.size();
+            double diasArchivo = Math.max(1, Math.ceil(ultimaHora / 24.0));
+            n.fraccion = n.paquetes / diasArchivo / cmax;
+            niveles.add(n);
+            System.out.printf(Locale.US, "  %-7s archivo tal cual: %.0f paquetes/día (%.0f%% de C_max) -> %d pedidos, %d paquetes%n",
+                    n.nombre, n.paquetes / diasArchivo, n.fraccion * 100, n.originales, n.paquetes);
+        }
 
         // 3. Matriz de corridas, semillas registradas y orden aleatorio
         List<Corrida> corridas = new ArrayList<>();
@@ -220,7 +251,8 @@ final class ExperimentoSimulacion {
                     + "replan_por_evento,planificador_ms_medio,planificador_ms_max,iteraciones_totales,evaluaciones_totales,"
                     + "aplazamientos,cambios_de_unidad,viajes_totales,viajes_por_vehiculo_medio,viajes_por_vehiculo_max,"
                     + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
-                    + "pedidos_inentregables_bloqueo,penalidad_estabilidad,pc,sha256_ventas,sha256_bloqueos");
+                    + "pedidos_inentregables_bloqueo,penalidad_estabilidad,pc,sha256_ventas,sha256_bloqueos,"
+                    + "holgura_min,penalidad_holgura,dia_inicio,horas_desde_inicio");
             int orden = 0;
             for (Corrida c : corridas) {
                 orden++;
@@ -243,7 +275,12 @@ final class ExperimentoSimulacion {
                 long t0 = System.nanoTime();
                 Simulador.Resultado r;
                 try {
-                    r = Simulador.simular(c.nivel.pedidos, flota, plan, cfg);
+                    List<Pedido> pedidosCorrida = c.nivel.pedidos;
+                    if (cfg.inicioMin > 0) {   // ventana que empieza el día DIA_INICIO
+                        pedidosCorrida = new ArrayList<>();
+                        for (Pedido p : c.nivel.pedidos) if (p.horaRegistro * 60 >= cfg.inicioMin) pedidosCorrida.add(p);
+                    }
+                    r = Simulador.simular(pedidosCorrida, flota, plan, cfg);
                 } finally {
                     if (eventos != null) eventos.close();
                 }
@@ -251,7 +288,7 @@ final class ExperimentoSimulacion {
 
                 out.println(String.format(Locale.US,
                         "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s",
+                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s,%.1f,%.1f,%d,%.4f",
                         orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
                         c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
                         base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), archivoAverias, c.algoritmo,
@@ -265,13 +302,14 @@ final class ExperimentoSimulacion {
                         r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
                         r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
                         r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
-                        cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos));
+                        cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos, cfg.holguraMin, cfg.penalidadHolgura,
+                        DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0));
                 out.flush();
                 resumen.computeIfAbsent(c.nivel.nombre + " " + c.algoritmo, k -> new ArrayList<>()).add(r);
-                System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
+                System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h desde el inicio)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
                                 + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)%n", orden, corridas.size(), c.nivel.nombre,
                         c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
-                        r.colapsoMin / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
+                        (r.colapsoMin - cfg.inicioMin) / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
                         r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000);
             }
         }
@@ -360,6 +398,9 @@ final class ExperimentoSimulacion {
         c.estrategiaParciales = b.estrategiaParciales;
         c.reglaDestino = b.reglaDestino;
         c.penalidadEstabilidad = b.penalidadEstabilidad;
+        c.holguraMin = b.holguraMin;
+        c.inicioMin = b.inicioMin;
+        c.penalidadHolgura = b.penalidadHolgura;
         c.umbralUrgenciaH = b.umbralUrgenciaH;
         c.tamanoParcial = b.tamanoParcial;
         c.averias = b.averias;

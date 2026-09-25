@@ -147,7 +147,7 @@ Una sola pasada por las paradas:
    - **TRASVASE:** verifica que la averiada siga en el lugar al terminar (30 min), carga sus entregas y verifica la capacidad.
 5. **Regreso** al almacén más cercano (`almacenMasCercano`).
 6. **Fin:** si pasa del próximo mantenimiento, la ruta es infactible.
-7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad.
+7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad + (en el simulador) horas de margen faltante × penalidad de holgura (Etapa 22: una entrega a tiempo con menos de 60 min de margen es un plan frágil).
 
 `evaluarSolucion` suma las rutas y verifica el stock total por almacén. H = sin asignar + tarde (+ violaciones como resguardo); S = costo.
 

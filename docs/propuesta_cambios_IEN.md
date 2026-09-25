@@ -55,6 +55,9 @@
 | SI-17 | Calibración de evaluaciones: la instancia de referencia son los pedidos registrados el día 2 de 08:00 a 12:00 del nivel, planificados en la hora 36, con 3 repeticiones por algoritmo con el mismo Ta; el tope es la media entera (truncada) de las evaluaciones. | `ExperimentoSimulacion.calibrar` |
 | SI-18 | Una avería registrada desde el visualizador se aplica en el minuto simulado que corresponde al tiempo real de registro, con la unidad detenida en el último nodo alcanzado; un cambio de velocidad rige desde la siguiente replanificación (P16). | `Simulador.inyectarAveria`, `Reloj.ahora`, `Simulador.cambiarVelocidad` |
 | SI-19 | Una simulación por JVM: el `Contexto` es por hilo, pero los algoritmos guardan estado estático (semilla, contadores) y la velocidad es global por tipo de unidad. | `ServicioSimulacion`, `TipoUnidad` |
+| SI-20 | Holgura de seguridad del plan: una entrega planificada a tiempo pero con menos de `plan.holgura_min = 60` min de margen paga `plan.penalidad_holgura = 200` soles por hora de margen faltante, solo en S (nunca en H). Solo rige en el simulador. | `Compartido.evaluarRuta`, `Contexto.holguraH` |
+| SI-21 | Tolerancia numérica de 10⁻⁶ min en el límite: una entrega que llega en el mismo instante que la hora límite cuenta como a tiempo (el colapso se declara solo si el plazo ya pasó). | `Simulador.vencido`, `Simulador.TOLERANCIA_MIN` |
+| SI-22 | La ventana de un tramo (para evitar bloqueos) va de la salida a la llegada estimada **incluyendo** las paradas de alimentación de 1 h que caen en el viaje; planificador y simulador usan la misma ventana. | `MapaVial.distanciaTramo/caminoTramo(..., alimentacion)`, `Contexto.finConAlimentacion` |
 
 ---
 

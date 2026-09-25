@@ -138,3 +138,24 @@ Notas sobre la tabla:
   - nuevas clases `EscritorJson` y `ServicioSimulacion`.
   - `IntegracionTest` tiene 4 pruebas: JSON completo y bien formado, avería externa, cambio de velocidad y servicio en otro hilo con avería en caliente.
 - **Pendiente:** registrar pedidos en vivo (`inyectarPedido`) para DIA_A_DIA, porque el formato no está definido. Varios escenarios en una JVM requieren quitar el estado estático de los algoritmos (SI-19).
+
+## Etapa 22: cinco días sin colapso (requisito prioritario)
+
+Detalle completo, con tablas, en `docs/configuracion_5_dias.md`.
+
+- **Diagnóstico:** con la configuración anterior, SIM_5D colapsaba en ALTA (101 a 104 h) y con el archivo de ventas tal cual (día 1, a las 14.4 h). No era falta de flota; eran cuatro causas:
+  1. un empate numérico en la hora límite;
+  2. planes con margen cero (una bicicleta que llega justo a la hora límite);
+  3. una ventana de tramo que no sumaba la hora de alimentación, de modo que la unidad quedaba detenida por un bloqueo que empezaba mientras comía;
+  4. pedidos imposibles por los datos (destino bloqueado durante todo su plazo).
+- **Cambios:**
+  - `Simulador.TOLERANCIA_MIN` y `vencido()` (SI-21);
+  - holgura de seguridad en S, `plan.holgura_min = 60` y `plan.penalidad_holgura = 200` (SI-20);
+  - `MapaVial.distanciaTramo/caminoTramo(..., alimentacion)` y `Contexto.finConAlimentacion` (SI-22);
+  - `red.destino_bloqueado = no_evaluable` por defecto (antes `esperar`);
+  - nivel `ARCHIVO` (ventas tal cual) y `--dia-inicio N` para simular 5 días desde cualquier día del mes;
+  - columnas nuevas: `holgura_min`, `penalidad_holgura`, `dia_inicio`, `horas_desde_inicio`.
+- **Validación (SINTÉTICO):** **42/42 corridas** llegan a 5 días, con Tabú y AG, en BAJA, MEDIA, ALTA y ARCHIVO (días 1, 8, 15 y 22), 3 réplicas, 100 % de pedidos en plazo.
+- **Costo por pedido:** el AG sale 5.4 % más barato (S/ 162.4 frente a S/ 171.7 de Tabú), pero cambia de unidad unas 10 veces más.
+- **Pruebas:** `CincoDiasTest` tiene 4 pruebas (límite exacto, holgura en S y no en H, preferencia por la unidad con margen, ventana con alimentación). **Total: 64 pruebas, todas pasan.**
+- `Main` sin cambios (708/672/672 y 816/816/816): la holgura solo rige con estado, y la ventana con alimentación solo con mapa.

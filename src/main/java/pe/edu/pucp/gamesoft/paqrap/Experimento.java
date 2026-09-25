@@ -312,6 +312,9 @@ public class Experimento {
                 case "--calibrar-evaluaciones":
                     ExperimentoSimulacion.CALIBRAR_EVALUACIONES = !"no".equalsIgnoreCase(valor);
                     break;
+                case "--dia-inicio": ExperimentoSimulacion.DIA_INICIO = Integer.parseInt(valor); break;
+                case "--holgura-min": ExperimentoSimulacion.HOLGURA_MIN = Double.parseDouble(valor); break;
+                case "--penalidad-holgura": ExperimentoSimulacion.PENALIDAD_HOLGURA = Double.parseDouble(valor); break;
                 case "--penalidad-estabilidad": ExperimentoSimulacion.PENALIDAD_ESTABILIDAD = Double.parseDouble(valor); break;
                 case "--excluir-destinos-bloqueados":
                     ExperimentoSimulacion.EXCLUIR_DESTINOS_BLOQUEADOS = !"no".equalsIgnoreCase(valor);
@@ -336,7 +339,7 @@ public class Experimento {
                             + "--replicas --ta --max-evaluaciones --ventanas --instancias --algoritmos --salida "
                             + "--niveles --sa --busqueda-local --escenario --bloqueos --averias --archivo-averias "
                             + "--mantenimiento --parciales --acelerado --eventos --destino-bloqueado --excluir-destinos-bloqueados "
-                            + "--penalidad-estabilidad --calibrar-evaluaciones");
+                            + "--penalidad-estabilidad --calibrar-evaluaciones --holgura-min --penalidad-holgura --dia-inicio");
             }
         }
     }

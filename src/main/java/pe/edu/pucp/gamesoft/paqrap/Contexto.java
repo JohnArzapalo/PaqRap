@@ -96,6 +96,16 @@ final class Contexto {
      */
     Map<String, String> asignacionVigente = null;
     double penalidadCambio = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
+    /**
+     * Holgura de seguridad (Etapa 22, SI-20): una entrega que el plan hace llegar A TIEMPO
+     * pero con menos de holguraH horas de margen paga penalidadHolgura soles por cada hora
+     * que le falta de margen. Va a S, nunca a H: no cambia qué es "tarde", solo hace que,
+     * entre planes sin tardanzas, se prefieran los que no dejan entregas al filo del plazo
+     * (una bicicleta que llega justo a la hora límite es un plan frágil). Solo rige con
+     * estado (simulador); el modo estático y Main no la usan.
+     */
+    double holguraH = Parametros.decimal("plan.holgura_min", 60) / 60.0;
+    double penalidadHolgura = Parametros.decimal("plan.penalidad_holgura", 200);
     /** Regla para destinos bloqueados (red.destino_bloqueado). */
     ReglaDestino reglaDestino = ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
 
@@ -152,7 +162,7 @@ final class Contexto {
      *  de cada llegada estimada. */
     double distanciaTramo(int x1, int y1, int x2, int y2, double tRelH, double v) {
         if (mapa == null) return Compartido.distancia(x1, y1, x2, y2);
-        return mapa.distanciaTramo(x1, y1, x2, y2, instanteBaseH + tRelH, v);
+        return mapa.distanciaTramo(x1, y1, x2, y2, instanteBaseH + tRelH, v, alimentacion);
     }
 
     /** Hora relativa en que se puede atender un destino al que se llega en t:
@@ -172,7 +182,7 @@ final class Contexto {
     int[] puntoDeEntrega(int px, int py, int x, int y, double tRelH, double v) {
         if (mapa == null || reglaDestino != ReglaDestino.NODO_VECINO) return new int[]{x, y};
         double salida = instanteBaseH + tRelH;
-        double llegada = salida + mapa.distanciaTramo(px, py, x, y, salida, v) / v;
+        double llegada = salida + mapa.distanciaTramo(px, py, x, y, salida, v, alimentacion) / v;
         if (!mapa.bloqueado(x, y, salida) && !mapa.bloqueado(x, y, llegada)) return new int[]{x, y};
         int[] mejor = {x, y};
         double dMin = Double.MAX_VALUE;
@@ -180,7 +190,7 @@ final class Contexto {
         for (int[] n : vecinos) {
             if (n[0] < 0 || n[0] >= MapaVial.ANCHO || n[1] < 0 || n[1] >= MapaVial.ALTO) continue;
             if (mapa.bloqueado(n[0], n[1], salida) || mapa.bloqueado(n[0], n[1], llegada)) continue;
-            double d = mapa.distanciaTramo(px, py, n[0], n[1], salida, v);
+            double d = mapa.distanciaTramo(px, py, n[0], n[1], salida, v, alimentacion);
             if (d < dMin) { dMin = d; mejor = n; }
         }
         return mejor;
@@ -192,13 +202,19 @@ final class Contexto {
      *  la regla de al menos 1 h antes o después del cambio). */
     double avanzar(double tRelH, double duracionH) {
         if (!alimentacion) return tRelH + duracionH;
-        double inicio = instanteBaseH + tRelH, fin = inicio + duracionH;
-        double comida = Math.ceil((inicio - 3) / 8.0) * 8 + 3;   // primera de 03, 11, 19 h >= inicio
+        return finConAlimentacion(instanteBaseH + tRelH, duracionH) - instanteBaseH;
+    }
+
+    /** Hora absoluta en que termina una actividad de duracionH que empieza en inicioH,
+     *  sumando 1 h por cada parada de alimentación (03, 11 y 19 h) que caiga en medio (SI-06). */
+    static double finConAlimentacion(double inicioH, double duracionH) {
+        double fin = inicioH + duracionH;
+        double comida = Math.ceil((inicioH - 3) / 8.0) * 8 + 3;   // primera de 03, 11, 19 h >= inicio
         while (comida < fin) {
             fin += 1;
             comida += 8;
         }
-        return fin - instanteBaseH;
+        return fin;
     }
 
     /** Almacén más cercano (por la red) al punto, para el regreso al final de la ruta. */
