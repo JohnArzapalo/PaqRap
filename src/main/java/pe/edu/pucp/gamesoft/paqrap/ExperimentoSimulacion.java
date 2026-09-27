@@ -71,6 +71,15 @@ final class ExperimentoSimulacion {
      * algoritmos en el orden aleatorio para que ninguno quede en desventaja.
      */
     static int HILOS = 1;
+    /**
+     * Etapa 25: situaciones del experimento. "por_replica" (por defecto): la réplica r de cada
+     * nivel usa su propia muestra de pedidos (semilla de carga distinta), la misma para TABU y AG;
+     * así el % de colapsos resume muchas situaciones y el diseño sigue pareado. "por_nivel": una
+     * sola muestra por nivel para todas las réplicas (diseño anterior a la etapa 25).
+     */
+    static String SITUACIONES = Parametros.texto("experimento.situaciones", "por_replica");
+    /** Etapa 25: niveles a medida (--cargas NOMBRE=fraccion,...), p. ej. para calibrar; null = BAJA, MEDIA, ALTA. */
+    static String CARGAS = null;
 
     private ExperimentoSimulacion() {
     }
@@ -81,17 +90,36 @@ final class ExperimentoSimulacion {
         Simulador.Resultado r;
     }
 
+    /**
+     * Una situación: un conjunto de pedidos (archivo generado o el de ventas tal cual).
+     * TABU y AG corren EXACTAMENTE las mismas situaciones (diseño pareado).
+     */
+    private static class Situacion {
+        long semillaCarga;       // 0 = archivo de ventas tal cual
+        Path ruta;
+        String archivoCarga;
+        int originales, paquetes;
+
+        /** Los pedidos se leen al empezar la corrida (en su hilo), no se guardan todos en memoria. */
+        List<Pedido> pedidos() throws IOException {
+            return LectorPedidos.leerAbsoluto(ruta.toString());
+        }
+    }
+
     private static class Nivel {
         String nombre;
         double fraccion;
-        long semillaCarga;
-        String archivoCarga;
-        List<Pedido> pedidos;
-        int originales, paquetes;
+        /** Con situaciones por réplica, la réplica r usa situaciones.get(r - 1); si no, siempre la única. */
+        final List<Situacion> situaciones = new ArrayList<>();
+
+        Situacion situacion(int replica) {
+            return situaciones.size() == 1 ? situaciones.get(0) : situaciones.get(replica - 1);
+        }
     }
 
     private static class Corrida {
         Nivel nivel;
+        Situacion situacion;
         String algoritmo;
         int replica;
         long semilla;
@@ -167,49 +195,67 @@ final class ExperimentoSimulacion {
             System.out.println("AVISO: --excluir-destinos-bloqueados se ignora con datos oficiales (se usa red.destino_bloqueado)");
         List<Nivel> niveles = new ArrayList<>();
         System.out.println("\n=== Niveles de carga (" + dias + " días; archivos en " + carpeta + ") ===");
-        for (int k = 0; k < NIVELES.length; k++) {
-            if (Experimento.FILTRO_NIVELES != null && !Experimento.FILTRO_NIVELES.contains(NIVELES[k])) continue;
+        // Niveles: BAJA, MEDIA y ALTA (fracciones de parametros.properties) o a medida con --cargas.
+        List<String> nombres = new ArrayList<>();
+        List<Double> fracciones = new ArrayList<>();
+        if (CARGAS != null) {
+            for (String par : CARGAS.split(",")) {
+                String[] nv = par.trim().split("=");
+                nombres.add(nv[0].trim().toUpperCase(Locale.ROOT));
+                fracciones.add(Double.parseDouble(nv[1].trim()));
+            }
+        } else {
+            for (int k = 0; k < NIVELES.length; k++) {
+                nombres.add(NIVELES[k]);
+                fracciones.add(Parametros.decimal("carga.nivel." + NIVELES[k], FRACCION_POR_DEFECTO[k]));
+            }
+        }
+        boolean porReplica = !"por_nivel".equalsIgnoreCase(SITUACIONES);
+        boolean excluir = EXCLUIR_DESTINOS_BLOQUEADOS && ventasSinteticas && base.mapa != null;
+        System.out.println("Situaciones: " + (porReplica
+                ? "una muestra de pedidos por réplica (la misma para TABU y AG)"
+                : "una muestra de pedidos por nivel (todas las réplicas)"));
+        for (int k = 0; k < nombres.size(); k++) {
+            if (Experimento.FILTRO_NIVELES != null && !Experimento.FILTRO_NIVELES.contains(nombres.get(k))) continue;
             Nivel n = new Nivel();
-            n.nombre = NIVELES[k];
-            n.fraccion = Parametros.decimal("carga.nivel." + n.nombre, FRACCION_POR_DEFECTO[k]);
-            n.semillaCarga = semillaBase + k + 1;
-            boolean excluir = EXCLUIR_DESTINOS_BLOQUEADOS && ventasSinteticas && base.mapa != null;
-            Path destino = carpeta.resolve(GeneradorCarga.nombreArchivo(n.nombre, n.fraccion, n.semillaCarga, archivo, excluir));
-            int descartados = GeneradorCarga.generar(registros, n.fraccion * cmax, dias, n.semillaCarga, destino,
-                    excluir ? base.mapa : null);
+            n.nombre = nombres.get(k);
+            n.fraccion = fracciones.get(k);
+            int descartados = 0;
+            for (int r = 1; r <= (porReplica ? Experimento.REPLICAS : 1); r++) {
+                // Semilla de carga: por nivel, semilla_base + k + 1 (como antes de la etapa 25);
+                // por réplica, semilla_base + 1000·(k + 1) + r. Mismas opciones -> mismos archivos en cualquier PC.
+                long semilla = porReplica ? semillaBase + 1000L * (k + 1) + r : semillaBase + k + 1;
+                Path destino = carpeta.resolve(GeneradorCarga.nombreArchivo(n.nombre, n.fraccion, semilla, archivo, excluir));
+                descartados += GeneradorCarga.generar(registros, n.fraccion * cmax, dias, semilla, destino,
+                        excluir ? base.mapa : null);
+                n.situaciones.add(situacion(destino, semilla));
+            }
             if (excluir) System.out.println("  " + n.nombre + ": " + descartados
                     + " pedidos sorteados descartados por destino bloqueado en toda su ventana");
-            n.archivoCarga = destino.getFileName().toString();
-            n.pedidos = LectorPedidos.leerAbsoluto(destino.toString());
-            Set<String> orig = new LinkedHashSet<>();
-            for (Pedido p : n.pedidos) { orig.add(p.idOriginal); n.paquetes += p.cantidad; }
-            n.originales = orig.size();
             niveles.add(n);
-            System.out.printf(Locale.US, "  %-5s %3.0f%% de C_max = %.0f paquetes/día -> %d pedidos, %d paquetes en %d días (%s)%n",
-                    n.nombre, n.fraccion * 100, n.fraccion * cmax, n.originales, n.paquetes, dias, n.archivoCarga);
+            Situacion s1 = n.situaciones.get(0);
+            System.out.printf(Locale.US, "  %-5s %3.0f%% de C_max = %.0f paquetes/día -> %d situación(es) de %d días; la 1.ª: %d pedidos, %d paquetes (%s)%n",
+                    n.nombre, n.fraccion * 100, n.fraccion * cmax, n.situaciones.size(), dias, s1.originales, s1.paquetes,
+                    s1.archivoCarga);
         }
         // Nivel ARCHIVO (solo si se pide con --niveles): el archivo de ventas TAL CUAL, sin remuestreo.
         // Sirve para verificar la condición de 5 días sin colapso con la demanda del propio archivo.
+        // Es una sola situación para todas las réplicas.
         if (Experimento.FILTRO_NIVELES != null && Experimento.FILTRO_NIVELES.contains("ARCHIVO")) {
             Nivel n = new Nivel();
             n.nombre = "ARCHIVO";
-            n.archivoCarga = Paths.get(archivo).getFileName().toString();
             // copia en generados/ (como las cargas de los otros niveles) para el registro de hashes
-            Files.copy(Paths.get(archivo), carpeta.resolve(n.archivoCarga), StandardCopyOption.REPLACE_EXISTING);
-            n.pedidos = LectorPedidos.leerAbsoluto(archivo);
-            Set<String> orig = new LinkedHashSet<>();
+            Path copia = carpeta.resolve(Paths.get(archivo).getFileName());
+            Files.copy(Paths.get(archivo), copia, StandardCopyOption.REPLACE_EXISTING);
+            Situacion s = situacion(copia, 0);
+            n.situaciones.add(s);
             double ultimaHora = 0;
-            for (Pedido p : n.pedidos) {
-                orig.add(p.idOriginal);
-                n.paquetes += p.cantidad;
-                ultimaHora = Math.max(ultimaHora, p.horaRegistro);
-            }
-            n.originales = orig.size();
+            for (Pedido p : s.pedidos()) ultimaHora = Math.max(ultimaHora, p.horaRegistro);
             double diasArchivo = Math.max(1, Math.ceil(ultimaHora / 24.0));
-            n.fraccion = n.paquetes / diasArchivo / cmax;
+            n.fraccion = s.paquetes / diasArchivo / cmax;
             niveles.add(n);
             System.out.printf(Locale.US, "  %-7s archivo tal cual: %.0f paquetes/día (%.0f%% de C_max) -> %d pedidos, %d paquetes%n",
-                    n.nombre, n.paquetes / diasArchivo, n.fraccion * 100, n.originales, n.paquetes);
+                    n.nombre, s.paquetes / diasArchivo, n.fraccion * 100, s.originales, s.paquetes);
         }
 
         // 3. Matriz de corridas, semillas registradas y orden aleatorio
@@ -219,7 +265,8 @@ final class ExperimentoSimulacion {
                 if (Experimento.FILTRO_ALGORITMOS != null && !Experimento.FILTRO_ALGORITMOS.contains(alg)) continue;
                 for (int r = 1; r <= Experimento.REPLICAS; r++) {
                     Corrida c = new Corrida();
-                    c.nivel = n; c.algoritmo = alg; c.replica = r; c.semilla = Experimento.SEMILLA_BASE + r;
+                    c.nivel = n; c.situacion = n.situacion(r);
+                    c.algoritmo = alg; c.replica = r; c.semilla = Experimento.SEMILLA_BASE + r;
                     corridas.add(c);
                 }
             }
@@ -233,7 +280,8 @@ final class ExperimentoSimulacion {
         if (ARCHIVO_MANTENIMIENTO != null) hashes.put(ARCHIVO_MANTENIMIENTO, sha256(Paths.get(ARCHIVO_MANTENIMIENTO)));
         String config = System.getProperty("paqrap.config", Parametros.RUTA_POR_DEFECTO);
         if (Files.exists(Paths.get(config))) hashes.put(config, sha256(Paths.get(config)));
-        for (Nivel n : niveles) hashes.put(carpeta.resolve(n.archivoCarga).toString(), sha256(carpeta.resolve(n.archivoCarga)));
+        for (Nivel n : niveles)
+            for (Situacion s : n.situaciones) hashes.put(s.ruta.toString(), sha256(s.ruta));
         String pc = System.getenv().getOrDefault("COMPUTERNAME", "desconocida");
         Path archivoHashes = Paths.get(salida.replaceFirst("[.]csv$", "") + "_hashes.txt");
         try (PrintWriter h = new PrintWriter(Files.newBufferedWriter(archivoHashes, StandardCharsets.UTF_8))) {
@@ -247,7 +295,7 @@ final class ExperimentoSimulacion {
         // Calibración opcional (19.2): tope de evaluaciones por algoritmo equivalente a Ta en esta PC
         Map<String, Long> topes = new LinkedHashMap<>();
         if (CALIBRAR_EVALUACIONES) {
-            topes = calibrar(niveles.get(0), flota, base);
+            topes = calibrar(niveles.get(0).nombre, niveles.get(0).situaciones.get(0).pedidos(), flota, base);
             Path archivoCal = Paths.get(salida.replaceFirst("[.]csv$", "") + "_calibracion.txt");
             try (PrintWriter c = new PrintWriter(Files.newBufferedWriter(archivoCal, StandardCharsets.UTF_8))) {
                 c.println("# Topes de evaluaciones equivalentes a Ta = " + base.taMs + " ms en la PC " + pc);
@@ -269,7 +317,7 @@ final class ExperimentoSimulacion {
                     + "aplazamientos,cambios_de_unidad,viajes_totales,viajes_por_vehiculo_medio,viajes_por_vehiculo_max,"
                     + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
                     + "pedidos_inentregables_bloqueo,penalidad_estabilidad,pc,sha256_ventas,sha256_bloqueos,"
-                    + "holgura_min,penalidad_holgura,dia_inicio,horas_desde_inicio");
+                    + "holgura_min,penalidad_holgura,dia_inicio,horas_desde_inicio,situaciones,semilla_carga");
             // Etapa 24: sin estado estático, las corridas pueden ir en paralelo (--hilos N), cada
             // una en su hilo. Con N = 1 (por defecto) van una tras otra, como antes. Las filas del
             // CSV se escriben siempre en el orden aleatorio de la matriz, sea cual sea N.
@@ -300,10 +348,10 @@ final class ExperimentoSimulacion {
                     long t0 = System.nanoTime();
                     Simulador.Resultado r;
                     try {
-                        List<Pedido> pedidosCorrida = c.nivel.pedidos;
+                        List<Pedido> todos = c.situacion.pedidos(), pedidosCorrida = todos;
                         if (cfg.inicioMin > 0) {   // ventana que empieza el día DIA_INICIO
                             pedidosCorrida = new ArrayList<>();
-                            for (Pedido p : c.nivel.pedidos) if (p.horaRegistro * 60 >= cfg.inicioMin) pedidosCorrida.add(p);
+                            for (Pedido p : todos) if (p.horaRegistro * 60 >= cfg.inicioMin) pedidosCorrida.add(p);
                         }
                         r = Simulador.simular(pedidosCorrida, flota, plan, cfg);
                     } finally {
@@ -316,13 +364,13 @@ final class ExperimentoSimulacion {
                     fila.r = r;
                     fila.csv = String.format(Locale.US,
                             "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                    + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s,%.1f,%.1f,%d,%.4f",
+                                    + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s,%.1f,%.1f,%d,%.4f,%s,%d",
                             orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
-                            c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
+                            c.situacion.archivoCarga, Paths.get(archivo).getFileName(),
                             base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), averiasCorrida, c.algoritmo,
                             c.replica, c.semilla, modoParada, cfg.taMs, cfg.saMin, cfg.maxEvaluaciones,
                             c.algoritmo.equals("AG") ? (AlgoritmoGenetico.BUSQUEDA_LOCAL ? "si" : "no") : "",
-                            cfg.estrategiaParciales, c.nivel.originales, c.nivel.paquetes, r.colapsoMin, r.colapsoMin / 60.0,
+                            cfg.estrategiaParciales, c.situacion.originales, c.situacion.paquetes, r.colapsoMin, r.colapsoMin / 60.0,
                             r.censurada ? "si" : "no", r.pedidoColapso.replace(',', ';'), r.unidadColapso,
                             r.causaColapso.replace(',', ';'), r.costoAcumulado, r.kmAcumulados, r.pedidosLlegados,
                             r.pedidosEntregados, r.pedidosEvaluables, r.pctPedidosEnPlazo(), r.entregasTarde,
@@ -331,7 +379,8 @@ final class ExperimentoSimulacion {
                             r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
                             r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
                             cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos, cfg.holguraMin, cfg.penalidadHolgura,
-                            DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0);
+                            DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0, porReplica ? "por_replica" : "por_nivel",
+                            c.situacion.semillaCarga);
                     fila.consola = String.format(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h desde el inicio)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
                                     + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)", orden, corridas.size(), c.nivel.nombre,
                             c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
@@ -374,6 +423,18 @@ final class ExperimentoSimulacion {
         System.out.println("\nResultados guardados en: " + Paths.get(salida).toAbsolutePath());
     }
 
+    /** Situación a partir de un archivo de pedidos: cuenta pedidos originales y paquetes. */
+    private static Situacion situacion(Path ruta, long semilla) throws IOException {
+        Situacion s = new Situacion();
+        s.semillaCarga = semilla;
+        s.ruta = ruta;
+        s.archivoCarga = ruta.getFileName().toString();
+        Set<String> orig = new LinkedHashSet<>();
+        for (Pedido p : s.pedidos()) { orig.add(p.idOriginal); s.paquetes += p.cantidad; }
+        s.originales = orig.size();
+        return s;
+    }
+
     /** SHA-256 del archivo, en hexadecimal. */
     static String sha256(Path archivo) throws IOException {
         try {
@@ -394,10 +455,11 @@ final class ExperimentoSimulacion {
      * corridas por algoritmo. Es una aproximación: el tamaño de la instancia varía
      * durante la simulación. El modo por tiempo sigue siendo el principal del IEN.
      */
-    static Map<String, Long> calibrar(Nivel nivel, List<UnidadTransporte> flota, Simulador.Config base) {
+    static Map<String, Long> calibrar(String nombreNivel, List<Pedido> pedidosNivel, List<UnidadTransporte> flota,
+                                      Simulador.Config base) {
         double instante = 36.0;   // día 2, 12:00
         List<Pedido> instancia = new ArrayList<>();
-        for (Pedido p : nivel.pedidos)
+        for (Pedido p : pedidosNivel)
             if (p.horaRegistro >= 32.0 && p.horaRegistro < instante) instancia.add(p.copiaRelativa(instante));
         Map<String, Long> topes = new LinkedHashMap<>();
         for (String alg : Experimento.ALGORITMOS) {
@@ -422,7 +484,7 @@ final class ExperimentoSimulacion {
             topes.put(alg, Math.max(1, suma / 3));
         }
         System.out.println("Calibración sobre " + instancia.size() + " entregas (día 2, 08:00-12:00, nivel "
-                + nivel.nombre + ")");
+                + nombreNivel + ")");
         return topes;
     }
 

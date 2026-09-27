@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15, 23 y 24 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 25 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -148,3 +148,44 @@ Total: **47 pruebas, todas pasan.**
   - **Total: 70 pruebas, todas pasan.**
 - **Cuidado con la parada por tiempo (Ta):** con `--hilos N` los hilos se reparten la CPU, así que cada planificador hace menos trabajo en el mismo Ta. Hay que usar N ≤ núcleos físicos, o la parada por evaluaciones, cuyo resultado no depende de N.
 - **Observación al pasar (SINTETICO, no es resultado):** con solo 300 evaluaciones por ciclo (muy por debajo de Ta = 2 s), Tabú réplica 2 colapsó en BAJA a las 67.9 h por una «llegada tardía (a bordo)». Con poco presupuesto también aparecen colapsos; hay que tenerlo en cuenta al calibrar el experimento del % de colapsos.
+
+## Etapa 25: situaciones por réplica, calibración de la carga y análisis del % de colapsos (SI-24)
+
+- **Diseño (decisión del equipo):** la variable principal es el **% de corridas de SIM_5D con colapso** (indicación del profesor; pregunta 13). En cada nivel, la réplica r es **una situación propia**: una muestra de pedidos con semilla `semilla_base + 1000·(k+1) + r`. TABU y AG corren **exactamente la misma** situación, así que el diseño es pareado. Antes, todas las réplicas de un nivel usaban el mismo archivo, y el porcentaje solo habría medido el azar del algoritmo en una única situación.
+- **Código:**
+  - `ExperimentoSimulacion`: `Situacion` (archivo generado, sus pedidos se leen en el hilo de la corrida); `--situaciones por_replica|por_nivel` (parámetro `experimento.situaciones`, por defecto `por_replica`); `--cargas NOMBRE=fracción,...` para niveles a medida; columnas nuevas `situaciones` y `semilla_carga`; hash de cada situación.
+  - `ejecutar_nivel.bat`: SIM_5D acelerado por defecto (`ESCENARIO=COLAPSO` para el complementario), `--situaciones por_replica`, `HILOS` y `REPLICAS=40`.
+  - `analisis/analisis_experimento.py`:
+    - sección 0 con el % de colapsos por nivel y algoritmo, IC de Clopper-Pearson, pares discordantes y McNemar exacta por nivel y global;
+    - GEE logística con los pares como grupos;
+    - gráfico `pct_colapso.png`;
+    - costo y km **por pedido entregado** (el costo acumulado premiaba al que colapsa antes);
+    - comparaciones secundarias **pareadas** (t pareada o Wilcoxon);
+    - regla: % de colapsos → tiempo hasta el colapso → costo por pedido → estabilidad.
+  - `analisis/potencia.py`: pares necesarios para la McNemar exacta. Usa la fórmula de Connor, corregida con la potencia exacta por enumeración (verificada con Monte Carlo: 0.581 frente a 0.576). Incluye `--tabla` de planificación, estimación combinada con los niveles en transición y el modo anterior `--variable colapso_h`.
+- **Pruebas:** `ExperimentoSimulacionTest` tiene 2 pruebas: por réplica, TABU y AG comparten situación y las réplicas difieren; por nivel, una sola situación. **Total: 72 pruebas, todas pasan.**
+
+**Calibración de la carga (SIM_5D, Ta = 2 s, 6 hilos en 8 núcleos físicos) — SINTETICO, no válido para el informe:**
+
+| Carga (% de C_max = 1 536 paq./día) | Pares | % colapso TABU | % colapso AG | % colapso total | min por corrida |
+|---|---|---|---|---|---|
+| 30 / 60 / 90 % (etapa 22) | 21 | 0 | 0 | 0 % | ~4 |
+| 100 % | 4 | 25 | 50 | 38 % | 4.3 |
+| 105 % | 4 | 50 | 75 | 62 % | 4.4 |
+| 110 % | 4 | 100 | 25 | 62 % | 4.0 |
+| 115 % | 4 | 75 | 75 | 75 % | 3.3 |
+| 120 % a 180 % | 3 c/u | 100 | 100 | 100 % | 1.3 a 2.8 |
+
+CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %), en la carpeta temporal de la sesión (no versionados). Se repiten con `--cargas` (`docs/protocolo_experimento.md` §4).
+
+- **Lectura:**
+  - La zona útil está entre **100 % y 115 % de C_max**. Por debajo, ninguna corrida colapsa en 5 días; por encima, todas.
+  - Con 4 pares por nivel **no hay diferencia significativa** entre algoritmos. Global: solo TABU colapsa en 5 pares, solo AG en 4 (p = 1).
+  - Las causas son «llegada tardía (planificada)» y «(a bordo)». No hubo colapsos por destino bloqueado.
+- **Réplicas necesarias:**
+  - La discordancia combinada es alta (psi = 0.56): si una corrida colapsa depende bastante del azar del algoritmo.
+  - Detectar 20 puntos requiere **118 pares**: 40 réplicas por nivel para la decisión global con 3 niveles, o 118 por nivel para decidir en cada uno.
+  - Tiempo: con 6 hilos, unos 55 min por nivel y PC (40 réplicas).
+- **Pendiente:**
+  - Fijar los tres niveles, con los datos oficiales y según la respuesta a la pregunta 14. Con los sintéticos, la propuesta sería alrededor de 95-100 %, 105 % y 115 % de C_max.
+  - Correr el experimento completo.

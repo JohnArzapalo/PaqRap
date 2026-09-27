@@ -47,7 +47,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 24)
+## 3. Estado del código (etapa 25)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -66,7 +66,8 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - `red.destino_bloqueado=no_evaluable` (SI-15), pendiente de confirmar con el profesor (pregunta 11).
 - **Etapa 23:** hora límite efectiva (SI-23). La holgura se mide hasta el inicio del bloqueo del destino que cubre la hora límite, y la urgencia de los pedidos usa esa hora. Hay 69 pruebas (`docs/avance_sem07.md`).
 - **Etapa 24:** sin estado estático en los algoritmos (SI-19 superado). Cada ejecución es un objeto (`new BusquedaTabu(semilla)`, `new AlgoritmoGenetico(semilla)`), la velocidad cambiada en caliente es por simulación y `--hilos N` corre N simulaciones a la vez con resultados idénticos a correrlas en serie. Hay 70 pruebas.
-- **Supuestos** SI-01 a SI-23 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
+- **Etapa 25:** situaciones por réplica (SI-24): la réplica r de cada nivel es una muestra de pedidos propia, la misma para TABU y AG (diseño pareado). Se agregaron `--cargas` para niveles a medida, el análisis del % de colapsos con McNemar exacta y `potencia.py` para proporciones pareadas. Calibración sintética: la zona útil está entre 100 % y 115 % de C_max (`docs/avance_sem07.md`). Hay 72 pruebas.
+- **Supuestos** SI-01 a SI-24 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
 ## 4. Cómo compilar, probar y ejecutar
@@ -81,36 +82,42 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 ```
 
 - Los parámetros están comentados en `config/parametros.properties`.
-- Experimento hasta el colapso: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga).
+- Experimento: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga). Por defecto corren SIM_5D con situaciones por réplica, `REPLICAS=40` y `HILOS=1`; con `ESCENARIO=COLAPSO` corren hasta el colapso. Pasos completos en `docs/protocolo_experimento.md`.
 - Análisis en Python: `analisis/analisis_experimento.py`, `analisis/potencia.py` y `analisis/unir_csv.py`. Requieren pandas, scipy, matplotlib, statsmodels y lifelines.
 - **Varias simulaciones por proceso** (etapa 24): `--hilos N` las corre en paralelo. Con parada por evaluaciones el resultado no depende de N. Con parada por tiempo (Ta), usar N ≤ núcleos físicos, porque los hilos se reparten la CPU.
 
 ## 5. Diseño del experimento vigente
 
-- **Factores:** algoritmo (TABU, AG) × carga (BAJA 30 %, MEDIA 60 %, ALTA 90 % de C_max; C_max = 1 536 paquetes/día). Los niveles pueden recalibrarse (ver el punto sobre calibración).
+- **Factores:** algoritmo (TABU, AG) × carga. Los niveles del IEN (BAJA 30 %, MEDIA 60 %, ALTA 90 % de C_max; C_max = 1 536 paquetes/día) dan 0 % de colapsos en 5 días, así que hay que **recalibrarlos** (pregunta 14). Con los sintéticos, la zona útil está entre 100 % y 115 % de C_max. Los niveles definitivos se fijan con los datos oficiales (`docs/protocolo_experimento.md` §4).
 - **Variable principal (indicación del profesor): % de corridas con colapso.**
   - Cada corrida da un resultado sí/no. El **horizonte** es el tiempo simulado dentro del cual se mira si hubo colapso; en SIM_5D son **los 5 días**.
-  - Supuesto provisional: la variable principal es el % de corridas de **SIM_5D** que colapsan dentro de los 5 días. Pendiente de confirmar con el profesor (pregunta 13).
+  - **Decisión del equipo:** se usa **SIM_5D**, porque todos trabajan con ese escenario. Falta la confirmación del profesor (pregunta 13).
   - El escenario **hasta el colapso** no sirve para el porcentaje (siempre llega al 100 %), pero da una variable complementaria: **tiempo hasta el colapso**, con censura a los 30 días (Kaplan-Meier y log-rank).
+- **Situaciones por réplica (SI-24):** en cada nivel, la réplica r es una muestra de pedidos propia, y **TABU y AG corren exactamente la misma**: mismos pedidos, bloqueos, flota, almacenes y parámetros. Así el porcentaje resume muchas situaciones y el diseño es pareado.
 - **Calibración de las condiciones:** para que el porcentaje compare algo, las condiciones deben producir colapsos en una parte de las corridas (idealmente entre 20 % y 80 %). Con 0 % en ambos algoritmos no se puede elegir. Si hace falta, se sube la carga o se agregan averías, **igual para ambos algoritmos**.
 - **Regla de destino bloqueado (pregunta 11):** con `no_evaluable`, los pedidos imposibles por bloqueo no cuentan como colapso, lo que cambia directamente el porcentaje. Se reportan aparte y se ajusta la regla según lo que responda el profesor.
-- **Variables secundarias (desempate):**
-  - tiempo hasta el colapso (escenario hasta el colapso);
-  - costo por pedido y km por pedido;
-  - cambios de unidad (estabilidad);
-  - % en plazo;
-  - pedidos no entregables por bloqueo.
-- **Reproducibilidad:** semillas 1000 + r, orden aleatorio de corridas y el mismo archivo de pedidos y bloqueos por nivel. El reparto entre PCs es **por nivel, no por algoritmo**.
-- **Análisis:**
-  - Variable principal: diseño **pareado**, porque TABU y AG corren exactamente las mismas situaciones (misma réplica = misma situación). Se usa la prueba de **McNemar exacta** por nivel de carga y la **regresión logística** con algoritmo × carga. Se reportan los intervalos de confianza de cada porcentaje.
-  - Potencia: las proporciones requieren **muchas más réplicas** que una variable continua (orden de decenas por nivel). El número de réplicas se justifica con `analisis/potencia.py`, adaptado a proporciones pareadas.
-  - Variables secundarias: descriptiva; Shapiro-Wilk y Levene; t de Welch o Mann-Whitney; ANOVA de dos factores o ART; Kaplan-Meier y log-rank para el tiempo hasta el colapso.
+- **Variables secundarias (desempate, en este orden):**
+  - tiempo hasta el colapso;
+  - costo por pedido entregado (no el acumulado, que premia al que colapsa antes);
+  - cambios de unidad (estabilidad).
+  - También se reportan km por pedido, % en plazo y pedidos no entregables por bloqueo.
+- **Reproducibilidad:**
+  - Semillas del algoritmo: 1000 + r. Semilla de la situación: `semilla_base + 1000·(k+1) + r`.
+  - Orden aleatorio de las corridas y hashes de cada archivo de entrada.
+  - El reparto entre PCs es **por nivel, no por algoritmo**.
+- **Análisis** (`analisis/analisis_experimento.py`):
+  - Variable principal: % de colapsos con IC de Clopper-Pearson, **McNemar exacta** por nivel y global sobre los pares discordantes, y regresión logística **GEE** con los pares como grupos.
+  - Variables secundarias: pruebas **pareadas** (t pareada o Wilcoxon) y Kaplan-Meier con log-rank.
+- **Réplicas** (`analisis/potencia.py`, McNemar exacta):
+  - Con los sintéticos, la discordancia es alta (psi = 0.56), así que detectar 20 puntos requiere 118 pares.
+  - Eso equivale a **40 réplicas por nivel** para la decisión global con 3 niveles, o 118 por nivel para decidir en cada uno.
+  - Hay que recalcularlo con los datos oficiales.
 
 ## 6. Próximo trabajo (en orden sugerido)
 
-1. **Hora límite efectiva** (código hecho en la etapa 23; falta verificar SIM_5D y recalcular la potencia): anticipar los bloqueos conocidos del destino. Si el destino se bloquea antes de la hora límite y el bloqueo dura más allá de ella, hay que entregar antes de que empiece. Los bloqueos pueden durar más que el plazo del pedido; para esos casos está la replanificación. Debe hacerse en ambos algoritmos, en el evaluador común `Compartido.evaluarRuta`, sin lógica duplicada. Después, recalcular la potencia y el número de réplicas **para proporciones pareadas** (§5).
+1. **Hora límite efectiva** (hecha en la etapa 23; potencia recalculada en la etapa 25): anticipar los bloqueos conocidos del destino. Si el destino se bloquea antes de la hora límite y el bloqueo dura más allá de ella, hay que entregar antes de que empiece. Los bloqueos pueden durar más que el plazo del pedido; para esos casos está la replanificación. Debe hacerse en ambos algoritmos, en el evaluador común `Compartido.evaluarRuta`, sin lógica duplicada. Después, recalcular la potencia y el número de réplicas **para proporciones pareadas** (§5).
 2. **Quitar el estado estático** (hecho en la etapa 24) de los algoritmos, para correr varias simulaciones en paralelo y los 3 escenarios en un servidor. Es necesario porque el % de colapsos exige muchas réplicas.
-3. **Calibrar las condiciones de SIM_5D** para que haya colapsos en una parte de las corridas (§5), y actualizar `docs/protocolo_experimento.md` y el análisis en Python con la variable principal nueva.
+3. **Calibrar las condiciones de SIM_5D** (herramientas y calibración sintética hechas en la etapa 25; falta repetirla con los datos oficiales y fijar los niveles, pregunta 14) para que haya colapsos en una parte de las corridas (§5), y actualizar `docs/protocolo_experimento.md` y el análisis en Python con la variable principal nueva.
 4. **Experimento comparativo completo** con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
 5. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 6. `inyectarPedido` para el escenario DIA_A_DIA, cuando el equipo defina el formato.

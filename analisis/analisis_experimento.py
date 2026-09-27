@@ -76,12 +76,17 @@ REGLA_ESTATICO = ["pct_pedidos_en_plazo", "S_costo", "tiempo_mejor_ms"]
 VARIABLES_SIMULACION = {
     "colapso_h": ("Tiempo hasta el colapso (h)", True),
     "pct_pedidos_en_plazo": ("% pedidos en plazo", True),
+    "costo_por_pedido": ("Costo por pedido entregado (S/)", False),
+    "km_por_pedido": ("km por pedido entregado", False),
     "costo_acumulado": ("Costo acumulado (S/)", False),
     "planificador_ms_medio": ("Tiempo medio del planificador (ms)", False),
     "cambios_de_unidad": ("Estabilidad: entregas que cambian de unidad", False),
     "pedidos_inentregables_bloqueo": ("Pedidos inentregables por bloqueo (datos)", False),
 }
-REGLA_SIMULACION = ["colapso_h", "pct_pedidos_en_plazo", "costo_acumulado"]
+# Etapa 25 (indicación del profesor): primero el % de corridas con colapso; luego desempatan
+# el tiempo hasta el colapso, el costo por pedido y la estabilidad. Se usa el costo POR PEDIDO:
+# el acumulado es menor en una corrida que colapsa antes, y premiaría al algoritmo que colapsa.
+REGLA_SIMULACION = ["colapso", "colapso_h", "costo_por_pedido", "cambios_de_unidad"]
 
 
 # ============================ utilidades ============================
@@ -425,6 +430,112 @@ def autoprueba():
     return 0 if ok else 1
 
 
+# ===================== diseño pareado (Etapa 25) =====================
+
+def pares(g, var):
+    """Valores de var de TABU y AG alineados por réplica (la réplica r es la misma situación
+    para ambos algoritmos). Devuelve dos arreglos del mismo largo."""
+    t = g[g["algoritmo"] == "TABU"].set_index("replica")[var]
+    a = g[g["algoritmo"] == "AG"].set_index("replica")[var]
+    comun = t.index.intersection(a.index).sort_values()
+    return t.loc[comun].astype(float).values, a.loc[comun].astype(float).values
+
+
+def comparar_pareado(t, a, alfa):
+    """Tabú vs. AG en pares: t pareada si las diferencias son normales; si no, Wilcoxon."""
+    if len(t) == 0:
+        return "sin pares", np.nan
+    d = t - a
+    if es_constante(d) and np.allclose(d, 0):
+        return "iguales (sin diferencias)", 1.0
+    if len(d) < 3:
+        return "n insuficiente", np.nan
+    _, p_norm, nota = shapiro(d)
+    if nota == "" and p_norm > alfa:
+        return "t pareada", stats.ttest_rel(t, a).pvalue
+    return "Wilcoxon (rangos con signo)", stats.wilcoxon(t, a).pvalue
+
+
+def ic_exacto(k, n, alfa):
+    """Intervalo de Clopper-Pearson para una proporción."""
+    if n == 0:
+        return np.nan, np.nan
+    ic = stats.binomtest(int(k), int(n)).proportion_ci(confidence_level=1 - alfa, method="exact")
+    return ic.low, ic.high
+
+
+def mcnemar_exacta(b, c):
+    """p-valor bilateral de McNemar exacta: binomial de b sobre b + c con p = 1/2."""
+    return 1.0 if b + c == 0 else stats.binomtest(int(b), int(b + c), 0.5).pvalue
+
+
+def analizar_colapsos(df, out, alfa):
+    """Variable principal: % de corridas con colapso, TABU vs. AG en pares (McNemar exacta)."""
+    filas, decisiones = [], []
+    b_total = c_total = 0
+    for nivel, g in df.groupby("nivel", sort=False):
+        t, a = pares(g, "colapso")
+        n = len(t)
+        if n == 0:
+            continue
+        ambos = int(((t == 1) & (a == 1)).sum())
+        b = int(((t == 1) & (a == 0)).sum())   # solo TABU colapsa
+        c = int(((t == 0) & (a == 1)).sum())   # solo AG colapsa
+        b_total, c_total = b_total + b, c_total + c
+        p = mcnemar_exacta(b, c)
+        lo_t, hi_t = ic_exacto(t.sum(), n, alfa)
+        lo_a, hi_a = ic_exacto(a.sum(), n, alfa)
+        sig = p < alfa
+        mejor = ("AG" if b > c else "TABU") if sig else "sin diferencia"
+        filas.append({"nivel": nivel, "pares": n,
+                      "%colapso_TABU": t.mean() * 100, "IC_TABU": f"[{lo_t * 100:.0f}, {hi_t * 100:.0f}]",
+                      "%colapso_AG": a.mean() * 100, "IC_AG": f"[{lo_a * 100:.0f}, {hi_a * 100:.0f}]",
+                      "ambos": ambos, "solo_TABU": b, "solo_AG": c, "ninguno": n - ambos - b - c,
+                      "p_McNemar": p, "significativo": "sí" if sig else "no", "mejor": mejor})
+        decisiones.append({"nivel": nivel, "variable": "colapso", "prueba": "McNemar exacta", "p": p,
+                           "mediana_TABU": t.mean() * 100, "mediana_AG": a.mean() * 100,
+                           "dif_rel_medianas_%": np.nan, "significativo": "sí" if sig else "no", "mejor": mejor})
+    if not filas:
+        return decisiones
+    tabla = pd.DataFrame(filas)
+    out.tabla(tabla, "colapsos",
+              "0. Variable principal: % de corridas con colapso (pares TABU/AG en la misma situación)\n\n"
+              "IC: Clopper-Pearson al " + f"{(1 - alfa) * 100:.0f} %. Solo los pares discordantes (solo_TABU, "
+              "solo_AG) informan la diferencia; la prueba es McNemar exacta (binomial de solo_TABU sobre "
+              "solo_TABU + solo_AG con p = 1/2).")
+    p_global = mcnemar_exacta(b_total, c_total)
+    sig = p_global < alfa
+    mejor = ("AG" if b_total > c_total else "TABU") if sig else "sin diferencia significativa"
+    out.texto(f"**Global (todos los niveles, McNemar exacta sobre los pares discordantes sumados):** "
+              f"solo TABU colapsa en {b_total} pares, solo AG en {c_total}; p = {p_global:.4g} → **{mejor}**.\n")
+    if HAY_STATSMODELS and df["colapso"].nunique() > 1 and df["nivel"].nunique() > 1:
+        try:
+            # GEE binomial con los pares como grupos: efecto del algoritmo ajustado por nivel,
+            # respetando la correlación dentro del par (misma situación)
+            d = df.assign(par=df["nivel"].astype(str) + "_" + df["replica"].astype(str))
+            m = smf.gee("colapso ~ C(algoritmo, Treatment('AG')) + C(nivel)", groups="par", data=d,
+                        family=sm.families.Binomial(), cov_struct=sm.cov_struct.Exchangeable()).fit()
+            coef = [k for k in m.params.index if k.startswith("C(algoritmo")][0]
+            out.texto(f"**Regresión logística GEE (pares como grupos), colapso ~ algoritmo + nivel:** "
+                      f"odds ratio TABU/AG = {np.exp(m.params[coef]):.3g}, p = {m.pvalues[coef]:.4g}.\n")
+        except Exception as e:   # separación perfecta (niveles con 0 % o 100 %), pocos datos, etc.
+            out.texto(f"Regresión logística GEE no aplicable con estos datos ({type(e).__name__}).\n")
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    x = np.arange(len(tabla))
+    for k, (alg, col) in enumerate([("TABU", "%colapso_TABU"), ("AG", "%colapso_AG")]):
+        vals = tabla[col].values
+        ics = [ic_exacto(round(v / 100 * n), n, alfa) for v, n in zip(vals, tabla["pares"])]
+        err = np.array([[v - lo * 100 for v, (lo, _) in zip(vals, ics)], [hi * 100 - v for v, (_, hi) in zip(vals, ics)]])
+        ax.bar(x + (k - 0.5) * 0.38, vals, 0.38, yerr=err, capsize=4, label=alg)
+    ax.set_xticks(x)
+    ax.set_xticklabels(tabla["nivel"])
+    ax.set_ylabel("% de corridas con colapso")
+    ax.set_ylim(0, 105)
+    ax.legend()
+    out.figura(fig, "pct_colapso.png", "% de corridas con colapso por nivel (IC exacto)")
+    return decisiones
+
+
 # ============================ análisis por modo ============================
 
 def analizar_estatico(df, out, alfa):
@@ -479,9 +590,24 @@ def analizar_simulacion(df, out, alfa):
     df["_orden"] = df["nivel"].map(orden).fillna(9)
     df = df.sort_values(["_orden", "algoritmo"]).drop(columns="_orden")
     df["evento"] = df["censurada"] != "si"
+    df["colapso"] = df["evento"].astype(int)
+    entregados = df["pedidos_entregados"].replace(0, np.nan)
+    df["costo_por_pedido"] = df["costo_acumulado"] / entregados
+    df["km_por_pedido"] = df["km_acumulados"] / entregados
     n_cens = int((~df["evento"]).sum())
 
+    # Diseño pareado: la réplica r de un nivel debe ser la MISMA situación para TABU y AG
+    if "semilla_carga" in df.columns:
+        distintas = df.groupby(["nivel", "replica"])["semilla_carga"].nunique()
+        if (distintas > 1).any():
+            out.texto("**ADVERTENCIA:** hay pares (nivel, réplica) con situaciones distintas para TABU y AG; "
+                      "el análisis pareado no es válido para ellos.\n")
+        if "situaciones" in df.columns:
+            out.texto(f"- Situaciones: {', '.join(sorted(df['situaciones'].astype(str).unique()))} "
+                      f"(por_replica: cada réplica es una muestra de pedidos distinta, la misma para ambos algoritmos).\n")
+
     variables = {k: v for k, v in VARIABLES_SIMULACION.items() if k in df.columns}
+    filas = analizar_colapsos(df, out, alfa)
     out.tabla(descriptiva(df, "nivel", variables), "descriptiva",
               "1. Estadística descriptiva por nivel y algoritmo")
     out.texto(f"Corridas censuradas (sin colapso en el horizonte): {n_cens} de {len(df)}.\n")
@@ -491,7 +617,6 @@ def analizar_simulacion(df, out, alfa):
         if not causas.empty:
             out.tabla(causas, "causas_colapso", "1b. Causas de colapso por nivel y algoritmo")
 
-    filas = []
     if n_cens == 0:
         out.texto("## 2. Sin censuradas: ANOVA de dos factores sobre el tiempo hasta el colapso\n")
         tabla, supuestos = analizar_anova(df, "colapso_h", alfa, "nivel")
@@ -540,13 +665,13 @@ def analizar_simulacion(df, out, alfa):
         for var, (_, mayor_mejor) in variables.items():
             if var == "colapso_h" and n_cens > 0:
                 continue
-            t = g[g["algoritmo"] == "TABU"][var].astype(float).values
-            a = g[g["algoritmo"] == "AG"][var].astype(float).values
-            prueba, p = comparar(t, a, alfa)
+            t, a = pares(g, var)   # pares por réplica: la misma situación para ambos
+            prueba, p = comparar_pareado(t, a, alfa)
             filas.append(fila_comparacion("nivel", nivel, var, t, a, prueba, p, alfa, mayor_mejor))
-    out.tabla(pd.DataFrame(filas), "comparaciones", "3. Tabú vs. AG por nivel")
+    out.tabla(pd.DataFrame(filas), "comparaciones",
+              "3. Tabú vs. AG por nivel (en pares: t pareada si las diferencias son normales; si no, Wilcoxon)")
     out.tabla(decidir(filas, "nivel", REGLA_SIMULACION), "decision",
-              "4. Regla de decisión (tiempo hasta el colapso -> % en plazo -> costo acumulado)")
+              "4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> costo por pedido -> estabilidad)")
     cajas(df, "nivel", variables, out)
 
 

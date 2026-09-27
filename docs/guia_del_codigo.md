@@ -56,7 +56,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 | Clase | Responsabilidad |
 |---|---|
 | `Experimento` | Punto de entrada del experimento. Modo estático (ventanas) y lectura de argumentos. |
-| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). |
+| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). Situaciones por réplica (`--situaciones por_replica`, por defecto): la réplica r de cada nivel usa su propia muestra de pedidos, la misma para TABU y AG; `--cargas NOMBRE=fracción` define niveles a medida (etapa 25). |
 | `CapacidadFlota` | C_max = Σ n·q·⌊21/t⌋. |
 | `GeneradorCarga` | Pedidos por nivel (bootstrap del archivo base, semilla fija). |
 | `GeneradorDatosSinteticos` | Pedidos y bloqueos sintéticos del mes. |

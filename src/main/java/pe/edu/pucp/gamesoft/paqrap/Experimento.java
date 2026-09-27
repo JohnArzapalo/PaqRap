@@ -45,6 +45,8 @@ import java.util.regex.Pattern;
  *     --penalidad-estabilidad soles (por entrega que cambia de unidad; 0 = sin penalidad)
  *     --calibrar-evaluaciones si (fija un tope de evaluaciones por algoritmo equivalente a Ta)
  *     --hilos N (corridas simultáneas en este proceso; 1 por defecto; Etapa 24)
+ *     --situaciones por_replica|por_nivel (una muestra de pedidos por réplica o por nivel; Etapa 25)
+ *     --cargas NOMBRE=fraccion,... (niveles a medida, p. ej. C100=1.0,C120=1.2; Etapa 25)
  *
  * Los valores por defecto salen de config/parametros.properties.
  *
@@ -315,6 +317,8 @@ public class Experimento {
                     break;
                 case "--dia-inicio": ExperimentoSimulacion.DIA_INICIO = Integer.parseInt(valor); break;
                 case "--hilos": ExperimentoSimulacion.HILOS = Integer.parseInt(valor); break;
+                case "--situaciones": ExperimentoSimulacion.SITUACIONES = valor; break;
+                case "--cargas": ExperimentoSimulacion.CARGAS = valor; break;
                 case "--holgura-min": ExperimentoSimulacion.HOLGURA_MIN = Double.parseDouble(valor); break;
                 case "--penalidad-holgura": ExperimentoSimulacion.PENALIDAD_HOLGURA = Double.parseDouble(valor); break;
                 case "--penalidad-estabilidad": ExperimentoSimulacion.PENALIDAD_ESTABILIDAD = Double.parseDouble(valor); break;
