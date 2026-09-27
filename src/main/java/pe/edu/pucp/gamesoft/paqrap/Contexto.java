@@ -1,6 +1,7 @@
 package pe.edu.pucp.gamesoft.paqrap;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +107,18 @@ final class Contexto {
      */
     double holguraH = Parametros.decimal("plan.holgura_min", 60) / 60.0;
     double penalidadHolgura = Parametros.decimal("plan.penalidad_holgura", 200);
+    /**
+     * Velocidades cambiadas en caliente en ESTA simulación (P16; Etapa 24). Un tipo que
+     * no aparece usa su velocidad configurada (TipoUnidad.velocidadPromedio). Antes el
+     * cambio modificaba el enum y afectaba a todas las simulaciones del proceso.
+     */
+    final Map<TipoUnidad, Double> velocidades = new EnumMap<>(TipoUnidad.class);
+
+    /** Velocidad (km/h) del tipo de unidad en este contexto. */
+    double velocidad(TipoUnidad t) {
+        return velocidades.getOrDefault(t, t.velocidadPromedio);
+    }
+
     /** Regla para destinos bloqueados (red.destino_bloqueado). */
     ReglaDestino reglaDestino = ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
 

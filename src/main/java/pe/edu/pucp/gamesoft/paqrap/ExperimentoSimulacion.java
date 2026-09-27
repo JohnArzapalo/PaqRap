@@ -16,6 +16,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Modo SIMULACIÓN del experimento (Etapa 14, alineado con el profesor):
@@ -60,8 +64,21 @@ final class ExperimentoSimulacion {
     static Double PENALIDAD_HOLGURA = null;          // null = parámetro plan.penalidad_holgura
     /** Etapa 19.2: calibra un tope de evaluaciones por algoritmo equivalente a Ta en esta PC. */
     static boolean CALIBRAR_EVALUACIONES = false;
+    /**
+     * Etapa 24: corridas simultáneas en este proceso (--hilos N; 1 = una tras otra).
+     * Con parada por evaluaciones el resultado es idéntico con cualquier N. Con parada por
+     * tiempo (Ta), los hilos se reparten la CPU: usar N ≤ núcleos físicos, y mezclar
+     * algoritmos en el orden aleatorio para que ninguno quede en desventaja.
+     */
+    static int HILOS = 1;
 
     private ExperimentoSimulacion() {
+    }
+
+    /** Resultado de una corrida, listo para escribirse en el CSV y en la consola. */
+    private static class Fila {
+        String nombre, csv, consola;
+        Simulador.Resultado r;
     }
 
     private static class Nivel {
@@ -253,64 +270,89 @@ final class ExperimentoSimulacion {
                     + "bloqueos_encontrados,averias_aplicadas,trasvases,parciales_creadas,tiempo_real_ms,regla_destino,"
                     + "pedidos_inentregables_bloqueo,penalidad_estabilidad,pc,sha256_ventas,sha256_bloqueos,"
                     + "holgura_min,penalidad_holgura,dia_inicio,horas_desde_inicio");
-            int orden = 0;
-            for (Corrida c : corridas) {
-                orden++;
-                Simulador.Config cfg = copiar(base);
-                cfg.semilla = c.semilla;
-                if (CALIBRAR_EVALUACIONES) cfg.maxEvaluaciones = topes.get(c.algoritmo);
-                if (ESCENARIO == Simulador.Escenario.SIM_5D && !ACELERADO)
-                    cfg.reloj = Reloj.escalado(5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 30));
-                if (ESCENARIO == Simulador.Escenario.DIA_A_DIA && !ACELERADO) cfg.reloj = Reloj.real();
-                PrintWriter eventos = null;
-                if (PREFIJO_EVENTOS != null) {
-                    String nombre = PREFIJO_EVENTOS.replaceFirst("\\.csv$", "") + "_" + c.nivel.nombre + "_"
-                            + c.algoritmo + "_r" + c.replica + (sintetico ? "_SINTETICO" : "") + ".csv";
-                    eventos = new PrintWriter(Files.newBufferedWriter(Paths.get(nombre), StandardCharsets.UTF_8));
-                    cfg.eventos = eventos;
-                }
-                Planificador plan = c.algoritmo.equals("TABU")
-                        ? Planificador.tabu(Experimento.TABU_DURACION)
-                        : Planificador.genetico(Experimento.AG_POBLACION);
-                long t0 = System.nanoTime();
-                Simulador.Resultado r;
-                try {
-                    List<Pedido> pedidosCorrida = c.nivel.pedidos;
-                    if (cfg.inicioMin > 0) {   // ventana que empieza el día DIA_INICIO
-                        pedidosCorrida = new ArrayList<>();
-                        for (Pedido p : c.nivel.pedidos) if (p.horaRegistro * 60 >= cfg.inicioMin) pedidosCorrida.add(p);
+            // Etapa 24: sin estado estático, las corridas pueden ir en paralelo (--hilos N), cada
+            // una en su hilo. Con N = 1 (por defecto) van una tras otra, como antes. Las filas del
+            // CSV se escriben siempre en el orden aleatorio de la matriz, sea cual sea N.
+            final Map<String, Long> topesCorrida = topes;
+            final String averiasCorrida = archivoAverias;
+            ExecutorService hilos = Executors.newFixedThreadPool(Math.max(1, HILOS));
+            List<Future<Fila>> filas = new ArrayList<>();
+            for (int i = 0; i < corridas.size(); i++) {
+                final int orden = i + 1;
+                final Corrida c = corridas.get(i);
+                filas.add(hilos.submit(() -> {
+                    Simulador.Config cfg = copiar(base);
+                    cfg.semilla = c.semilla;
+                    if (CALIBRAR_EVALUACIONES) cfg.maxEvaluaciones = topesCorrida.get(c.algoritmo);
+                    if (ESCENARIO == Simulador.Escenario.SIM_5D && !ACELERADO)
+                        cfg.reloj = Reloj.escalado(5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 30));
+                    if (ESCENARIO == Simulador.Escenario.DIA_A_DIA && !ACELERADO) cfg.reloj = Reloj.real();
+                    PrintWriter eventos = null;
+                    if (PREFIJO_EVENTOS != null) {
+                        String nombre = PREFIJO_EVENTOS.replaceFirst("\\.csv$", "") + "_" + c.nivel.nombre + "_"
+                                + c.algoritmo + "_r" + c.replica + (sintetico ? "_SINTETICO" : "") + ".csv";
+                        eventos = new PrintWriter(Files.newBufferedWriter(Paths.get(nombre), StandardCharsets.UTF_8));
+                        cfg.eventos = eventos;
                     }
-                    r = Simulador.simular(pedidosCorrida, flota, plan, cfg);
-                } finally {
-                    if (eventos != null) eventos.close();
+                    Planificador plan = c.algoritmo.equals("TABU")
+                            ? Planificador.tabu(Experimento.TABU_DURACION)
+                            : Planificador.genetico(Experimento.AG_POBLACION);
+                    long t0 = System.nanoTime();
+                    Simulador.Resultado r;
+                    try {
+                        List<Pedido> pedidosCorrida = c.nivel.pedidos;
+                        if (cfg.inicioMin > 0) {   // ventana que empieza el día DIA_INICIO
+                            pedidosCorrida = new ArrayList<>();
+                            for (Pedido p : c.nivel.pedidos) if (p.horaRegistro * 60 >= cfg.inicioMin) pedidosCorrida.add(p);
+                        }
+                        r = Simulador.simular(pedidosCorrida, flota, plan, cfg);
+                    } finally {
+                        if (eventos != null) eventos.close();
+                    }
+                    long ms = (System.nanoTime() - t0) / 1_000_000;
+    
+                    Fila fila = new Fila();
+                    fila.nombre = c.nivel.nombre + " " + c.algoritmo;
+                    fila.r = r;
+                    fila.csv = String.format(Locale.US,
+                            "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
+                                    + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s,%.1f,%.1f,%d,%.4f",
+                            orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
+                            c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
+                            base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), averiasCorrida, c.algoritmo,
+                            c.replica, c.semilla, modoParada, cfg.taMs, cfg.saMin, cfg.maxEvaluaciones,
+                            c.algoritmo.equals("AG") ? (AlgoritmoGenetico.BUSQUEDA_LOCAL ? "si" : "no") : "",
+                            cfg.estrategiaParciales, c.nivel.originales, c.nivel.paquetes, r.colapsoMin, r.colapsoMin / 60.0,
+                            r.censurada ? "si" : "no", r.pedidoColapso.replace(',', ';'), r.unidadColapso,
+                            r.causaColapso.replace(',', ';'), r.costoAcumulado, r.kmAcumulados, r.pedidosLlegados,
+                            r.pedidosEntregados, r.pedidosEvaluables, r.pctPedidosEnPlazo(), r.entregasTarde,
+                            r.replanificaciones, r.replanPorEvento, r.planificadorMsMedio, r.planificadorMsMax,
+                            r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
+                            r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
+                            r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
+                            cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos, cfg.holguraMin, cfg.penalidadHolgura,
+                            DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0);
+                    fila.consola = String.format(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h desde el inicio)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
+                                    + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)", orden, corridas.size(), c.nivel.nombre,
+                            c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
+                            (r.colapsoMin - cfg.inicioMin) / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
+                            r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000);
+                    return fila;
+                }));
+            }
+            // Se escribe cada fila en el orden de la matriz, a medida que se completan
+            try {
+                for (Future<Fila> f : filas) {
+                    Fila fila = f.get();
+                    out.println(fila.csv);
+                    out.flush();
+                    resumen.computeIfAbsent(fila.nombre, k -> new ArrayList<>()).add(fila.r);
+                    System.out.println(fila.consola);
                 }
-                long ms = (System.nanoTime() - t0) / 1_000_000;
-
-                out.println(String.format(Locale.US,
-                        "%d,simulacion,%s,%s,%.0f,%.0f,%s,%s,%s,%s,%s,%s,%d,%d,%s,%d,%.0f,%d,%s,%s,%d,%d,%.2f,%.4f,%s,%s,%s,%s,"
-                                + "%.2f,%.0f,%d,%d,%d,%.2f,%d,%d,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%.3f,%d,%d,%d,%d,%d,%d,%s,%d,%.1f,%s,%s,%s,%.1f,%.1f,%d,%.4f",
-                        orden, ESCENARIO, c.nivel.nombre, c.nivel.fraccion * 100, cmax, CapacidadFlota.FUENTE,
-                        c.nivel.archivoCarga, Paths.get(archivo).getFileName(),
-                        base.mapa == null ? "" : Paths.get(bloqueos).getFileName(), archivoAverias, c.algoritmo,
-                        c.replica, c.semilla, modoParada, cfg.taMs, cfg.saMin, cfg.maxEvaluaciones,
-                        c.algoritmo.equals("AG") ? (AlgoritmoGenetico.BUSQUEDA_LOCAL ? "si" : "no") : "",
-                        cfg.estrategiaParciales, c.nivel.originales, c.nivel.paquetes, r.colapsoMin, r.colapsoMin / 60.0,
-                        r.censurada ? "si" : "no", r.pedidoColapso.replace(',', ';'), r.unidadColapso,
-                        r.causaColapso.replace(',', ';'), r.costoAcumulado, r.kmAcumulados, r.pedidosLlegados,
-                        r.pedidosEntregados, r.pedidosEvaluables, r.pctPedidosEnPlazo(), r.entregasTarde,
-                        r.replanificaciones, r.replanPorEvento, r.planificadorMsMedio, r.planificadorMsMax,
-                        r.iteracionesTotales, r.evaluacionesTotales, r.aplazamientos, r.cambiosDeUnidad,
-                        r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
-                        r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
-                        cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos, cfg.holguraMin, cfg.penalidadHolgura,
-                        DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0));
-                out.flush();
-                resumen.computeIfAbsent(c.nivel.nombre + " " + c.algoritmo, k -> new ArrayList<>()).add(r);
-                System.out.printf(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h desde el inicio)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
-                                + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)%n", orden, corridas.size(), c.nivel.nombre,
-                        c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
-                        (r.colapsoMin - cfg.inicioMin) / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
-                        r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000);
+            } catch (InterruptedException | ExecutionException e) {
+                throw new IOException("falló una corrida del experimento", e);
+            } finally {
+                hilos.shutdownNow();
             }
         }
 

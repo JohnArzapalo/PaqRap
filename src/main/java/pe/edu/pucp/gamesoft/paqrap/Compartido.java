@@ -128,13 +128,13 @@ class Compartido {
             ParadaAlg p = r.paradas.get(i);
             int qx = p.x(), qy = p.y();
             if (p.tipo == TipoParada.ENTREGA) {   // destino bloqueado con la regla NODO_VECINO (Etapa 17)
-                int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+                int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, cx.velocidad(tipo));
                 qx = punto[0];
                 qy = punto[1];
             }
-            double d = cx.distanciaTramo(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+            double d = cx.distanciaTramo(px, py, qx, qy, reloj, cx.velocidad(tipo));
             double salida = reloj;
-            reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+            reloj = cx.avanzar(reloj, d / cx.velocidad(tipo));
             km += d;
             if (registro != null && d > 0)
                 registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, qx, qy, null, 0));
@@ -196,9 +196,9 @@ class Compartido {
         }
         // Regreso al almacén más cercano
         Contexto.AlmacenPlan fin = cx.almacenMasCercano(px, py, reloj);
-        double d = cx.distanciaTramo(px, py, fin.almacen.x, fin.almacen.y, reloj, tipo.velocidadPromedio);
+        double d = cx.distanciaTramo(px, py, fin.almacen.x, fin.almacen.y, reloj, cx.velocidad(tipo));
         double salida = reloj;
-        reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+        reloj = cx.avanzar(reloj, d / cx.velocidad(tipo));
         km += d;
         if (registro != null) {
             if (d > 0) registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, fin.almacen.x, fin.almacen.y, null, 0));
@@ -343,7 +343,7 @@ class Compartido {
      *  Ese incumplimiento no es atribuible al algoritmo. */
     static boolean vencidoAlPlanificar(Pedido p, List<UnidadTransporte> flota) {
         double vMax = 0;
-        for (UnidadTransporte u : flota) vMax = Math.max(vMax, u.tipo.velocidadPromedio);
+        for (UnidadTransporte u : flota) vMax = Math.max(vMax, Contexto.actual().velocidad(u.tipo));
         double llegadaMasTemprana = distancia(ALMACEN_CENTRAL.x, ALMACEN_CENTRAL.y, p.x, p.y) / vMax;
         return llegadaMasTemprana > p.horaLimite();
     }

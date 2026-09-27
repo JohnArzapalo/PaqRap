@@ -29,57 +29,70 @@ import java.util.Set;
  *  maxEvaluaciones > 0, por número de evaluaciones (modo reproducible).
  *  Una "evaluación" es una decodificación Split de un cromosoma o una
  *  evaluación de un vecino de la búsqueda local. El criterio se revisa al
- *  terminar cada generación y en cada movimiento de la búsqueda local. */
+ *  terminar cada generación y en cada movimiento de la búsqueda local.
+ *
+ *  Sin estado estático (Etapa 24): cada ejecución usa su propio objeto
+ *  (new AlgoritmoGenetico(semilla)), con su generador aleatorio, su
+ *  presupuesto y sus contadores. Así varias simulaciones pueden correr en
+ *  paralelo sin pisarse. Los parámetros son constantes leídas una vez del
+ *  archivo; BUSQUEDA_LOCAL puede cambiarse con --busqueda-local al iniciar
+ *  el experimento (antes de cualquier corrida, igual para todas). */
 class AlgoritmoGenetico {
 
-    private static Random AZAR = new Random(11);   // semilla por defecto (reproducible)
+    /** Generador aleatorio de ESTA ejecución: la misma semilla da la misma evolución. */
+    private final Random azar;
 
-    /** Tamaño de población por defecto (ag.poblacion). */
-    static int POBLACION = (int) Parametros.entero("ag.poblacion", 30);
-    /** Búsqueda local memética activada (ag.busqueda_local = si | no). */
-    static boolean BUSQUEDA_LOCAL = !"no".equalsIgnoreCase(Parametros.texto("ag.busqueda_local", "si"));
-    static double PROB_BUSQUEDA_LOCAL = Parametros.decimal("ag.prob_busqueda_local", 0.2);
-    static int MOVIMIENTOS_BUSQUEDA_LOCAL = (int) Parametros.entero("ag.movimientos_busqueda_local", 30);
-    /** Si hay entregas sin asignar, uno de cada dos movimientos de la búsqueda
-     *  local es una Inserción (ag.insercion_en_busqueda_local = si | no). */
-    static boolean INSERCION_EN_BL = !"no".equalsIgnoreCase(Parametros.texto("ag.insercion_en_busqueda_local", "si"));
-
-    // Presupuesto de la ejecución en curso (lo consulta también la búsqueda local)
-    private static long inicioEjecucion, presupuestoMs, maxEvaluaciones;
-
-    /** Fija la semilla antes de ejecutar. Cada réplica del experimento usa una distinta. */
-    static void setSemilla(long semilla) {
-        AZAR = new Random(semilla);
+    /** Cada réplica del experimento (y cada ciclo de replanificación) usa su propia semilla. */
+    AlgoritmoGenetico(long semilla) {
+        azar = new Random(semilla);
     }
 
+    /** Semilla por defecto (reproducible), para la demostración de Main. */
+    AlgoritmoGenetico() {
+        this(11);
+    }
+
+    /** Tamaño de población por defecto (ag.poblacion). */
+    static final int POBLACION = (int) Parametros.entero("ag.poblacion", 30);
+    /** Búsqueda local memética activada (ag.busqueda_local = si | no; --busqueda-local al iniciar). */
+    static boolean BUSQUEDA_LOCAL = !"no".equalsIgnoreCase(Parametros.texto("ag.busqueda_local", "si"));
+    static final double PROB_BUSQUEDA_LOCAL = Parametros.decimal("ag.prob_busqueda_local", 0.2);
+    static final int MOVIMIENTOS_BUSQUEDA_LOCAL = (int) Parametros.entero("ag.movimientos_busqueda_local", 30);
+    /** Si hay entregas sin asignar, uno de cada dos movimientos de la búsqueda
+     *  local es una Inserción (ag.insercion_en_busqueda_local = si | no). */
+    static final boolean INSERCION_EN_BL = !"no".equalsIgnoreCase(Parametros.texto("ag.insercion_en_busqueda_local", "si"));
+
+    // Presupuesto de la ejecución en curso (lo consulta también la búsqueda local)
+    private long inicioEjecucion, presupuestoMs, maxEvaluaciones;
+
     /** Tipos de vehículo que realmente existen en la flota de esta ejecución. */
-    private static TipoUnidad[] tiposFlota = TipoUnidad.values();
+    private TipoUnidad[] tiposFlota = TipoUnidad.values();
 
     /** Mejor solución de la generación 0 (antes de evolucionar), para el visualizador. */
-    static Solucion solucionGeneracion0;
+    Solucion solucionGeneracion0;
 
     /** {H, S} del mejor individuo en cada generación (curva de convergencia, R11). */
-    static final List<double[]> historialConvergencia = new ArrayList<>();
+    final List<double[]> historialConvergencia = new ArrayList<>();
 
     // ===== Contadores de la última ejecución (R6) =====
-    static long ultimasGeneraciones;
-    static long ultimasEvaluaciones;
+    long ultimasGeneraciones;
+    long ultimasEvaluaciones;
     /** Milisegundos desde el inicio hasta que se encontró la mejor solución. */
-    static long ultimoTiempoMejorMs;
+    long ultimoTiempoMejorMs;
     /** Tramos de la solución devuelta que no pudieron usar el tipo pedido por
      *  el cromosoma (no quedaba una unidad libre de ese tipo) (R5). */
-    static int ultimosTramosCambioTipo;
+    int ultimosTramosCambioTipo;
 
     /** Tramos con cambio de tipo en la última llamada a split(). */
-    private static int tramosCambioTipoUltimoSplit;
-    private static long evaluaciones;
+    private int tramosCambioTipoUltimoSplit;
+    private long evaluaciones;
     /** Veces que se aplicó la búsqueda local y veces que mejoró el cromosoma. */
-    static long ultimasAplicacionesBL, ultimasMejorasBL;
-    private static long aplicacionesBL, mejorasBL;
+    long ultimasAplicacionesBL, ultimasMejorasBL;
+    private long aplicacionesBL, mejorasBL;
 
     /** Tipo de vehículo aleatorio de la flota en el que quepa el pedido. Si
      *  ningún tipo alcanza, devuelve el de MAYOR capacidad de la flota. */
-    private static TipoUnidad tipoQueQuepa(Pedido p) {
+    private TipoUnidad tipoQueQuepa(Pedido p) {
         List<TipoUnidad> validos = new ArrayList<>();
         for (TipoUnidad t : tiposFlota) if (p.cantidad <= t.capacidadMaxima) validos.add(t);
         if (validos.isEmpty()) {
@@ -87,7 +100,7 @@ class AlgoritmoGenetico {
             for (TipoUnidad t : tiposFlota) if (t.capacidadMaxima > mayor.capacidadMaxima) mayor = t;
             return mayor;
         }
-        return validos.get(AZAR.nextInt(validos.size()));
+        return validos.get(azar.nextInt(validos.size()));
     }
 
     private static TipoUnidad[] tiposDisponibles(List<UnidadTransporte> flota) {
@@ -96,12 +109,12 @@ class AlgoritmoGenetico {
         return t.toArray(new TipoUnidad[0]);
     }
 
-    static Solucion ejecutar(List<Pedido> pedidosPendientes, List<UnidadTransporte> flotaDisponible,
+    Solucion ejecutar(List<Pedido> pedidosPendientes, List<UnidadTransporte> flotaDisponible,
                               long presupuestoMs, long maxEvaluaciones, int tamPoblacion) {
         // El cronómetro empieza ANTES de crear y evaluar la población inicial (R10)
-        AlgoritmoGenetico.inicioEjecucion = System.currentTimeMillis();
-        AlgoritmoGenetico.presupuestoMs = presupuestoMs;
-        AlgoritmoGenetico.maxEvaluaciones = maxEvaluaciones;
+        this.inicioEjecucion = System.currentTimeMillis();
+        this.presupuestoMs = presupuestoMs;
+        this.maxEvaluaciones = maxEvaluaciones;
         evaluaciones = 0;
         aplicacionesBL = 0;
         mejorasBL = 0;
@@ -127,14 +140,14 @@ class AlgoritmoGenetico {
                 Cromosoma padreA = seleccionTorneo(poblacion);
                 Cromosoma padreB = seleccionTorneo(poblacion);
 
-                Cromosoma hijo = (AZAR.nextDouble() < 0.85)
+                Cromosoma hijo = (azar.nextDouble() < 0.85)
                         ? cruceOX(padreA, padreB)
                         : padreA.copiar();
 
-                if (AZAR.nextDouble() < 0.15) mutar(hijo);
+                if (azar.nextDouble() < 0.15) mutar(hijo);
 
                 evaluar(hijo, flotaDisponible);
-                if (BUSQUEDA_LOCAL && AZAR.nextDouble() < PROB_BUSQUEDA_LOCAL)
+                if (BUSQUEDA_LOCAL && azar.nextDouble() < PROB_BUSQUEDA_LOCAL)
                     hijo = busquedaLocal(hijo, flotaDisponible);
                 nuevaGeneracion.add(hijo);
             }
@@ -170,7 +183,7 @@ class AlgoritmoGenetico {
     }
 
     /** Modo por evaluaciones si maxEvaluaciones > 0 (se ignora el tiempo); si no, por Ta. */
-    private static boolean debeDetenerse() {
+    private boolean debeDetenerse() {
         if (maxEvaluaciones > 0) return evaluaciones >= maxEvaluaciones;
         return Compartido.debeDetenerse(inicioEjecucion, presupuestoMs);
     }
@@ -178,7 +191,7 @@ class AlgoritmoGenetico {
     /** Búsqueda local memética (primera mejora) sobre la decodificación del
      *  cromosoma. Devuelve el cromosoma mejorado (ya evaluado) o el original
      *  si no hubo mejora; nunca uno peor. Respeta el presupuesto de la corrida. */
-    private static Cromosoma busquedaLocal(Cromosoma c, List<UnidadTransporte> flota) {
+    private Cromosoma busquedaLocal(Cromosoma c, List<UnidadTransporte> flota) {
         if (debeDetenerse()) return c;
         aplicacionesBL++;
         Solucion s = OperadoresVecindario.conUnidadesLibres(split(c, flota), flota);
@@ -187,11 +200,11 @@ class AlgoritmoGenetico {
         for (int k = 0; k < MOVIMIENTOS_BUSQUEDA_LOCAL && !debeDetenerse(); k++) {
             Movimiento m;
             if (INSERCION_EN_BL && !s.pedidosSinAsignar.isEmpty() && k % 2 == 0) {
-                m = OperadoresVecindario.insercion(s, AZAR);
+                m = OperadoresVecindario.insercion(s, azar);
             } else {
-                m = AZAR.nextBoolean()
-                        ? OperadoresVecindario.reubicacion(s, AZAR)
-                        : OperadoresVecindario.intercambio(s, AZAR);
+                m = azar.nextBoolean()
+                        ? OperadoresVecindario.reubicacion(s, azar)
+                        : OperadoresVecindario.intercambio(s, azar);
             }
             if (m == null) continue;
             evaluaciones++;
@@ -217,7 +230,7 @@ class AlgoritmoGenetico {
     /** Solución -> cromosoma: las rutas no vacías concatenadas (en su orden)
      *  forman la permutación, seguidas de las entregas sin asignar; cada pedido
      *  en ruta toma el tipo de su unidad. Split puede reproducir los mismos cortes. */
-    private static Cromosoma aCromosoma(Solucion s, Cromosoma base) {
+    private Cromosoma aCromosoma(Solucion s, Cromosoma base) {
         List<Pedido> perm = new ArrayList<>();
         Map<String, TipoUnidad> tipos = base == null ? new HashMap<>() : new HashMap<>(base.tipoAsignado);
         for (RutaAlg r : s.rutas) {
@@ -235,12 +248,12 @@ class AlgoritmoGenetico {
     }
 
     /** Proporción de la población sembrada con el plan vigente y variaciones suyas (Etapa 11.3). */
-    static double PROPORCION_SEMBRADA = Parametros.decimal("ag.proporcion_sembrada", 0.3);
+    static final double PROPORCION_SEMBRADA = Parametros.decimal("ag.proporcion_sembrada", 0.3);
 
     /** Población inicial. Si hay plan vigente (replanificación), una parte se siembra
      *  con él codificado (permutación + tipos; el almacén de cada viaje lo elige el
      *  decodificador) y con variaciones suyas (1 a 3 mutaciones); el resto es aleatorio. */
-    private static Poblacion inicializarPoblacion(List<Pedido> pedidos, int tam, Solucion planBase) {
+    private Poblacion inicializarPoblacion(List<Pedido> pedidos, int tam, Solucion planBase) {
         Poblacion pob = new Poblacion();
         if (planBase != null && !pedidos.isEmpty()) {
             int sembrados = Math.max(1, (int) Math.round(PROPORCION_SEMBRADA * tam));
@@ -248,14 +261,14 @@ class AlgoritmoGenetico {
             pob.individuos.add(plan);
             for (int k = 1; k < sembrados; k++) {
                 Cromosoma v = plan.copiar();
-                int mutaciones = 1 + AZAR.nextInt(3);
+                int mutaciones = 1 + azar.nextInt(3);
                 for (int m = 0; m < mutaciones; m++) mutar(v);
                 pob.individuos.add(v);
             }
         }
         while (pob.individuos.size() < tam) {
             List<Pedido> perm = new ArrayList<>(pedidos);
-            Collections.shuffle(perm, AZAR);
+            Collections.shuffle(perm, azar);
             Map<String, TipoUnidad> tipos = new HashMap<>();
             for (Pedido p : perm) tipos.put(p.id, tipoQueQuepa(p));   // solo tipos de la flota donde quepa
             pob.individuos.add(new Cromosoma(perm, tipos));
@@ -263,18 +276,18 @@ class AlgoritmoGenetico {
         return pob;
     }
 
-    private static Cromosoma seleccionTorneo(Poblacion pob) {
-        Cromosoma a = pob.individuos.get(AZAR.nextInt(pob.individuos.size()));
-        Cromosoma b = pob.individuos.get(AZAR.nextInt(pob.individuos.size()));
+    private Cromosoma seleccionTorneo(Poblacion pob) {
+        Cromosoma a = pob.individuos.get(azar.nextInt(pob.individuos.size()));
+        Cromosoma b = pob.individuos.get(azar.nextInt(pob.individuos.size()));
         return comparar(a, b) <= 0 ? a : b;
     }
 
     /** Cruce ordenado (OX): conserva el tramo de un padre tal cual y
      *  completa el resto con el orden del otro padre, sin repetir pedidos. */
-    private static Cromosoma cruceOX(Cromosoma padreA, Cromosoma padreB) {
+    private Cromosoma cruceOX(Cromosoma padreA, Cromosoma padreB) {
         int n = padreA.permutacion.size();
-        int c1 = AZAR.nextInt(n);
-        int c2 = AZAR.nextInt(n);
+        int c1 = azar.nextInt(n);
+        int c2 = azar.nextInt(n);
         if (c1 > c2) { int t = c1; c1 = c2; c2 = t; }
 
         Pedido[] hijoArr = new Pedido[n];
@@ -295,7 +308,7 @@ class AlgoritmoGenetico {
         List<Pedido> hijoPerm = new ArrayList<>(Arrays.asList(hijoArr));
         Map<String, TipoUnidad> hijoTipo = new HashMap<>();
         for (Pedido p : hijoPerm) {
-            hijoTipo.put(p.id, AZAR.nextBoolean() ? padreA.tipoAsignado.get(p.id) : padreB.tipoAsignado.get(p.id));
+            hijoTipo.put(p.id, azar.nextBoolean() ? padreA.tipoAsignado.get(p.id) : padreB.tipoAsignado.get(p.id));
         }
         return new Cromosoma(hijoPerm, hijoTipo);
     }
@@ -303,18 +316,18 @@ class AlgoritmoGenetico {
     /** Muta: permuta dos pedidos de posición y, con probabilidad 0.5,
      *  cambia el tipo de vehículo asignado a un pedido (entre los tipos
      *  de la flota disponible). */
-    private static void mutar(Cromosoma c) {
+    private void mutar(Cromosoma c) {
         int n = c.permutacion.size();
-        int i = AZAR.nextInt(n);
-        int j = AZAR.nextInt(n);
+        int i = azar.nextInt(n);
+        int j = azar.nextInt(n);
         Collections.swap(c.permutacion, i, j);
-        if (AZAR.nextDouble() < 0.5) {
-            Pedido p = c.permutacion.get(AZAR.nextInt(n));
+        if (azar.nextDouble() < 0.5) {
+            Pedido p = c.permutacion.get(azar.nextInt(n));
             c.tipoAsignado.put(p.id, tipoQueQuepa(p));
         }
     }
 
-    private static void evaluar(Cromosoma c, List<UnidadTransporte> flota) {
+    private void evaluar(Cromosoma c, List<UnidadTransporte> flota) {
         Solucion s = split(c, flota);
         evaluaciones++;
         c.aptH = s.H;
@@ -336,7 +349,7 @@ class AlgoritmoGenetico {
 
     /** Decodificador: Split clásico (Main y modo estático) o Split con estado
      *  (simulación: unidades en ruta, carga a bordo, varios viajes y almacenes). */
-    static Solucion split(Cromosoma c, List<UnidadTransporte> flotaDisponible) {
+    Solucion split(Cromosoma c, List<UnidadTransporte> flotaDisponible) {
         return Contexto.actual().conEstado ? splitConEstado(c, flotaDisponible) : splitClasico(c, flotaDisponible);
     }
 
@@ -358,7 +371,7 @@ class AlgoritmoGenetico {
      *  el costo que optimizó la programación dinámica no coincide con el real.
      *  La aptitud del cromosoma y la solución final SIEMPRE se calculan con
      *  Compartido.evaluarSolucion sobre la unidad real de cada ruta. */
-    static Solucion splitClasico(Cromosoma c, List<UnidadTransporte> flotaDisponible) {
+    Solucion splitClasico(Cromosoma c, List<UnidadTransporte> flotaDisponible) {
         List<Pedido> perm = c.permutacion;
         int n = perm.size();
         int m = flotaDisponible.size();   // no puede haber más rutas que vehículos
@@ -370,6 +383,7 @@ class AlgoritmoGenetico {
         costoMinimo[0][0] = 0;
 
         Almacen al = Compartido.ALMACEN_CENTRAL;
+        Contexto cx = Contexto.actual();
         for (int k = 1; k <= m; k++) {
             for (int i = 0; i < n; i++) {
                 if (costoMinimo[k - 1][i] == Double.MAX_VALUE) continue;
@@ -385,7 +399,7 @@ class AlgoritmoGenetico {
                     if (carga > tipo.capacidadMaxima) break;   // tramos más largos tampoco caben
                     double d = Compartido.distancia(px, py, p.x, p.y);
                     km += d;
-                    reloj += d / tipo.velocidadPromedio;           // hora de llegada al cliente
+                    reloj += d / cx.velocidad(tipo);           // hora de llegada al cliente
                     if (reloj > p.horaLimite()) tarde++;           // fuera de plazo
                     reloj += Compartido.HORAS_ENTREGA;             // 1 h de acondicionamiento
                     px = p.x;
@@ -490,7 +504,7 @@ class AlgoritmoGenetico {
      * STOCK: se reserva en el orden de asignación de los tramos; un almacén
      * sin stock suficiente para el tramo no se considera.
      */
-    static Solucion splitConEstado(Cromosoma c, List<UnidadTransporte> flota) {
+    Solucion splitConEstado(Cromosoma c, List<UnidadTransporte> flota) {
         Contexto cx = Contexto.actual();
         Solucion s = new Solucion();
         Map<String, RutaAlg> rutaDe = new HashMap<>();
@@ -520,7 +534,7 @@ class AlgoritmoGenetico {
     }
 
     /** Programación dinámica de cortes (una dimensión, sin límite de tramos). */
-    private static List<List<Pedido>> cortar(List<Pedido> resto, Cromosoma c, Contexto cx) {
+    private List<List<Pedido>> cortar(List<Pedido> resto, Cromosoma c, Contexto cx) {
         int n = resto.size();
         double[] f = new double[n + 1];
         int[] pred = new int[n + 1];
@@ -553,15 +567,15 @@ class AlgoritmoGenetico {
                 if (carga > tipo.capacidadMaxima && j > i + 1) break;   // tramos más largos tampoco caben
                 double mejor = Double.MAX_VALUE;
                 for (int a = 0; a < k; a++) {
-                    double d = cx.distanciaTramo(px[a], py[a], p.x, p.y, reloj[a], tipo.velocidadPromedio);
+                    double d = cx.distanciaTramo(px[a], py[a], p.x, p.y, reloj[a], cx.velocidad(tipo));
                     km[a] += d;
-                    reloj[a] = cx.esperaDestino(p.x, p.y, cx.avanzar(reloj[a], d / tipo.velocidadPromedio));
+                    reloj[a] = cx.esperaDestino(p.x, p.y, cx.avanzar(reloj[a], d / cx.velocidad(tipo)));
                     if (reloj[a] > p.horaLimite()) tarde[a]++;
                     reloj[a] = cx.avanzar(reloj[a], Compartido.HORAS_ENTREGA);
                     px[a] = p.x;
                     py[a] = p.y;
                     Contexto.AlmacenPlan vuelta = cx.almacenMasCercano(px[a], py[a], reloj[a]);
-                    double kmTotal = km[a] + cx.distanciaTramo(px[a], py[a], vuelta.almacen.x, vuelta.almacen.y, reloj[a], tipo.velocidadPromedio);
+                    double kmTotal = km[a] + cx.distanciaTramo(px[a], py[a], vuelta.almacen.x, vuelta.almacen.y, reloj[a], cx.velocidad(tipo));
                     mejor = Math.min(mejor, kmTotal * tipo.costoPorKilometro + tarde[a] * Compartido.PENALIDAD_TARDANZA);
                 }
                 if (f[i] + mejor < f[j]) {
@@ -580,7 +594,7 @@ class AlgoritmoGenetico {
      * cualquiera si tipo es null) con el mejor punto de carga. Devuelve false
      * si ninguna opción es factible.
      */
-    private static boolean asignarTramo(List<Pedido> tramo, TipoUnidad tipo, List<UnidadTransporte> flota,
+    private boolean asignarTramo(List<Pedido> tramo, TipoUnidad tipo, List<UnidadTransporte> flota,
                                         Map<String, RutaAlg> rutaDe, double[] stock, Contexto cx, boolean tipoPedido) {
         int carga = 0;
         for (Pedido p : tramo) carga += p.cantidad;

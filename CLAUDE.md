@@ -47,7 +47,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 23)
+## 3. Estado del código (etapa 24)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -65,6 +65,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - la ventana del tramo incluye la hora de alimentación (SI-22);
   - `red.destino_bloqueado=no_evaluable` (SI-15), pendiente de confirmar con el profesor (pregunta 11).
 - **Etapa 23:** hora límite efectiva (SI-23). La holgura se mide hasta el inicio del bloqueo del destino que cubre la hora límite, y la urgencia de los pedidos usa esa hora. Hay 69 pruebas (`docs/avance_sem07.md`).
+- **Etapa 24:** sin estado estático en los algoritmos (SI-19 superado). Cada ejecución es un objeto (`new BusquedaTabu(semilla)`, `new AlgoritmoGenetico(semilla)`), la velocidad cambiada en caliente es por simulación y `--hilos N` corre N simulaciones a la vez con resultados idénticos a correrlas en serie. Hay 70 pruebas.
 - **Supuestos** SI-01 a SI-23 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
@@ -82,7 +83,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 - Los parámetros están comentados en `config/parametros.properties`.
 - Experimento hasta el colapso: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga).
 - Análisis en Python: `analisis/analisis_experimento.py`, `analisis/potencia.py` y `analisis/unir_csv.py`. Requieren pandas, scipy, matplotlib, statsmodels y lifelines.
-- **Una simulación por JVM** (SI-19): los algoritmos tienen estado estático, así que no se deben correr dos simulaciones en el mismo proceso.
+- **Varias simulaciones por proceso** (etapa 24): `--hilos N` las corre en paralelo. Con parada por evaluaciones el resultado no depende de N. Con parada por tiempo (Ta), usar N ≤ núcleos físicos, porque los hilos se reparten la CPU.
 
 ## 5. Diseño del experimento vigente
 
@@ -108,7 +109,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 ## 6. Próximo trabajo (en orden sugerido)
 
 1. **Hora límite efectiva** (código hecho en la etapa 23; falta verificar SIM_5D y recalcular la potencia): anticipar los bloqueos conocidos del destino. Si el destino se bloquea antes de la hora límite y el bloqueo dura más allá de ella, hay que entregar antes de que empiece. Los bloqueos pueden durar más que el plazo del pedido; para esos casos está la replanificación. Debe hacerse en ambos algoritmos, en el evaluador común `Compartido.evaluarRuta`, sin lógica duplicada. Después, recalcular la potencia y el número de réplicas **para proporciones pareadas** (§5).
-2. **Quitar el estado estático** de los algoritmos, para correr varias simulaciones en paralelo y los 3 escenarios en un servidor. Es necesario porque el % de colapsos exige muchas réplicas.
+2. **Quitar el estado estático** (hecho en la etapa 24) de los algoritmos, para correr varias simulaciones en paralelo y los 3 escenarios en un servidor. Es necesario porque el % de colapsos exige muchas réplicas.
 3. **Calibrar las condiciones de SIM_5D** para que haya colapsos en una parte de las corridas (§5), y actualizar `docs/protocolo_experimento.md` y el análisis en Python con la variable principal nueva.
 4. **Experimento comparativo completo** con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
 5. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.

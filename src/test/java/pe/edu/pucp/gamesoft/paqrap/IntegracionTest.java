@@ -15,7 +15,6 @@ class IntegracionTest {
     @AfterEach
     void limpiar() {
         Contexto.restablecer();
-        TipoUnidad.AUTO.velocidadPromedio = Parametros.decimal("velocidad.AUTO", 40);
     }
 
     private static List<Pedido> pedidos() {
@@ -70,15 +69,20 @@ class IntegracionTest {
         assertTrue(r.registro.stream().anyMatch(e -> e.tipo == Simulador.Evt.T.AVERIA && e.unidad.equals("TA01")));
     }
 
-    /** El cambio de velocidad rige desde la siguiente replanificación (P16). */
+    /** El cambio de velocidad rige desde la siguiente replanificación (P16), solo en
+     *  esa simulación: la velocidad configurada del tipo no cambia (Etapa 24). */
     @Test
     void cambioDeVelocidadEnLaSiguienteReplanificacion() {
         Simulador.Config c = SimuladorTest.config(60);
         c.horizonteMin = 120;
         Simulador s = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), c);
+        double configurada = TipoUnidad.AUTO.velocidadPromedio;
         s.cambiarVelocidad(TipoUnidad.AUTO, 20);
         Simulador.Resultado r = s.ejecutar();
-        assertEquals(20.0, TipoUnidad.AUTO.velocidadPromedio, 1e-9);
+        assertEquals(20.0, s.velocidad(TipoUnidad.AUTO), 1e-9);
+        assertEquals(configurada, TipoUnidad.AUTO.velocidadPromedio, 1e-9);
+        assertEquals(configurada, Simulador.crear(pedidos(), flota(), Planificador.tabu(8), c)
+                .velocidad(TipoUnidad.AUTO), 1e-9);   // otra simulación no se entera
         assertTrue(r.registro.stream().anyMatch(e -> e.detalle.contains("velocidad de AUTO = 20")));
     }
 

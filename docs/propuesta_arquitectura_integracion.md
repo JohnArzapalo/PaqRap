@@ -20,6 +20,8 @@ Cómo se conecta cada escenario:
   (b) no bloquea el servidor, pero exige un reproductor.
 - **DIA_A_DIA:** `Reloj.real()`. **Pendiente:** hoy los pedidos se leen del archivo al inicio. Para registrar pedidos en vivo hace falta un `inyectarPedido` análogo a `inyectarAveria` (cola concurrente, admitido en la siguiente replanificación). No se implementó porque el formato del registro en vivo no está definido.
 
+> **Actualización (etapa 24):** la restricción SI-19 ya no rige. Los algoritmos no tienen estado estático y la velocidad cambiada en caliente es por simulación, así que varios escenarios pueden correr en el mismo proceso, cada uno en su hilo. Lo que sigue describe la situación anterior.
+
 Restricción que afecta a todas las opciones (**SI-19**): una simulación por JVM. El `Contexto` es por hilo, pero los algoritmos guardan estado estático y la velocidad es global por tipo de unidad. Para correr dos escenarios a la vez hacen falta dos procesos, o antes una refactorización que quite ese estado estático.
 
 ## 2. Opciones

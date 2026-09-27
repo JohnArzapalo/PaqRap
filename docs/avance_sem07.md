@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15, 23 y 24 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -127,3 +127,24 @@ Total: **47 pruebas, todas pasan.**
 - **Pruebas:** `LimiteEfectivoTest` tiene 5 pruebas: inicio del bloqueo que cubre el plazo, bloqueos encadenados, horas relativas y regla de destino, holgura medida hasta la hora límite efectiva, y llegada dentro del bloqueo que cuenta como tarde. **Total: 69 pruebas, todas pasan.**
 - `Main` no cambia (708/672/672 y 816/816/816), porque sin mapa la hora límite efectiva es la hora límite.
 - **Pendiente:** repetir la verificación de SIM_5D (`docs/configuracion_5_dias.md` §5) y recalcular la potencia y el número de réplicas para proporciones pareadas.
+
+## Etapa 24: sin estado estático en los algoritmos (SI-19 superado)
+
+- **Problema:** `BusquedaTabu` y `AlgoritmoGenetico` guardaban en campos `static` su generador aleatorio, su presupuesto y sus contadores, y el cambio de velocidad en caliente modificaba `TipoUnidad` para todo el proceso. Dos simulaciones en el mismo proceso se pisaban, así que había que correr una por JVM (SI-19). Eso impedía correr en paralelo las muchas réplicas que exige el % de colapsos.
+- **Cambio (la lógica de los algoritmos no cambia; solo dónde se guarda el estado):**
+  - `BusquedaTabu` y `AlgoritmoGenetico` son **objetos**: `new BusquedaTabu(semilla)` y `new AlgoritmoGenetico(semilla)`, cada uno con su generador aleatorio, su presupuesto y sus contadores (`ultimasIteraciones`, `ultimasEvaluaciones`, etc.). Desaparece `setSemilla`.
+  - Los parámetros (candidatos, pesos, población, búsqueda local) son constantes (`static final`) leídas una vez del archivo. `AlgoritmoGenetico.BUSQUEDA_LOCAL` se puede cambiar con `--busqueda-local` al iniciar, igual para todas las corridas.
+  - `Planificador.tabu()` y `Planificador.genetico()` crean un objeto por llamada con la semilla del ciclo, que es lo que antes hacía `setSemilla`.
+  - La velocidad configurada en `TipoUnidad` es `final`. Un cambio en caliente (P16) rige solo en su simulación: `Simulador.velocidad` y `Contexto.velocidad`.
+  - `ExperimentoSimulacion`: opción `--hilos N` (N simulaciones a la vez; 1 por defecto). Las filas del CSV salen en el mismo orden aleatorio, con cualquier N.
+  - `Main` usa un objeto por algoritmo para toda la demostración, así que la secuencia aleatoria es la de antes.
+- **Verificación:**
+  - **Mismos resultados que antes del cambio:** una simulación de 24 h (30 pedidos sintéticos, con bloqueos, semilla 1001, 400 evaluaciones) da exactamente el mismo costo, km, entregas, evaluaciones, iteraciones y cambios de unidad con el código de la etapa 23 y con el nuevo, para Tabú y para AG.
+  - **Paralelo = serie:** SIM_5D, nivel BAJA, 2 réplicas × 2 algoritmos, 300 evaluaciones por ciclo. El CSV con `--hilos 2` es idéntico al de `--hilos 1`, salvo las columnas de tiempo real (`tiempo_real_ms`, `planificador_ms_*`). Tardó 25 s frente a 30 s. *(SINTETICO)*
+  - `Main` no cambia (708/672/672 y 816/816/816).
+- **Pruebas:**
+  - `ReproducibilidadTest.simulacionesEnParaleloDanLoMismoQueEnSerie` corre 4 simulaciones a la vez (Tabú, AG, Tabú, AG) y exige el mismo resultado que en serie.
+  - `IntegracionTest.cambioDeVelocidadEnLaSiguienteReplanificacion` verifica que el cambio de velocidad no afecta a otra simulación.
+  - **Total: 70 pruebas, todas pasan.**
+- **Cuidado con la parada por tiempo (Ta):** con `--hilos N` los hilos se reparten la CPU, así que cada planificador hace menos trabajo en el mismo Ta. Hay que usar N ≤ núcleos físicos, o la parada por evaluaciones, cuyo resultado no depende de N.
+- **Observación al pasar (SINTETICO, no es resultado):** con solo 300 evaluaciones por ciclo (muy por debajo de Ta = 2 s), Tabú réplica 2 colapsó en BAJA a las 67.9 h por una «llegada tardía (a bordo)». Con poco presupuesto también aparecen colapsos; hay que tenerlo en cuenta al calibrar el experimento del % de colapsos.

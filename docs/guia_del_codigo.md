@@ -9,7 +9,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 ### 1.1 Modelo de datos
 | Clase | Responsabilidad |
 |---|---|
-| `TipoUnidad` | Tipos AUTO / MOTO / BICICLETA: capacidad (24/8/4), costo por km (8/6/3) y velocidad, configurable desde `parametros.properties`. |
+| `TipoUnidad` | Tipos AUTO / MOTO / BICICLETA: capacidad (24/8/4), costo por km (8/6/3) y velocidad configurada (`parametros.properties`, fija). Un cambio en caliente rige solo en su simulación (`Contexto.velocidad`, `Simulador.velocidad`; etapa 24). |
 | `UnidadTransporte` | Una unidad de la flota (código TA01…TB12 y tipo). |
 | `Almacen` | Almacén con código y coordenadas (central, Nor-Oeste, Este). |
 | `Pedido` | Una **entrega** (un pedido, o una parte de un pedido grande): posición, cantidad, plazo, registro y origen de los paquetes (en almacén, `aBordoDe` o `enAveriada`). |
@@ -29,7 +29,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 ### 1.3 Búsqueda Tabú (Arzapalo, Alcca)
 | Clase | Responsabilidad |
 |---|---|
-| `BusquedaTabu` | Ciclo tabú: lista de candidatos, aspiración y parada por tiempo o por evaluaciones. `ejecutarDesdeCero` parte del plan vigente o de C&W. |
+| `BusquedaTabu` | Ciclo tabú: lista de candidatos, aspiración y parada por tiempo o por evaluaciones. `ejecutarDesdeCero` parte del plan vigente o de C&W. Es un objeto por ejecución (`new BusquedaTabu(semilla)`), con su generador aleatorio y sus contadores (etapa 24). |
 | `ListaTabu`, `ParTabu` | Atributos prohibidos (pedido, unidad, posición) con su iteración de vencimiento. |
 | `Movimiento` | Un vecino evaluado con sus atributos tabú. |
 | `OperadoresVecindario` | Operadores compartidos: Reubicación, Intercambio, 2-opt, Cross-exchange (los dos últimos provisionales), Recarga e Inserción; `mejorInsercion` y `conUnidadesLibres`. |
@@ -38,14 +38,14 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 ### 1.4 Algoritmo Genético (Alvarado, Torres)
 | Clase | Responsabilidad |
 |---|---|
-| `AlgoritmoGenetico` | Población (sembrada con el plan vigente), torneo, cruce OX, mutación, búsqueda local memética y decodificadores `splitClasico` y `splitConEstado`. |
+| `AlgoritmoGenetico` | Población (sembrada con el plan vigente), torneo, cruce OX, mutación, búsqueda local memética y decodificadores `splitClasico` y `splitConEstado`. Es un objeto por ejecución (`new AlgoritmoGenetico(semilla)`), con su generador aleatorio, presupuesto y contadores (etapa 24). |
 | `Cromosoma`, `Poblacion` | Permutación de entregas + tipo de vehículo por entrega, con su aptitud (H, S). |
 
 ### 1.5 Simulador, mapa vial e integración
 | Clase | Responsabilidad |
 |---|---|
 | `Simulador` | Eventos discretos: reloj, llegada de pedidos, replanificación con estado cada Sa y por evento, movimiento nodo a nodo, averías, trasvase, stock, mantenimiento, colapso, registro de eventos e instantánea JSON. |
-| `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`. |
+| `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`, que crean un objeto del algoritmo por llamada con la semilla del ciclo. |
 | `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo`, `caminoTramo`, `finBloqueo`/`inicioBloqueo` y `limiteEfectivo` (Etapa 23). |
 | `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo. |
 | `Reloj` | Ritmo: sin espera, escalado (SIM_5D) o real (DIA_A_DIA); espera interrumpible. |
@@ -56,7 +56,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 | Clase | Responsabilidad |
 |---|---|
 | `Experimento` | Punto de entrada del experimento. Modo estático (ventanas) y lectura de argumentos. |
-| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. |
+| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). |
 | `CapacidadFlota` | C_max = Σ n·q·⌊21/t⌋. |
 | `GeneradorCarga` | Pedidos por nivel (bootstrap del archivo base, semilla fija). |
 | `GeneradorDatosSinteticos` | Pedidos y bloqueos sintéticos del mes. |
@@ -108,7 +108,7 @@ Entrada: `Experimento.main` → `ExperimentoSimulacion.ejecutar` → `Simulador.
 
 ## 3. Flujo de una llamada al planificador con estado
 
-`Planificador.tabu(d)` o `Planificador.genetico(p)` reciben un `EstadoPlanificacion` (contexto, entregas, flota, Ta, tope de evaluaciones, semilla) y activan el contexto (`Contexto.usar`).
+`Planificador.tabu(d)` o `Planificador.genetico(p)` reciben un `EstadoPlanificacion` (contexto, entregas, flota, Ta, tope de evaluaciones, semilla) y activan el contexto (`Contexto.usar`). Cada llamada crea su propio objeto del algoritmo (`new BusquedaTabu(semilla)` o `new AlgoritmoGenetico(semilla)`), así que no hay estado compartido entre simulaciones (etapa 24).
 
 ### Búsqueda Tabú
 1. `BusquedaTabu.ejecutarDesdeCero`: la solución inicial es el **plan vigente reparado** (`Contexto.planBase`), o `Heuristicaconstructiva.construirSolucionInicial` (C&W) en el primer ciclo.

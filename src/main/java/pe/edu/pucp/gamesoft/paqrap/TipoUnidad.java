@@ -9,7 +9,8 @@ package pe.edu.pucp.gamesoft.paqrap;
  * Capacidad, velocidad y costo por kilómetro de cada tipo de vehículo.
  * Capacidad y costo son datos del caso (fijos). La velocidad se lee de
  * config/parametros.properties (clave velocidad.TIPO); por defecto, la del
- * enunciado. No es final para poder cambiarla en caliente más adelante.
+ * enunciado. Es final: un cambio en caliente (P16) rige solo en su simulación
+ * (Simulador.velocidad y Contexto.velocidad; Etapa 24), no en todo el proceso.
  */
 enum TipoUnidad {
     AUTO(24, 40, 8.00),
@@ -17,7 +18,7 @@ enum TipoUnidad {
     BICICLETA(4, 12, 3.00);
 
     final int capacidadMaxima;
-    double velocidadPromedio;
+    final double velocidadPromedio;
     final double costoPorKilometro;
 
     TipoUnidad(int capacidadMaxima, double velocidadDelEnunciado, double costoPorKilometro) {
