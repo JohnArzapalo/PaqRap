@@ -16,7 +16,7 @@ import java.util.Map;
  * Base de tiempo: la hora 0 relativa es el instante de planificación
  * (instanteBaseH, en horas absolutas desde el día 1 00:00).
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-02 (ventana del tramo), SI-03 (espera en destino bloqueado), SI-06 (alimentación), SI-14 (nodo vecino), SI-16 (penalidad de estabilidad), SI-19 (contexto por hilo).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02 (ventana del tramo), SI-03 (espera en destino bloqueado), SI-06 (alimentación), SI-14 (nodo vecino), SI-16 (penalidad de estabilidad), SI-19 (contexto por hilo), SI-23 (hora límite efectiva).
  */
 final class Contexto {
 
@@ -171,6 +171,23 @@ final class Contexto {
     double esperaDestino(int x, int y, double tRelH) {
         if (mapa == null || reglaDestino == ReglaDestino.NODO_VECINO) return tRelH;
         return mapa.finBloqueo(x, y, instanteBaseH + tRelH) - instanteBaseH;
+    }
+
+    /**
+     * Hora límite efectiva (relativa) del pedido (Etapa 23, SI-23): su hora límite, salvo
+     * que el destino esté bloqueado en ella por un bloqueo que dura más allá; entonces es el
+     * inicio de ese bloqueo (MapaVial.limiteEfectivo). Llegar en [efectiva, límite] obliga a
+     * esperar el desbloqueo y la entrega sale tarde. Con NODO_VECINO no se espera en el destino,
+     * así que rige la hora límite.
+     */
+    double limiteEfectivo(Pedido p) {
+        return limiteEfectivo(mapa, reglaDestino, p, instanteBaseH);
+    }
+
+    /** Misma regla para quien trabaja con horas absolutas (el Simulador: instanteBaseH = 0). */
+    static double limiteEfectivo(MapaVial mapa, ReglaDestino regla, Pedido p, double instanteBaseH) {
+        if (mapa == null || regla == ReglaDestino.NODO_VECINO) return p.horaLimite();
+        return mapa.limiteEfectivo(p.x, p.y, instanteBaseH + p.horaLimite()) - instanteBaseH;
     }
 
     /**

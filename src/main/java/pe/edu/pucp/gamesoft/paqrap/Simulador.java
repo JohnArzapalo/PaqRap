@@ -754,16 +754,21 @@ class Simulador {
      * ir en unidades distintas de cualquier tipo (cada parte suma 1 h de
      * acondicionamiento). Estrategia "ninguna": solo los bloques de 24.
      */
+    /** Hora límite efectiva (absoluta, en horas) de una entrega: la urgencia real (SI-23). */
+    private double limiteEfectivoH(Pedido p) {
+        return Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0);
+    }
+
     private void dividirUrgentes(double t, List<Unidad> operativas) {
         if (!"urgentes".equalsIgnoreCase(cfg.estrategiaParciales)) return;
         List<Pedido> urgentes = new ArrayList<>();
         for (Map.Entry<String, String> e : estado.entrySet()) {
             if (!"P".equals(e.getValue())) continue;
             Pedido p = entregas.get(e.getKey());
-            if (p.cantidad > cfg.tamanoParcial && p.horaLimite() * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
+            if (p.cantidad > cfg.tamanoParcial && limiteEfectivoH(p) * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
         }
         if (urgentes.isEmpty()) return;
-        urgentes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
+        urgentes.sort(Comparator.<Pedido>comparingDouble(this::limiteEfectivoH).thenComparing(p -> p.id));
         int autosLibres = 0;
         for (Unidad un : operativas) {
             double libre = un.eventos.isEmpty() ? un.ocupadoHasta : un.eventos.peekLast().min;
@@ -844,7 +849,7 @@ class Simulador {
         }
         List<Pedido> faltantes = new ArrayList<>();
         for (Pedido p : aPlanificar) if (!usados.contains(p.id)) faltantes.add(p);
-        faltantes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
+        faltantes.sort(Comparator.<Pedido>comparingDouble(cx::limiteEfectivo).thenComparing(p -> p.id));   // urgencia real (SI-23)
         for (Pedido p : faltantes) {
             OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(s, s.rutas, p);
             if (mejor == null) s.pedidosSinAsignar.add(p);

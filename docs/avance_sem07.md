@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -105,3 +105,25 @@ Total: **47 pruebas, todas pasan.**
 | Almacenes | Solo el central en el simulador mínimo | Almacenes intermedios con stock y recargas (P2, P10) |
 | Replanificación | Rutas despachadas fijas (P16 pendiente) | Replanificar todas las unidades desde el plan vigente y el estado real (P5, P6, P16) |
 | Entregas parciales | Solo bloques de 24 paquetes | División flexible entre unidades de cualquier tipo (P13-P14) |
+
+## Criterio de comparación (indicación del profesor)
+
+- Es normal que algunas corridas terminen en colapso logístico (un pedido no entregado dentro de su plazo).
+- El mejor algoritmo es el de **menor porcentaje de corridas con colapso**. El equipo decidió calcularlo sobre la **simulación de 5 días (SIM_5D)**: cada corrida colapsa o no dentro de las 120 h. Falta la confirmación del profesor (pregunta 13).
+- El tiempo hasta el colapso, el costo y la estabilidad quedan como criterios de desempate.
+- Detalle del diseño: `CLAUDE.md` §5.
+
+## Etapa 23: hora límite efectiva (SI-23)
+
+- **Problema:** si el destino se bloquea antes de la hora límite y el bloqueo dura más allá de ella, llegar después del **inicio** del bloqueo obliga a esperar el desbloqueo y la entrega sale tarde.
+  - H ya contaba esa entrega como tarde, porque `evaluarRuta` espera en el destino bloqueado.
+  - Pero la holgura de seguridad (SI-20) medía el margen hasta la hora límite. Un plan que llegaba 5 minutos antes del bloqueo parecía tener horas de margen, y cualquier retraso lo convertía en colapso.
+- **Cambio (en el evaluador común, igual para ambos algoritmos):**
+  - `MapaVial.inicioBloqueo` y `MapaVial.limiteEfectivo`: si el destino está bloqueado en la hora límite, la hora límite efectiva es el inicio de ese bloqueo (los bloqueos encadenados cuentan como uno).
+  - `Contexto.limiteEfectivo(pedido)`: la misma regla en horas relativas. Con `nodo_vecino` rige la hora límite, porque no se espera en el destino.
+  - `Compartido.evaluarRuta`: la holgura se mide hasta la hora límite efectiva. Solo cambia S; la definición de «tarde» (H) no cambia.
+  - La urgencia de los pedidos usa la hora límite efectiva: `Heuristicaconstructiva` (orden de C&W y de inserción), `Simulador.dividirUrgentes` y la inserción de faltantes en `Simulador.armarReparado`.
+  - El colapso se sigue declarando en la hora límite real. Si el bloqueo dura más que el plazo, la replanificación decide con el estado real.
+- **Pruebas:** `LimiteEfectivoTest` tiene 5 pruebas: inicio del bloqueo que cubre el plazo, bloqueos encadenados, horas relativas y regla de destino, holgura medida hasta la hora límite efectiva, y llegada dentro del bloqueo que cuenta como tarde. **Total: 69 pruebas, todas pasan.**
+- `Main` no cambia (708/672/672 y 816/816/816), porque sin mapa la hora límite efectiva es la hora límite.
+- **Pendiente:** repetir la verificación de SIM_5D (`docs/configuracion_5_dias.md` §5) y recalcular la potencia y el número de réplicas para proporciones pareadas.

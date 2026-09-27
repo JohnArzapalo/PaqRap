@@ -17,9 +17,12 @@ class Heuristicaconstructiva {
 
         // Paso 1: pedidos ordenados por hora límite creciente (lo más urgente
         // primero). Con pedidos leídos del archivo, la hora de registro varía,
-        // así que la urgencia real es horaLimite() y no el plazo hl.
+        // así que la urgencia real es la hora límite y no el plazo hl. Se usa la
+        // hora límite EFECTIVA (SI-23): si el destino se bloquea antes del plazo y
+        // hasta después, hay que llegar antes de que empiece el bloqueo.
+        Contexto cx = Contexto.actual();
         List<Pedido> ped = new ArrayList<>(pedidosPendientes);
-        ped.sort(Comparator.comparingDouble(Pedido::horaLimite));
+        ped.sort(Comparator.comparingDouble(cx::limiteEfectivo));
         int n = ped.size();
         List<TipoUnidad> tipos = tiposDeFlota(flotaDisponible);
         int capacidadMayor = 0;
@@ -125,7 +128,7 @@ class Heuristicaconstructiva {
         // que menos aumentan las entregas tarde y, a igualdad, el costo. Se
         // consideran las rutas ya armadas y, como opción, abrir una ruta nueva
         // en una unidad libre (una por tipo). A igualdad gana una ruta existente.
-        sinAsignar.sort(Comparator.comparingDouble(Pedido::horaLimite));
+        sinAsignar.sort(Comparator.comparingDouble(cx::limiteEfectivo));
         List<Pedido> definitivamenteSinAsignar = new ArrayList<>();
         for (Pedido p : sinAsignar) {
             List<RutaAlg> candidatas = new ArrayList<>(solucion.rutas);

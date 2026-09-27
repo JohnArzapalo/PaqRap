@@ -22,7 +22,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 ### 1.2 Evaluación y contexto (núcleo común a ambos algoritmos)
 | Clase | Responsabilidad |
 |---|---|
-| `Contexto` | "El mundo" en el instante de planificar: instante base, mapa vial, almacenes con stock, posición y hora de inicio de cada unidad, unidades averiadas, plan vigente, regla de destino bloqueado y penalidad de estabilidad. Es por hilo; el contexto por defecto reproduce el modelo simple de `Main`. |
+| `Contexto` | "El mundo" en el instante de planificar: instante base, mapa vial, almacenes con stock, posición y hora de inicio de cada unidad, unidades averiadas, plan vigente, regla de destino bloqueado, hora límite efectiva (`limiteEfectivo`) y penalidad de estabilidad. Es por hilo; el contexto por defecto reproduce el modelo simple de `Main`. |
 | `Compartido` | Función objetivo: `evaluarRuta` (una pasada: tiempos, km, costo, tardanzas y factibilidad), `evaluarSolucion` (H, S, violaciones), `mejorQue` (primero H, luego S) y métricas. |
 | `Hito` | Paso de la línea de tiempo de una ruta (TRAMO, ENTREGA, RECARGA, TRASVASE, FIN), producido por `evaluarRuta` para el simulador. |
 
@@ -46,7 +46,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 |---|---|
 | `Simulador` | Eventos discretos: reloj, llegada de pedidos, replanificación con estado cada Sa y por evento, movimiento nodo a nodo, averías, trasvase, stock, mantenimiento, colapso, registro de eventos e instantánea JSON. |
 | `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`. |
-| `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo` y `caminoTramo`. |
+| `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo`, `caminoTramo`, `finBloqueo`/`inicioBloqueo` y `limiteEfectivo` (Etapa 23). |
 | `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo. |
 | `Reloj` | Ritmo: sin espera, escalado (SIM_5D) o real (DIA_A_DIA); espera interrumpible. |
 | `ServicioSimulacion` | Fachada para un visualizador: corre el simulador en un hilo, da la instantánea y recibe averías y cambios de velocidad. |
@@ -142,12 +142,14 @@ Una sola pasada por las paradas:
    - con `nodo_vecino`, `Contexto.puntoDeEntrega` puede mover la entrega al nodo vecino;
    - `Contexto.distanciaTramo` usa la distancia por la red, con los bloqueos de la ventana del tramo;
    - `Contexto.avanzar` suma el viaje y la hora de alimentación si la cruza.
-   - **ENTREGA:** `esperaDestino` espera si el destino está bloqueado; se compara la llegada con `horaLimite` (tarde +1); suma 1 h de acondicionamiento y baja la carga.
+   - **ENTREGA:** `esperaDestino` espera si el destino está bloqueado; se compara la llegada con `horaLimite` (tarde +1); si llega a tiempo, el margen para la holgura se mide hasta `Contexto.limiteEfectivo` (Etapa 23: el inicio del bloqueo del destino que cubre la hora límite, si lo hay); suma 1 h de acondicionamiento y baja la carga.
    - **RECARGA:** carga las entregas en almacén hasta la próxima RECARGA (uso del almacén) y verifica la capacidad.
    - **TRASVASE:** verifica que la averiada siga en el lugar al terminar (30 min), carga sus entregas y verifica la capacidad.
 5. **Regreso** al almacén más cercano (`almacenMasCercano`).
 6. **Fin:** si pasa del próximo mantenimiento, la ruta es infactible.
-7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad + (en el simulador) horas de margen faltante × penalidad de holgura (Etapa 22: una entrega a tiempo con menos de 60 min de margen es un plan frágil).
+7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad + (en el simulador) horas de margen faltante × penalidad de holgura (Etapa 22: una entrega a tiempo con menos de 60 min de margen es un plan frágil; Etapa 23: el margen se cuenta hasta la hora límite efectiva).
+
+**Hora límite efectiva (Etapa 23, SI-23).** `MapaVial.limiteEfectivo(x, y, límite)`: si el destino está bloqueado en la hora límite, devuelve el inicio de ese bloqueo (`inicioBloqueo`, que une bloqueos encadenados); si no, la hora límite. `Contexto.limiteEfectivo(pedido)` la da en horas relativas y respeta la regla de destino (con `nodo_vecino` rige la hora límite). Se usa en la holgura de `evaluarRuta` y como urgencia al ordenar pedidos (`Heuristicaconstructiva`, `Simulador.dividirUrgentes` y la inserción de faltantes en `armarReparado`). El colapso se sigue declarando en la hora límite real.
 
 `evaluarSolucion` suma las rutas y verifica el stock total por almacén. H = sin asignar + tarde (+ violaciones como resguardo); S = costo.
 
