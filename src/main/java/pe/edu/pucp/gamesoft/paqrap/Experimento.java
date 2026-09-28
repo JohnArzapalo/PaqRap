@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
  *     --penalidad-estabilidad soles (por entrega que cambia de unidad; 0 = sin penalidad)
  *     --calibrar-evaluaciones si (fija un tope de evaluaciones por algoritmo equivalente a Ta)
  *     --hilos N (corridas simultáneas en este proceso; 1 por defecto; Etapa 24)
+ *     --semilla-base S (la réplica r usa la semilla S + r en los algoritmos; 1000 por defecto; Etapa 29)
  *     --situaciones por_replica|por_nivel|ventanas (muestra por réplica, por nivel, o ventanas reales; Etapas 25 y 28)
  *     --carpeta-ventas DIR --carpeta-bloqueos DIR --meses 202609-202812 (ventanas reales de los archivos mensuales)
  *       o --meses BAJA=202609-202610,MEDIA=202611-202612,ALTA=202701-202702 (un nivel por grupo de meses);
@@ -320,6 +321,7 @@ public class Experimento {
                     break;
                 case "--dia-inicio": ExperimentoSimulacion.DIA_INICIO = Integer.parseInt(valor); break;
                 case "--hilos": ExperimentoSimulacion.HILOS = Integer.parseInt(valor); break;
+                case "--semilla-base": SEMILLA_BASE = Long.parseLong(valor); break;
                 case "--situaciones": ExperimentoSimulacion.SITUACIONES = valor; break;
                 case "--cargas": ExperimentoSimulacion.CARGAS = valor; break;
                 case "--carpeta-ventas": ExperimentoSimulacion.CARPETA_VENTAS = valor; break;

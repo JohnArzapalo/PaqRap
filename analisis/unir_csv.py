@@ -35,7 +35,9 @@ def main():
     todo = pd.concat(partes, ignore_index=True)
 
     # Modo simulación: (nivel, algoritmo, réplica); modo estático: (instancia, ventana, algoritmo, réplica)
-    clave = ["nivel", "algoritmo", "replica"] if "nivel" in todo.columns else ["instancia", "ventana", "algoritmo", "replica"]
+    # Etapa 29: al unir corridas con semillas distintas la réplica se repite; la semilla la distingue
+    clave = (["nivel", "algoritmo", "replica"] + [c for c in ("semilla", "semilla_carga") if c in todo.columns]
+             if "nivel" in todo.columns else ["instancia", "ventana", "algoritmo", "replica"])
     dup = todo[todo.duplicated(clave, keep=False)]
     if not dup.empty:
         print("ADVERTENCIA: combinaciones repetidas (revise el reparto entre PCs):")

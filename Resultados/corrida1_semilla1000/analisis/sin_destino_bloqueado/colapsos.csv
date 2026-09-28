@@ -1,0 +1,4 @@
+nivel,pares,%colapso_TABU,IC_TABU,%colapso_AG,IC_AG,ambos,solo_TABU,solo_AG,ninguno,p_McNemar,significativo,mejor
+BAJA,30,10.0,"[2, 27]",3.3333333333333335,"[0, 17]",0,3,1,26,0.625,no,sin diferencia
+MEDIA,28,17.857142857142858,"[6, 37]",28.57142857142857,"[13, 49]",2,3,6,17,0.5078125,no,sin diferencia
+ALTA,20,85.0,"[62, 97]",90.0,"[68, 99]",16,1,2,1,1.0,no,sin diferencia

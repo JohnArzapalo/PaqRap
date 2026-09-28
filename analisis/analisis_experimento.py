@@ -432,11 +432,19 @@ def autoprueba():
 
 # ===================== diseño pareado (Etapa 25) =====================
 
+def clave_par(g):
+    """Columnas que identifican un par TABU/AG: la réplica y, si existen, la semilla del
+    algoritmo y la situación (etapa 29: al unir corridas con semillas distintas, la réplica r
+    se repite; el par es la misma situación con la misma semilla)."""
+    return [c for c in ("replica", "semilla", "semilla_carga") if c in g.columns]
+
+
 def pares(g, var):
-    """Valores de var de TABU y AG alineados por réplica (la réplica r es la misma situación
-    para ambos algoritmos). Devuelve dos arreglos del mismo largo."""
-    t = g[g["algoritmo"] == "TABU"].set_index("replica")[var]
-    a = g[g["algoritmo"] == "AG"].set_index("replica")[var]
+    """Valores de var de TABU y AG alineados por par (misma situación y misma semilla para
+    ambos algoritmos). Devuelve dos arreglos del mismo largo."""
+    clave = clave_par(g)
+    t = g[g["algoritmo"] == "TABU"].set_index(clave)[var]
+    a = g[g["algoritmo"] == "AG"].set_index(clave)[var]
     comun = t.index.intersection(a.index).sort_values()
     return t.loc[comun].astype(float).values, a.loc[comun].astype(float).values
 
@@ -503,6 +511,23 @@ def analizar_colapsos(df, out, alfa):
               "IC: Clopper-Pearson al " + f"{(1 - alfa) * 100:.0f} %. Solo los pares discordantes (solo_TABU, "
               "solo_AG) informan la diferencia; la prueba es McNemar exacta (binomial de solo_TABU sobre "
               "solo_TABU + solo_AG con p = 1/2).")
+    # Etapa 29: si se unieron corridas con semillas distintas (semilla = base + réplica), se muestra
+    # cada corrida por separado: el veredicto debe repetirse en todas
+    varias = "semilla" in df.columns and (df["semilla"] - df["replica"]).nunique() > 1
+    if varias:
+        filas_c = []
+        for base, gc in df.assign(_base=df["semilla"] - df["replica"]).groupby("_base"):
+            t, a = pares(gc, "colapso")
+            b = int(((t == 1) & (a == 0)).sum())
+            c = int(((t == 0) & (a == 1)).sum())
+            pc = mcnemar_exacta(b, c)
+            filas_c.append({"corrida (semilla base)": int(base), "pares": len(t), "%colapso_TABU": t.mean() * 100,
+                            "%colapso_AG": a.mean() * 100, "solo_TABU": b, "solo_AG": c, "p_McNemar": pc,
+                            "significativo": "sí" if pc < alfa else "no"})
+        out.tabla(pd.DataFrame(filas_c), "colapsos_por_corrida",
+                  "0b. % de colapsos por corrida (misma situación, otra semilla de los algoritmos)")
+        out.texto("**Con varias corridas, los tramos se repiten**: la McNemar global de abajo los cuenta como pares "
+                  "independientes y es optimista. La prueba combinada válida es la **GEE agrupada por tramo**.\n")
     p_global = mcnemar_exacta(b_total, c_total)
     sig = p_global < alfa
     mejor = ("AG" if b_total > c_total else "TABU") if sig else "sin diferencia significativa"
@@ -510,13 +535,15 @@ def analizar_colapsos(df, out, alfa):
               f"solo TABU colapsa en {b_total} pares, solo AG en {c_total}; p = {p_global:.4g} → **{mejor}**.\n")
     if HAY_STATSMODELS and df["colapso"].nunique() > 1 and df["nivel"].nunique() > 1:
         try:
-            # GEE binomial con los pares como grupos: efecto del algoritmo ajustado por nivel,
-            # respetando la correlación dentro del par (misma situación)
-            d = df.assign(par=df["nivel"].astype(str) + "_" + df["replica"].astype(str))
+            # GEE binomial agrupada por SITUACIÓN: efecto del algoritmo ajustado por nivel,
+            # respetando la correlación dentro de la situación (ambos algoritmos y, si se unen
+            # corridas con semillas distintas, todas las repeticiones del mismo tramo)
+            sit = "semilla_carga" if "semilla_carga" in df.columns else "replica"
+            d = df.assign(par=df["nivel"].astype(str) + "_" + df[sit].astype(str))
             m = smf.gee("colapso ~ C(algoritmo, Treatment('AG')) + C(nivel)", groups="par", data=d,
                         family=sm.families.Binomial(), cov_struct=sm.cov_struct.Exchangeable()).fit()
             coef = [k for k in m.params.index if k.startswith("C(algoritmo")][0]
-            out.texto(f"**Regresión logística GEE (pares como grupos), colapso ~ algoritmo + nivel:** "
+            out.texto(f"**Regresión logística GEE (agrupada por tramo), colapso ~ algoritmo + nivel:** "
                       f"odds ratio TABU/AG = {np.exp(m.params[coef]):.3g}, p = {m.pvalues[coef]:.4g}.\n")
         except Exception as e:   # separación perfecta (niveles con 0 % o 100 %), pocos datos, etc.
             out.texto(f"Regresión logística GEE no aplicable con estos datos ({type(e).__name__}).\n")
@@ -705,7 +732,7 @@ def main():
     if sintetico:
         print(f"*** {AVISO} ***")
 
-    clave = ["nivel", "algoritmo", "replica"] if simulacion else ["instancia", "ventana", "algoritmo", "replica"]
+    clave = (["nivel", "algoritmo"] + clave_par(df)) if simulacion else ["instancia", "ventana", "algoritmo", "replica"]
     if not df[df.duplicated(clave, keep=False)].empty:
         print("ADVERTENCIA: hay combinaciones repetidas entre los CSV.")
 

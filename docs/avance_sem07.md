@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 a 28 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 29 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -301,3 +301,31 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
   - el AG es algo más barato con carga baja o media (1-5 % por pedido);
   - Tabú es mucho más estable: de 3 a 10 veces menos reasignaciones de unidades al replanificar.
 - La elección final depende de cuánto pese cada criterio y queda para decisión del equipo.
+
+## Etapa 29: tres corridas con semillas distintas y veredicto
+
+- **Objetivo:** comprobar que la conclusión de la etapa 28 no depende del azar de los algoritmos, que pesa porque en cerca del 18 % de los tramos colapsa uno solo.
+- **Cambios:**
+  - `--semilla-base S`: la réplica r usa la semilla S + r en los algoritmos. Los tramos no cambian (los fija `carga.semilla_base`).
+  - Análisis y `unir_csv.py`: el par TABU/AG se identifica por réplica, semilla y tramo, así que se pueden unir corridas.
+  - Tabla «0b» por corrida.
+  - La GEE se agrupa por tramo: con varias corridas es la prueba combinada válida, porque la McNemar global cuenta el mismo tramo varias veces.
+- **Resultados** en `Resultados/` (versionados): `corrida1_semilla1000/`, `corrida2_semilla2000/`, `corrida3_semilla3000/` y `combinado/`, cada uno con su CSV, hashes, registro y análisis. Ver `Resultados/LEEME.md`.
+
+| Corrida (semilla) | % colapso TABU | % colapso AG | Solo TABU / solo AG | p (McNemar) |
+|---|---|---|---|---|
+| 1 (1000) | 46.6 | 49.5 | 8 / 11 | 0.65 |
+| 2 (2000) | 49.5 | 44.7 | 14 / 9 | 0.40 |
+| 3 (3000) | 42.7 | 50.5 | 8 / 16 | 0.15 |
+| **Combinadas (309 pares)** | **46.3** | **48.2** | 30 / 36 | **GEE p = 0.46** (odds ratio TABU/AG = 0.90) |
+
+Por nivel, con las tres corridas combinadas: BAJA 27.5 % frente a 26.7 %, MEDIA 35.2 % frente a 43.8 % (p = 0.18) y ALTA 86.9 % frente a 84.5 %. Ninguno es significativo.
+
+- **Veredicto sobre la variable principal:** los dos algoritmos son **equivalentes en el % de colapsos**. Ninguna corrida muestra diferencia significativa, la dirección cambia de una corrida a otra (en la 2 colapsa más TABU) y la prueba combinada tampoco la encuentra. El tiempo hasta el colapso tampoco difiere (log-rank p = 0.19 a 0.91).
+- **Desempates, con las tres corridas combinadas** (los p son orientativos, porque repiten tramos; el sentido es el mismo en las tres):
+  - Costo por pedido: AG 4.5 % más barato en BAJA y 1.4 % en MEDIA; igual en ALTA.
+  - km por pedido: AG de 0.7 a 5.8 % menos.
+  - Cambios de unidad (mediana): TABU 27 frente a 289.5 (BAJA), 27 frente a 175 (MEDIA) y 20 frente a 87 (ALTA).
+- **Con la regla escrita** (costo antes que estabilidad): AG en BAJA y MEDIA, TABU en ALTA. Igual en las tres corridas.
+- **Pendiente:** la decisión del equipo sobre el orden costo/estabilidad y, con ella, el algoritmo elegido.
+- **Pruebas:** 79, todas pasan.

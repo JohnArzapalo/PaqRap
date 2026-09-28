@@ -110,8 +110,9 @@ def tabla_planificacion(alfa, potencia):
 def pares_por_nivel(g):
     """Tabla de pares (nivel, réplica) con colapso de TABU y de AG."""
     g = g.assign(colapso=(g["censurada"] != "si").astype(int))
-    t = g[g["algoritmo"] == "TABU"].set_index("replica")["colapso"]
-    a = g[g["algoritmo"] == "AG"].set_index("replica")["colapso"]
+    clave = [c for c in ("replica", "semilla", "semilla_carga") if c in g.columns]   # etapa 29: varias corridas
+    t = g[g["algoritmo"] == "TABU"].set_index(clave)["colapso"]
+    a = g[g["algoritmo"] == "AG"].set_index(clave)["colapso"]
     comun = t.index.intersection(a.index)
     return t.loc[comun], a.loc[comun]
 

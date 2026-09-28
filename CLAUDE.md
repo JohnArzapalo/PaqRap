@@ -47,7 +47,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 28)
+## 3. Estado del código (etapa 29)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -69,8 +69,9 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
 - **Etapa 25:** situaciones por réplica (SI-24): la réplica r de cada nivel es una muestra de pedidos propia, la misma para TABU y AG (diseño pareado). Se agregaron `--cargas` para niveles a medida, el análisis del % de colapsos con McNemar exacta y `potencia.py` para proporciones pareadas. Calibración sintética: la zona útil está entre 100 % y 115 % de C_max (`docs/avance_sem07.md`). Hay 72 pruebas.
 - **Etapa 26 (ensayo SINTETICO, 240 corridas):** niveles provisionales BAJA 95 %, MEDIA 105 % y ALTA 110 % (SI-25). % de colapsos: TABU 51.7 % frente a AG 57.5 %, **sin diferencia significativa** (McNemar global p = 0.26). Los desempates dan TABU por estabilidad (unos 13 cambios de unidad frente a unos 160); el costo por pedido no difiere y el AG hace de 1.4 a 1.6 % menos km en BAJA y MEDIA. **El AG excede Ta: 2 752 ms de media frente a 2 000** (`docs/avance_sem07.md`).
 - **Etapa 27:** el AG revisa Ta antes de cada hijo (antes, solo al terminar la generación). Con 7 hilos pasó de 2 601 ms de media (máximo 3 823) a 2 050 ms (máximo 2 200); Tabú usa 2 003 ms. Hay 75 pruebas. El ensayo de la etapa 26 se hizo con el AG excedido y hay que repetirlo.
-- **Etapa 28 (datos oficiales):** los datos del profesor están en `juego_de_datos/` (no versionados; 36 meses, sin errores de validación). Se corrigieron dos errores: el `MapaVial` era compartido entre hilos (falta de memoria y posibles distancias equivocadas; ahora hay uno por corrida) y el mantenimiento ignoraba el mes (ahora solo se usan los del mes simulado). Se agregaron las **ventanas reales** (SI-26): los niveles son grupos de meses con demanda creciente. Hay 79 pruebas.
+- **Etapa 28 (datos oficiales):** los datos del profesor están en `juego_de_datos/` (versionados; 36 meses, sin errores de validación). Se corrigieron dos errores: el `MapaVial` era compartido entre hilos (falta de memoria y posibles distancias equivocadas; ahora hay uno por corrida) y el mantenimiento ignoraba el mes (ahora solo se usan los del mes simulado). Se agregaron las **ventanas reales** (SI-26): los niveles son grupos de meses con demanda creciente. Hay 79 pruebas.
 - **Resultado del experimento oficial (etapa 28, 103 pares):** % de colapsos TABU 46.6 % frente a AG 49.5 %, **sin diferencia significativa** (McNemar global p = 0.65; con 103 pares se detectarían unos 15 puntos). El tiempo hasta el colapso no difiere. El AG es de 1 a 5 % más barato por pedido en BAJA y MEDIA; Tabú es de 3 a 10 veces más estable. Con la regla acordada: AG en BAJA y MEDIA (costo) y TABU en ALTA (estabilidad). **La elección final queda para decisión del equipo** (`docs/avance_sem07.md`).
+- **Etapa 29, veredicto con 3 corridas** (semillas 1000, 2000 y 3000; 309 pares; `Resultados/`): % de colapsos TABU 46.3 % frente a AG 48.2 %, **equivalentes** (GEE agrupada por tramo p = 0.46; ninguna corrida es significativa y la dirección cambia). Los desempates son estables: AG de 1.4 a 4.5 % más barato en BAJA y MEDIA; TABU de 4 a 10 veces más estable. **Falta que el equipo decida el orden costo/estabilidad.** Nueva opción `--semilla-base`; el análisis combina corridas.
 - **Supuestos** SI-01 a SI-26 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
@@ -86,7 +87,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 ```
 
 - Los parámetros están comentados en `config/parametros.properties`.
-- Experimento: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga). Por defecto corren SIM_5D con situaciones por réplica, `REPLICAS=40` y `HILOS=1`; con `ESCENARIO=COLAPSO` corren hasta el colapso. Pasos completos en `docs/protocolo_experimento.md`.
+- Resultados oficiales versionados en `Resultados/` (ver `Resultados/LEEME.md`). Experimento: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga). Por defecto corren SIM_5D con situaciones por réplica, `REPLICAS=40` y `HILOS=1`; con `ESCENARIO=COLAPSO` corren hasta el colapso. Pasos completos en `docs/protocolo_experimento.md`.
 - Análisis en Python: `analisis/analisis_experimento.py`, `analisis/potencia.py` y `analisis/unir_csv.py`. Requieren pandas, scipy, matplotlib, statsmodels y lifelines.
 - **Varias simulaciones por proceso** (etapa 24): `--hilos N` las corre en paralelo. Con parada por evaluaciones el resultado no depende de N. Con parada por tiempo (Ta), usar N ≤ núcleos físicos, porque los hilos se reparten la CPU.
 
