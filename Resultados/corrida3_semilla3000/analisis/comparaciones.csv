@@ -1,0 +1,28 @@
+nivel,variable,prueba,p,mediana_TABU,mediana_AG,dif_rel_medianas_%,significativo,mejor
+BAJA,colapso,McNemar exacta,0.453125,25.0,32.5,,no,sin diferencia
+MEDIA,colapso,McNemar exacta,0.11846923828124999,28.57142857142857,48.57142857142857,,no,sin diferencia
+ALTA,colapso,McNemar exacta,0.5,85.71428571428571,78.57142857142857,,no,sin diferencia
+BAJA,colapso_h,log-rank,0.4510270622393262,120.0,120.0,,no,sin diferencia
+MEDIA,colapso_h,log-rank,0.10609822049614279,120.0,120.0,,no,sin diferencia
+ALTA,colapso_h,log-rank,0.6115640855461565,61.79165,66.05,,no,sin diferencia
+BAJA,pct_pedidos_en_plazo,Wilcoxon (rangos con signo),0.13609738111439368,100.0,100.0,0.0,no,sin diferencia
+BAJA,costo_por_pedido,Wilcoxon (rangos con signo),3.062996256630868e-08,159.91415260034836,152.51335052983825,4.852560149520937,sí,AG
+BAJA,km_por_pedido,Wilcoxon (rangos con signo),1.8109858501702547e-08,26.432481443994604,24.791031437047444,6.621144469585058,sí,AG
+BAJA,costo_acumulado,Wilcoxon (rangos con signo),4.299272404750809e-07,125867.5,116289.0,8.23680657671835,sí,AG
+BAJA,planificador_ms_medio,Wilcoxon (rangos con signo),1.2744014762693833e-07,2003.5,2010.15,-0.33082108300376045,sí,TABU
+BAJA,cambios_de_unidad,Wilcoxon (rangos con signo),3.568126323893353e-08,28.0,298.5,-90.61976549413735,sí,TABU
+BAJA,pedidos_inentregables_bloqueo,iguales (sin diferencias),1.0,0.0,0.0,,no,sin diferencia
+MEDIA,pct_pedidos_en_plazo,Wilcoxon (rangos con signo),0.11160594143962081,100.0,100.0,0.0,no,sin diferencia
+MEDIA,costo_por_pedido,Wilcoxon (rangos con signo),1.4187535271048546e-06,162.92530345471522,159.96747967479675,1.8490156786438905,sí,AG
+MEDIA,km_por_pedido,Wilcoxon (rangos con signo),2.297514583915472e-06,27.06918918918919,26.414712153518124,2.477698912134069,sí,AG
+MEDIA,costo_acumulado,Wilcoxon (rangos con signo),0.005968131008557975,162737.0,154823.0,5.111643618842162,sí,AG
+MEDIA,planificador_ms_medio,Wilcoxon (rangos con signo),2.4758833923961606e-07,2003.3,2028.3,-1.2325592861016617,sí,TABU
+MEDIA,cambios_de_unidad,t pareada,3.2719450885346368e-15,26.0,175.0,-85.14285714285714,sí,TABU
+MEDIA,pedidos_inentregables_bloqueo,iguales (sin diferencias),1.0,0.0,0.0,,no,sin diferencia
+ALTA,pct_pedidos_en_plazo,Wilcoxon (rangos con signo),0.7019562719879122,99.82499999999999,99.825,-1.4235767307990987e-14,no,sin diferencia
+ALTA,costo_por_pedido,Wilcoxon (rangos con signo),0.3740789592266083,165.5205619126399,163.8475147724377,1.0211001018390942,no,sin diferencia
+ALTA,km_por_pedido,Wilcoxon (rangos con signo),0.14377250522375107,27.404620023201346,27.165855775460557,0.8789130359606406,no,sin diferencia
+ALTA,costo_acumulado,Wilcoxon (rangos con signo),0.9374814853072166,95228.5,96764.0,-1.5868504815840603,no,sin diferencia
+ALTA,planificador_ms_medio,t pareada,3.315729300129609e-09,2002.5,2111.95,-5.182414356400475,sí,TABU
+ALTA,cambios_de_unidad,t pareada,5.1790592481359165e-09,21.5,94.0,-77.12765957446808,sí,TABU
+ALTA,pedidos_inentregables_bloqueo,Wilcoxon (rangos con signo),0.15729920705028502,0.0,0.0,,no,sin diferencia

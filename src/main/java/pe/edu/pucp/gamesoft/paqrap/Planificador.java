@@ -61,25 +61,27 @@ interface Planificador {
     }
 
     /** Búsqueda Tabú: parte del plan vigente reparado (o de C&W en el primer
-     *  ciclo) y usa todo el presupuesto (sin corte por estancamiento). */
+     *  ciclo) y usa todo el presupuesto (sin corte por estancamiento).
+     *  Cada llamada crea su propio objeto con la semilla del ciclo (Etapa 24). */
     static Planificador tabu(int duracionTabu) {
         return e -> {
             Contexto.usar(e.contexto);
-            BusquedaTabu.setSemilla(e.semilla);
-            Solucion s = BusquedaTabu.ejecutarDesdeCero(e.pedidos, e.flota, e.presupuestoMs, e.maxEvaluaciones,
+            BusquedaTabu tabu = new BusquedaTabu(e.semilla);
+            Solucion s = tabu.ejecutarDesdeCero(e.pedidos, e.flota, e.presupuestoMs, e.maxEvaluaciones,
                     duracionTabu, Integer.MAX_VALUE);
-            return Plan.de(s, BusquedaTabu.ultimasIteraciones, BusquedaTabu.ultimasEvaluaciones);
+            return Plan.de(s, tabu.ultimasIteraciones, tabu.ultimasEvaluaciones);
         };
     }
 
     /** Algoritmo Genético + Split con estado (+ búsqueda local memética), con
-     *  población sembrada desde el plan vigente. */
+     *  población sembrada desde el plan vigente. Cada llamada crea su propio
+     *  objeto con la semilla del ciclo (Etapa 24). */
     static Planificador genetico(int poblacion) {
         return e -> {
             Contexto.usar(e.contexto);
-            AlgoritmoGenetico.setSemilla(e.semilla);
-            Solucion s = AlgoritmoGenetico.ejecutar(e.pedidos, e.flota, e.presupuestoMs, e.maxEvaluaciones, poblacion);
-            return Plan.de(s, AlgoritmoGenetico.ultimasGeneraciones, AlgoritmoGenetico.ultimasEvaluaciones);
+            AlgoritmoGenetico ag = new AlgoritmoGenetico(e.semilla);
+            Solucion s = ag.ejecutar(e.pedidos, e.flota, e.presupuestoMs, e.maxEvaluaciones, poblacion);
+            return Plan.de(s, ag.ultimasGeneraciones, ag.ultimasEvaluaciones);
         };
     }
 }

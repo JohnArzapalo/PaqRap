@@ -1,0 +1,99 @@
+=== Modo simulación, escenario SIM_5D (pedidos base: juego_de_datos/ventas.v20260909-20260928T011657Z-1-001/ventas.v20260909/ventas.202609.txt) ===
+Sa = 60 min, Ta = 2000 ms, horizonte = 7200 min; bloqueos: juego_de_datos/bloqueos.v20260909-20260928T011612Z-1-001/bloqueos.v20260909/bloqueo.2609.txt (558); almacenes intermedios: sí; averías: no; parciales: urgentes; alimentación: sí; AG con búsqueda local: sí
+
+=== Capacidad teórica diaria de la flota ===
+  d̄ (ida y vuelta) = 68.13 km; T = 21 h; horas de entrega = 1.0
+  Tipo       n   q  v(km/h)  q̄_k   e_k   t_k(h)  viajes/día  paquetes/día
+  AUTO      10  24    40.0   5.50  4.36    6.07           3           720
+  MOTO      15   8    25.0   4.53  1.77    4.49           4           480
+  BICICLETA 12   4    12.0   2.47  1.62    7.30           2            96
+  C_max propio = 1296 paquetes/día | hoja auxiliar = 1536 | se usa: propio
+
+=== Niveles de carga (30 días; archivos en C:\Users\MARIA GRACIA\Downloads\JL\DP1\PaqRap\PaqRap\juego_de_datos\ventas.v20260909-20260928T011657Z-1-001\ventas.v20260909\generados) ===
+Situaciones: una muestra de pedidos por réplica (la misma para TABU y AG)
+  C090   90% de C_max = 1166 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 6409 pedidos, 35084 paquetes (carga_C090_90pct_semilla3027_de_ventas.202609.txt)
+  C095   95% de C_max = 1231 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 6799 pedidos, 37022 paquetes (carga_C095_95pct_semilla4027_de_ventas.202609.txt)
+  C100  100% de C_max = 1296 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 7007 pedidos, 38956 paquetes (carga_C100_100pct_semilla5027_de_ventas.202609.txt)
+  C105  105% de C_max = 1361 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 7466 pedidos, 40941 paquetes (carga_C105_105pct_semilla6027_de_ventas.202609.txt)
+  C110  110% de C_max = 1426 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 7734 pedidos, 42898 paquetes (carga_C110_110pct_semilla7027_de_ventas.202609.txt)
+  C115  115% de C_max = 1490 paquetes/día -> 4 situación(es) de 30 días; la 1.ª: 8130 pedidos, 44833 paquetes (carga_C115_115pct_semilla8027_de_ventas.202609.txt)
+  ARCHIVO archivo tal cual: 948 paquetes/día (73% de C_max) -> 5000 pedidos, 27494 paquetes
+
+Hashes de entrada guardados en C:\Users\MARIA GRACIA\Downloads\JL\DP1\PaqRap\PaqRap\verificacion_etapa28\calibracion_oficial_202609_hashes.txt
+
+=== Ejecutando 56 corridas ===
+  [  1/56] C115  TABU rep=1  colapso 04d18h55m (90.9 h desde el inicio)  causa=llegada tardía (planificada)  costo=149406  en plazo=99.9%  replan=91 (+0 por evento)  bloqueos=0  (217 s)
+  [  2/56] C105  TABU rep=4  colapso 02d22h18m (46.3 h desde el inicio)  causa=llegada tardía (a bordo)  costo=53134  en plazo=99.7%  replan=46 (+0 por evento)  bloqueos=0  (100 s)
+  [  3/56] C095  TABU rep=3  colapso 05d03h04m (99.1 h desde el inicio)  causa=llegada tardía (planificada)  costo=133678  en plazo=99.9%  replan=99 (+0 por evento)  bloqueos=0  (226 s)
+  [  4/56] C100  AG   rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=169753  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (286 s)
+  [  5/56] C090  AG   rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=149747  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (269 s)
+  [  6/56] C110  AG   rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=185318  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (295 s)
+  [  7/56] C115  AG   rep=4  colapso 01d22h23m (22.4 h desde el inicio)  causa=destino bloqueado  costo=21588  en plazo=99.3%  replan=22 (+0 por evento)  bloqueos=0  (49 s)
+  [  8/56] ARCHIVO AG   rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=112826  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (255 s)
+  [  9/56] C095  AG   rep=2  colapso 05d10h05m (106.1 h desde el inicio)  causa=destino bloqueado  costo=140680  en plazo=99.9%  replan=106 (+0 por evento)  bloqueos=0  (244 s)
+  [ 10/56] C115  AG   rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=201999  en plazo=100.0%  replan=120 (+0 por evento)  bloqueos=0  (296 s)
+  [ 11/56] C105  AG   rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=181549  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (282 s)
+  [ 12/56] C090  TABU rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=152192  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (262 s)
+  [ 13/56] C100  TABU rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=173635  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (274 s)
+  [ 14/56] C095  TABU rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=162987  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (268 s)
+  [ 15/56] ARCHIVO TABU rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=114242  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (252 s)
+  [ 16/56] ARCHIVO AG   rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=107165  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (250 s)
+  [ 17/56] ARCHIVO AG   rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=108115  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (250 s)
+  [ 18/56] C095  AG   rep=4  colapso 03d12h18m (60.3 h desde el inicio)  causa=llegada tardía (planificada)  costo=69648  en plazo=99.8%  replan=61 (+0 por evento)  bloqueos=0  (133 s)
+  [ 19/56] C100  AG   rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=170688  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (285 s)
+  [ 20/56] C100  TABU rep=2  colapso 05d14h28m (110.5 h desde el inicio)  causa=destino bloqueado  costo=151264  en plazo=99.9%  replan=110 (+0 por evento)  bloqueos=0  (254 s)
+  [ 21/56] C110  TABU rep=4  colapso 01d21h58m (22.0 h desde el inicio)  causa=destino bloqueado  costo=18981  en plazo=99.2%  replan=21 (+0 por evento)  bloqueos=0  (45 s)
+  [ 22/56] C110  AG   rep=4  colapso 01d21h58m (22.0 h desde el inicio)  causa=destino bloqueado  costo=17453  en plazo=99.2%  replan=21 (+0 por evento)  bloqueos=0  (45 s)
+  [ 23/56] C090  AG   rep=1  colapso 04d21h06m (93.1 h desde el inicio)  causa=destino bloqueado  costo=110595  en plazo=99.9%  replan=93 (+0 por evento)  bloqueos=0  (204 s)
+  [ 24/56] C105  AG   rep=2  colapso 01d20h30m (20.5 h desde el inicio)  causa=llegada tardía (planificada)  costo=19630  en plazo=99.2%  replan=20 (+0 por evento)  bloqueos=0  (43 s)
+  [ 25/56] C105  TABU rep=3  colapso 02d19h54m (43.9 h desde el inicio)  causa=llegada tardía (a bordo)  costo=51034  en plazo=99.7%  replan=43 (+0 por evento)  bloqueos=0  (94 s)
+  [ 26/56] C100  TABU rep=1  colapso 03d13h11m (61.2 h desde el inicio)  causa=llegada tardía (planificada)  costo=78328  en plazo=99.8%  replan=61 (+0 por evento)  bloqueos=0  (135 s)
+  [ 27/56] C090  TABU rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=149872  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (267 s)
+  [ 28/56] C105  TABU rep=1  colapso 04d13h34m (85.6 h desde el inicio)  causa=llegada tardía (a bordo)  costo=124997  en plazo=99.9%  replan=86 (+0 por evento)  bloqueos=0  (195 s)
+  [ 29/56] C095  AG   rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=162568  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (272 s)
+  [ 30/56] C090  TABU rep=1  colapso 04d21h06m (93.1 h desde el inicio)  causa=destino bloqueado  costo=114483  en plazo=99.9%  replan=93 (+0 por evento)  bloqueos=0  (204 s)
+  [ 31/56] C110  AG   rep=3  colapso 03d05h54m (53.9 h desde el inicio)  causa=llegada tardía (a bordo)  costo=69324  en plazo=99.8%  replan=53 (+0 por evento)  bloqueos=0  (119 s)
+  [ 32/56] C105  TABU rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=181704  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (274 s)
+  [ 33/56] C110  AG   rep=1  colapso 03d04h18m (52.3 h desde el inicio)  causa=llegada tardía (planificada)  costo=66804  en plazo=99.8%  replan=52 (+0 por evento)  bloqueos=0  (116 s)
+  [ 34/56] C100  AG   rep=1  colapso 04d21h01m (93.0 h desde el inicio)  causa=llegada tardía (planificada)  costo=118864  en plazo=99.9%  replan=93 (+0 por evento)  bloqueos=0  (208 s)
+  [ 35/56] C095  AG   rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=161467  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (268 s)
+  [ 36/56] C090  AG   rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=147351  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (260 s)
+  [ 37/56] C090  AG   rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=149630  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (266 s)
+  [ 38/56] C100  AG   rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=173922  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (273 s)
+  [ 39/56] C110  TABU rep=2  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=186755  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (275 s)
+  [ 40/56] C110  TABU rep=1  colapso 04d03h57m (76.0 h desde el inicio)  causa=llegada tardía (a bordo)  costo=109563  en plazo=99.9%  replan=75 (+0 por evento)  bloqueos=0  (168 s)
+  [ 41/56] ARCHIVO TABU rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=117165  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (253 s)
+  [ 42/56] C105  AG   rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=179212  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (273 s)
+  [ 43/56] C115  TABU rep=2  colapso 05d04h27m (100.5 h desde el inicio)  causa=llegada tardía (a bordo)  costo=160509  en plazo=99.9%  replan=100 (+0 por evento)  bloqueos=0  (240 s)
+  [ 44/56] C115  TABU rep=4  colapso 01d22h23m (22.4 h desde el inicio)  causa=destino bloqueado  costo=22268  en plazo=99.3%  replan=22 (+0 por evento)  bloqueos=0  (48 s)
+  [ 45/56] ARCHIVO AG   rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=108460  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (253 s)
+  [ 46/56] C095  TABU rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=158920  en plazo=100.0%  replan=120 (+0 por evento)  bloqueos=0  (267 s)
+  [ 47/56] C100  TABU rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=174003  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (269 s)
+  [ 48/56] C115  AG   rep=3  colapso 04d12h42m (84.7 h desde el inicio)  causa=llegada tardía (planificada)  costo=133073  en plazo=99.9%  replan=84 (+0 por evento)  bloqueos=0  (193 s)
+  [ 49/56] C115  TABU rep=3  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=197796  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (280 s)
+  [ 50/56] C110  TABU rep=3  colapso 03d06h33m (54.6 h desde el inicio)  causa=llegada tardía (a bordo)  costo=71503  en plazo=99.5%  replan=54 (+0 por evento)  bloqueos=0  (119 s)
+  [ 51/56] ARCHIVO TABU rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=114731  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (253 s)
+  [ 52/56] C105  AG   rep=1  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=178906  en plazo=100.0%  replan=120 (+0 por evento)  bloqueos=0  (278 s)
+  [ 53/56] C115  AG   rep=2  colapso 05d05h03m (101.1 h desde el inicio)  causa=llegada tardía (planificada)  costo=164334  en plazo=99.9%  replan=101 (+0 por evento)  bloqueos=0  (252 s)
+  [ 54/56] C090  TABU rep=2  colapso 05d22h17m (118.3 h desde el inicio)  causa=destino bloqueado  costo=149126  en plazo=99.9%  replan=118 (+0 por evento)  bloqueos=0  (260 s)
+  [ 55/56] C095  TABU rep=2  colapso 05d10h05m (106.1 h desde el inicio)  causa=destino bloqueado  costo=144128  en plazo=99.9%  replan=106 (+0 por evento)  bloqueos=0  (236 s)
+  [ 56/56] ARCHIVO TABU rep=4  CENSURADA en 06d00h00m (120.0 h desde el inicio)  causa=-  costo=111716  en plazo=100.0%  replan=119 (+0 por evento)  bloqueos=0  (250 s)
+
+=== Resumen por combinación ===
+Combinación   n  colapso (h) censuradas    costo medio    % plazo
+C115 TABU     4        83.44          1         132495      99.8%
+C105 TABU     4        73.94          1         102717      99.8%
+C095 TABU     4       111.29          2         149928      99.9%
+C100 AG       4       113.25          3         158307     100.0%
+C090 AG       4       113.28          3         139331     100.0%
+C110 AG       4        62.04          1          84725      99.7%
+C115 AG       4        82.03          1         130249      99.8%
+ARCHIVO AG    4       120.00          4         109142     100.0%
+C095 AG       4       101.60          2         133591      99.9%
+C105 AG       4        95.13          3         139824      99.8%
+C090 TABU     4       112.85          2         141418      99.9%
+C100 TABU     4       102.91          2         144308      99.9%
+ARCHIVO TABU   4       120.00          4         114464     100.0%
+C110 TABU     4        68.12          1          96701      99.6%
+
+Resultados guardados en: C:\Users\MARIA GRACIA\Downloads\JL\DP1\PaqRap\PaqRap\verificacion_etapa28\calibracion_oficial_202609.csv

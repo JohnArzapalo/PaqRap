@@ -1,0 +1,20 @@
+## 1b. Causas de colapso por nivel y algoritmo
+
+| nivel | algoritmo | causa_colapso | corridas |
+|---|---|---|---|
+| ALTA | AG | destino bloqueado | 6 |
+| ALTA | AG | llegada tardía (a bordo) | 6 |
+| ALTA | AG | llegada tardía (planificada) | 14 |
+| ALTA | TABU | destino bloqueado | 7 |
+| ALTA | TABU | llegada tardía (a bordo) | 6 |
+| ALTA | TABU | llegada tardía (planificada) | 12 |
+| BAJA | AG | destino bloqueado | 8 |
+| BAJA | AG | llegada tardía (a bordo) | 2 |
+| BAJA | TABU | destino bloqueado | 8 |
+| BAJA | TABU | llegada tardía (a bordo) | 3 |
+| MEDIA | AG | destino bloqueado | 5 |
+| MEDIA | AG | llegada tardía (a bordo) | 3 |
+| MEDIA | AG | llegada tardía (planificada) | 7 |
+| MEDIA | TABU | destino bloqueado | 7 |
+| MEDIA | TABU | llegada tardía (a bordo) | 2 |
+| MEDIA | TABU | llegada tardía (planificada) | 3 |

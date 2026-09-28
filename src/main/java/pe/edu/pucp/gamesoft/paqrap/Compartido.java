@@ -17,7 +17,7 @@ import java.util.Set;
  * reproduce exactamente el modelo anterior (salida del central en la hora 0,
  * Manhattan, regreso al central), que es el que usan Main y el modo estático.
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-02, SI-03, SI-04, SI-05, SI-07, SI-14, SI-16 (la penalidad de estabilidad va a S, nunca a H), SI-20 (holgura de seguridad, también solo en S).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02, SI-03, SI-04, SI-05, SI-07, SI-14, SI-16 (la penalidad de estabilidad va a S, nunca a H), SI-20 (holgura de seguridad, también solo en S), SI-23 (la holgura se mide hasta la hora límite efectiva).
  */
 class Compartido {
 
@@ -128,13 +128,13 @@ class Compartido {
             ParadaAlg p = r.paradas.get(i);
             int qx = p.x(), qy = p.y();
             if (p.tipo == TipoParada.ENTREGA) {   // destino bloqueado con la regla NODO_VECINO (Etapa 17)
-                int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+                int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, cx.velocidad(tipo));
                 qx = punto[0];
                 qy = punto[1];
             }
-            double d = cx.distanciaTramo(px, py, qx, qy, reloj, tipo.velocidadPromedio);
+            double d = cx.distanciaTramo(px, py, qx, qy, reloj, cx.velocidad(tipo));
             double salida = reloj;
-            reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+            reloj = cx.avanzar(reloj, d / cx.velocidad(tipo));
             km += d;
             if (registro != null && d > 0)
                 registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, qx, qy, null, 0));
@@ -146,8 +146,13 @@ class Compartido {
                     reloj = cx.esperaDestino(qx, qy, reloj);
                     e.llegada[i] = reloj;
                     if (reloj > ped.horaLimite()) e.tarde++;
-                    else if (cx.conEstado && cx.holguraH > 0 && ped.horaLimite() - reloj < cx.holguraH)
-                        e.faltaHolguraH += cx.holguraH - (ped.horaLimite() - reloj);
+                    else if (cx.conEstado && cx.holguraH > 0) {
+                        // El margen se mide hasta la hora límite EFECTIVA (SI-23): si el destino se
+                        // bloquea antes del plazo y hasta después, el margen real acaba cuando empieza
+                        // el bloqueo (un pequeño retraso obligaría a esperar y la entrega saldría tarde)
+                        double margen = cx.limiteEfectivo(ped) - reloj;
+                        if (margen < cx.holguraH) e.faltaHolguraH += cx.holguraH - margen;
+                    }
                     double fin = cx.avanzar(reloj, HORAS_ENTREGA);
                     if (registro != null) registro.add(new Hito(Hito.Tipo.ENTREGA, reloj, fin, qx, qy, qx, qy, p, p.cantidad));
                     reloj = fin;
@@ -191,9 +196,9 @@ class Compartido {
         }
         // Regreso al almacén más cercano
         Contexto.AlmacenPlan fin = cx.almacenMasCercano(px, py, reloj);
-        double d = cx.distanciaTramo(px, py, fin.almacen.x, fin.almacen.y, reloj, tipo.velocidadPromedio);
+        double d = cx.distanciaTramo(px, py, fin.almacen.x, fin.almacen.y, reloj, cx.velocidad(tipo));
         double salida = reloj;
-        reloj = cx.avanzar(reloj, d / tipo.velocidadPromedio);
+        reloj = cx.avanzar(reloj, d / cx.velocidad(tipo));
         km += d;
         if (registro != null) {
             if (d > 0) registro.add(new Hito(Hito.Tipo.TRAMO, salida, reloj, px, py, fin.almacen.x, fin.almacen.y, null, 0));
@@ -338,7 +343,7 @@ class Compartido {
      *  Ese incumplimiento no es atribuible al algoritmo. */
     static boolean vencidoAlPlanificar(Pedido p, List<UnidadTransporte> flota) {
         double vMax = 0;
-        for (UnidadTransporte u : flota) vMax = Math.max(vMax, u.tipo.velocidadPromedio);
+        for (UnidadTransporte u : flota) vMax = Math.max(vMax, Contexto.actual().velocidad(u.tipo));
         double llegadaMasTemprana = distancia(ALMACEN_CENTRAL.x, ALMACEN_CENTRAL.y, p.x, p.y) / vMax;
         return llegadaMasTemprana > p.horaLimite();
     }

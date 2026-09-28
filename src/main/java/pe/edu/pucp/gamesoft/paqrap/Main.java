@@ -56,12 +56,17 @@ public class Main {
         Visualizadorrutas.guardarPNG(r2[0], "I2 (plazos ajustados) - Clarke & Wright", "06_urgente_inicial.png");
         Visualizadorrutas.guardarPNG(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú", "07_urgente_tabu.png");
         Visualizadorrutas.guardarPNG(r2[2], "I2 (plazos ajustados) - AG + Split", "08_urgente_ag.png");
-        Visualizadorrutas.guardarConvergenciaPNG(AlgoritmoGenetico.historialConvergencia,
+        Visualizadorrutas.guardarConvergenciaPNG(AG.historialConvergencia,
                 "Convergencia del AG en I2 (mejor H y S por generación)", "05_ag_convergencia.png");
 
         Visualizadorrutas.mostrar(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú");
         Visualizadorrutas.mostrar(r2[2], "I2 (plazos ajustados) - AG + Split");
     }
+
+    /** Un objeto por algoritmo para toda la demostración: I1 e I2 siguen la misma
+     *  secuencia aleatoria (semillas por defecto 7 y 11), como antes de la Etapa 24. */
+    private static final BusquedaTabu TABU = new BusquedaTabu();
+    private static final AlgoritmoGenetico AG = new AlgoritmoGenetico();
 
     /** Ejecuta C&W, Tabú y AG sobre una instancia y devuelve
      *  {inicial, tabu, genetico, mejor de la generación 0 del AG}. */
@@ -72,21 +77,21 @@ public class Main {
 
         System.out.println();
         System.out.println("=== Búsqueda Tabú (2 s de presupuesto) ===");
-        Solucion tabu = BusquedaTabu.ejecutar(inicial, flota, 2000, 0, 8, 300);
+        Solucion tabu = TABU.ejecutar(inicial, flota, 2000, 0, 8, 300);
         imprimir(tabu);
         System.out.printf("  iteraciones=%d  evaluaciones=%d%n",
-                BusquedaTabu.ultimasIteraciones, BusquedaTabu.ultimasEvaluaciones);
+                TABU.ultimasIteraciones, TABU.ultimasEvaluaciones);
 
         System.out.println();
         System.out.println("=== Algoritmo Genético + Split (2 s de presupuesto) ===");
-        Solucion genetico = AlgoritmoGenetico.ejecutar(pedidos, flota, 2000, 0, 30);
+        Solucion genetico = AG.ejecutar(pedidos, flota, 2000, 0, 30);
         imprimir(genetico);
         System.out.printf("  generaciones=%d  evaluaciones=%d  tramos con cambio de tipo=%d  "
                         + "búsqueda local: %d aplicaciones, %d mejoras%n",
-                AlgoritmoGenetico.ultimasGeneraciones, AlgoritmoGenetico.ultimasEvaluaciones,
-                AlgoritmoGenetico.ultimosTramosCambioTipo, AlgoritmoGenetico.ultimasAplicacionesBL,
-                AlgoritmoGenetico.ultimasMejorasBL);
-        Solucion generacion0 = AlgoritmoGenetico.solucionGeneracion0;
+                AG.ultimasGeneraciones, AG.ultimasEvaluaciones,
+                AG.ultimosTramosCambioTipo, AG.ultimasAplicacionesBL,
+                AG.ultimasMejorasBL);
+        Solucion generacion0 = AG.solucionGeneracion0;
         System.out.printf("  generación 0: H=%d S=S/.%.2f%n", generacion0.H, generacion0.S);
 
         System.out.println();

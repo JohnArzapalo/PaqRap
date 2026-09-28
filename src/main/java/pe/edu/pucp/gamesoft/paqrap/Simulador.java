@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -203,6 +204,8 @@ class Simulador {
     private final ConcurrentLinkedQueue<Object[]> averiasExternas = new ConcurrentLinkedQueue<>();
     /** Cambios de velocidad pendientes (se aplican en la siguiente replanificación, P16). */
     private final ConcurrentLinkedQueue<Object[]> velocidadesPendientes = new ConcurrentLinkedQueue<>();
+    /** Velocidades vigentes en ESTA simulación tras los cambios en caliente (Etapa 24). */
+    private final EnumMap<TipoUnidad, Double> velocidades = new EnumMap<>(TipoUnidad.class);
     private volatile Thread hilo;
     private volatile boolean detenerSolicitado;
     private double tActual = 0;
@@ -259,6 +262,11 @@ class Simulador {
     }
 
     /** Cambio de velocidad en caliente: se aplica en la siguiente replanificación (P16). */
+    /** Velocidad (km/h) del tipo en esta simulación: la configurada, salvo cambio en caliente. */
+    double velocidad(TipoUnidad tipo) {
+        return velocidades.getOrDefault(tipo, tipo.velocidadPromedio);
+    }
+
     void cambiarVelocidad(TipoUnidad tipo, double kmPorHora) {
         velocidadesPendientes.add(new Object[]{tipo, kmPorHora});
     }
@@ -612,7 +620,7 @@ class Simulador {
         // Cambios de velocidad en caliente: rigen desde esta planificación (P16)
         Object[] v;
         while ((v = velocidadesPendientes.poll()) != null) {
-            ((TipoUnidad) v[0]).velocidadPromedio = (Double) v[1];
+            velocidades.put((TipoUnidad) v[0], (Double) v[1]);
             registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
                     "velocidad de " + v[0] + " = " + v[1] + " km/h");
         }
@@ -648,6 +656,7 @@ class Simulador {
         cx.holguraH = cfg.holguraMin / 60.0;
         cx.penalidadHolgura = cfg.penalidadHolgura;
         cx.alimentacion = cfg.alimentacion;
+        cx.velocidades.putAll(velocidades);   // cambios en caliente de ESTA simulación (P16)
         cx.conEstado = true;
         if (cfg.almacenesIntermedios) {
             cx.almacenes.add(new Contexto.AlmacenPlan(Compartido.ALMACEN_NOROESTE, stock[1]));
@@ -754,16 +763,21 @@ class Simulador {
      * ir en unidades distintas de cualquier tipo (cada parte suma 1 h de
      * acondicionamiento). Estrategia "ninguna": solo los bloques de 24.
      */
+    /** Hora límite efectiva (absoluta, en horas) de una entrega: la urgencia real (SI-23). */
+    private double limiteEfectivoH(Pedido p) {
+        return Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0);
+    }
+
     private void dividirUrgentes(double t, List<Unidad> operativas) {
         if (!"urgentes".equalsIgnoreCase(cfg.estrategiaParciales)) return;
         List<Pedido> urgentes = new ArrayList<>();
         for (Map.Entry<String, String> e : estado.entrySet()) {
             if (!"P".equals(e.getValue())) continue;
             Pedido p = entregas.get(e.getKey());
-            if (p.cantidad > cfg.tamanoParcial && p.horaLimite() * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
+            if (p.cantidad > cfg.tamanoParcial && limiteEfectivoH(p) * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
         }
         if (urgentes.isEmpty()) return;
-        urgentes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
+        urgentes.sort(Comparator.<Pedido>comparingDouble(this::limiteEfectivoH).thenComparing(p -> p.id));
         int autosLibres = 0;
         for (Unidad un : operativas) {
             double libre = un.eventos.isEmpty() ? un.ocupadoHasta : un.eventos.peekLast().min;
@@ -844,7 +858,7 @@ class Simulador {
         }
         List<Pedido> faltantes = new ArrayList<>();
         for (Pedido p : aPlanificar) if (!usados.contains(p.id)) faltantes.add(p);
-        faltantes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
+        faltantes.sort(Comparator.<Pedido>comparingDouble(cx::limiteEfectivo).thenComparing(p -> p.id));   // urgencia real (SI-23)
         for (Pedido p : faltantes) {
             OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(s, s.rutas, p);
             if (mejor == null) s.pedidosSinAsignar.add(p);
@@ -874,7 +888,7 @@ class Simulador {
             for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) asignacion.put(pa.pedido.id, un.u.codigo);
             List<Hito> hitos = new ArrayList<>();
             Compartido.evaluarRuta(r, hitos);
-            double v = un.u.tipo.velocidadPromedio;
+            double v = velocidad(un.u.tipo);
             double retraso = 0;   // minutos de espera agregados (resguardo ante un bloqueo inmediato)
             for (Hito h : hitos) {
                 double ini = t + 60 * h.inicioH + retraso, fin = t + 60 * h.finH + retraso;
@@ -1051,7 +1065,7 @@ class Simulador {
                 j.abrirObjeto(null).valor("codigo", un.u.codigo).valor("tipo", un.u.tipo.name())
                  .valor("estado", un.estado.name()).valor("x", un.x).valor("y", un.y)
                  .valor("carga", carga).valor("capacidad", un.u.tipo.capacidadMaxima)
-                 .valor("velocidad", un.u.tipo.velocidadPromedio).valor("ocupado_hasta_min", un.ocupadoHasta);
+                 .valor("velocidad", velocidad(un.u.tipo)).valor("ocupado_hasta_min", un.ocupadoHasta);
                 j.abrirArreglo("a_bordo");
                 for (String id : un.aBordo) j.valor(null, id);
                 j.cerrarArreglo();

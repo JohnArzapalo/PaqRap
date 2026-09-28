@@ -1,0 +1,359 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Experimento oficial PaqRap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f7f8f7;
+    --surface: #ffffff;
+    --ink: #15171a;
+    --ink-2: #4f5358;
+    --ink-3: #75797e;
+    --rule: #dfe2e0;
+    --rule-strong: #c4c8c5;
+    --tint: #eef1f0;
+    --tabu: #2a78d6;
+    --ag: #eb6834;
+    --focus: #2a78d6;
+    --display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #141615;
+      --surface: #1b1d1c;
+      --ink: #eceeec;
+      --ink-2: #b3b8b5;
+      --ink-3: #8c918e;
+      --rule: #2d302f;
+      --rule-strong: #414543;
+      --tint: #222524;
+      --tabu: #3987e5;
+      --ag: #d95926;
+      --focus: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #141615;
+    --surface: #1b1d1c;
+    --ink: #eceeec;
+    --ink-2: #b3b8b5;
+    --ink-3: #8c918e;
+    --rule: #2d302f;
+    --rule-strong: #414543;
+    --tint: #222524;
+    --tabu: #3987e5;
+    --ag: #d95926;
+    --focus: #3987e5;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.6 var(--body);
+    padding-inline: 16px;
+    padding-block: 32px 64px;
+  }
+  .page { max-width: 780px; margin: 0 auto; display: grid; gap: 40px; }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15; }
+  h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 600; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; font-weight: 600; }
+  h3 { font-size: 16px; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  .eyebrow {
+    font: 500 12px/1.4 var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  section { display: grid; gap: 14px; }
+  .sub { color: var(--ink-2); }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  header { display: grid; gap: 12px; border-bottom: 1px solid var(--rule-strong); padding-bottom: 24px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.5 var(--mono); color: var(--ink-3); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 500 12px/1 var(--mono); letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 9px; border: 1px solid var(--rule-strong); border-radius: 3px; color: var(--ink-2);
+    width: fit-content;
+  }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #1f8f4e; }
+
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 22px 24px;
+    display: grid; gap: 16px;
+  }
+  .verdict p.lead { font-size: 18px; line-height: 1.5; max-width: none; }
+  .verdict p.lead strong { font-weight: 600; }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .fig { border-top: 2px solid var(--rule-strong); padding-top: 8px; display: grid; gap: 2px; }
+  .fig .v { font: 500 24px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+  .fig .l { font-size: 13px; color: var(--ink-2); }
+  .fig.tabu { border-top-color: var(--tabu); }
+  .fig.ag { border-top-color: var(--ag); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font: 500 12px/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); background: var(--tint); white-space: nowrap; }
+  td.r, th.r { text-align: right; }
+  td .mono, td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tr.total td { font-weight: 600; background: var(--tint); }
+  .win { font-weight: 600; }
+  .muted { color: var(--ink-3); }
+
+  .key { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .sw.tabu { background: var(--tabu); }
+  .sw.ag { background: var(--ag); }
+
+  .chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 16px 8px; position: relative; }
+  .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: baseline; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis text, .lbl { fill: var(--ink-3); font: 12px var(--mono); }
+  .grid line { stroke: var(--rule); stroke-width: 1; }
+  .base { stroke: var(--rule-strong); stroke-width: 1; }
+  .bar { stroke: var(--surface); stroke-width: 2; cursor: default; }
+  .bar.tabu { fill: var(--tabu); }
+  .bar.ag { fill: var(--ag); }
+  .bar:focus { outline: none; stroke: var(--focus); stroke-width: 3; }
+  .ci { stroke: var(--ink-2); stroke-width: 1.5; fill: none; }
+  .val { fill: var(--ink); font: 500 12px var(--mono); }
+  .lvl { fill: var(--ink); font: 600 13px var(--display); }
+  .lvl-sub { fill: var(--ink-3); font: 12px var(--mono); }
+  .tip {
+    position: absolute; pointer-events: none; background: var(--ink); color: var(--bg);
+    font: 12px/1.45 var(--mono); padding: 7px 9px; border-radius: 4px; white-space: nowrap;
+    transform: translate(-50%, calc(-100% - 10px));
+  }
+  .note { font-size: 13px; color: var(--ink-3); }
+
+  ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 70ch; }
+  ul.plain li::marker { color: var(--ink-3); }
+
+  .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .opt { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+  .opt.rec { border-color: var(--tabu); box-shadow: inset 3px 0 0 var(--tabu); }
+  .opt .tag { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .opt.rec .tag { color: var(--tabu); }
+
+  pre {
+    margin: 0; overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 12px 14px; font: 12.5px/1.55 var(--mono); color: var(--ink-2);
+  }
+  footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; color: var(--ink-3); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+  <header>
+    <span class="eyebrow">1INF54 · Eq5E · PaqRap · Semana 07</span>
+    <h1>Búsqueda Tabú frente al Algoritmo Genético en 5 días de operación</h1>
+    <p class="sub">Resultado del experimento numérico con los datos oficiales del profesor. Resume qué se midió, qué salió y qué decisión queda para el equipo.</p>
+    <span class="badge">Datos oficiales · juego_de_datos</span>
+    <div class="meta">
+      <span>Escenario SIM_5D</span>
+      <span>206 corridas · 103 pares</span>
+      <span>Ta = 2 s · Sa = 60 min</span>
+      <span>Commit 918e5f1</span>
+    </div>
+  </header>
+
+  <section class="verdict" aria-labelledby="concl">
+    <span class="eyebrow" id="concl">Conclusión</span>
+    <p class="lead">Los dos algoritmos <strong>colapsan en la misma proporción</strong>: la diferencia no es estadísticamente significativa. Se diferencian en el desempate: el AG es algo más barato con carga baja o media, y la Búsqueda Tabú es mucho más estable al replanificar.</p>
+    <div class="figures">
+      <div class="fig tabu"><span class="v">46.6 %</span><span class="l">corridas con colapso, Tabú</span></div>
+      <div class="fig ag"><span class="v">49.5 %</span><span class="l">corridas con colapso, AG</span></div>
+      <div class="fig"><span class="v">p = 0.65</span><span class="l">McNemar exacta, global</span></div>
+      <div class="fig"><span class="v">≈ 15 pts</span><span class="l">diferencia mínima detectable</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s1">
+    <h2 id="s1">Qué se midió</h2>
+    <p>El criterio lo indicó el profesor: es normal que algunas simulaciones de 5 días lleguen al colapso logístico, que ocurre apenas un pedido no se entrega dentro de su plazo. Gana el algoritmo que colapsa en <strong>menos</strong> corridas. Si empatan, deciden en este orden: el tiempo hasta el colapso, el costo por pedido entregado y la estabilidad (cuántos pedidos cambian de unidad al replanificar).</p>
+    <p>Cada situación es un tramo real de 5 días de los archivos del profesor, con sus pedidos, bloqueos y mantenimientos. No se inventó ningún pedido. Tabú y AG corren exactamente el mismo tramo, así que las corridas se comparan de a pares.</p>
+  </section>
+
+  <section aria-labelledby="s2">
+    <h2 id="s2">Niveles de carga: meses reales</h2>
+    <p>Cada mes de los datos del profesor tiene 5 000 pedidos, concentrados en cada vez menos días, así que la demanda diaria crece de un mes a otro: del 9 % de la capacidad de la flota en enero de 2026 al 350 % en diciembre de 2028. Los tres niveles son grupos de meses con exigencia creciente.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nivel</th><th>Meses</th><th class="r">Carga diaria</th><th class="r">Tramos de 5 días</th></tr></thead>
+        <tbody>
+          <tr><td>BAJA</td><td class="mono">2026-09 y 2026-10</td><td class="r mono">78 % de C_max</td><td class="r mono">40</td></tr>
+          <tr><td>MEDIA</td><td class="mono">2026-11 y 2026-12</td><td class="r mono">98 % de C_max</td><td class="r mono">35</td></tr>
+          <tr><td>ALTA</td><td class="mono">2027-01 y 2027-02</td><td class="r mono">115 % de C_max</td><td class="r mono">28</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">C_max = 1 296 paquetes por día: capacidad teórica de la flota (10 autos, 15 motos, 12 bicicletas) calculada con los pedidos oficiales. Velocidades del enunciado: 40, 25 y 12 km/h.</p>
+  </section>
+
+  <section aria-labelledby="s3">
+    <h2 id="s3">Resultado principal: corridas con colapso</h2>
+    <div class="chart" id="chart">
+      <div class="chart-head">
+        <h3>% de tramos que colapsan en 5 días, con intervalo de confianza al 95 %</h3>
+        <div class="legend" aria-hidden="true">
+          <span class="key"><span class="sw tabu"></span>Tabú</span>
+          <span class="key"><span class="sw ag"></span>AG</span>
+        </div>
+      </div>
+      <svg id="svg" viewBox="0 0 720 300" role="img" aria-labelledby="chart-desc">
+        <desc id="chart-desc">Barras agrupadas por nivel. BAJA: Tabú 27.5 %, AG 25 %. MEDIA: Tabú 34.3 %, AG 42.9 %. ALTA: Tabú 89.3 %, AG 92.9 %. Los intervalos de confianza de ambos algoritmos se superponen en los tres niveles.</desc>
+      </svg>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nivel</th><th class="r">Pares</th><th class="r">Tabú</th><th class="r">AG</th><th class="r">Solo Tabú colapsa</th><th class="r">Solo AG colapsa</th><th class="r">p</th></tr></thead>
+        <tbody>
+          <tr><td>BAJA</td><td class="r mono">40</td><td class="r mono">27.5 % <span class="muted">[15, 44]</span></td><td class="r mono">25.0 % <span class="muted">[13, 41]</span></td><td class="r mono">4</td><td class="r mono">3</td><td class="r mono">1.00</td></tr>
+          <tr><td>MEDIA</td><td class="r mono">35</td><td class="r mono">34.3 % <span class="muted">[19, 52]</span></td><td class="r mono">42.9 % <span class="muted">[26, 61]</span></td><td class="r mono">3</td><td class="r mono">6</td><td class="r mono">0.51</td></tr>
+          <tr><td>ALTA</td><td class="r mono">28</td><td class="r mono">89.3 % <span class="muted">[72, 98]</span></td><td class="r mono">92.9 % <span class="muted">[76, 99]</span></td><td class="r mono">1</td><td class="r mono">2</td><td class="r mono">1.00</td></tr>
+          <tr class="total"><td>Global</td><td class="r mono">103</td><td class="r mono">46.6 %</td><td class="r mono">49.5 %</td><td class="r mono">8</td><td class="r mono">11</td><td class="r mono">0.65</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Prueba de McNemar exacta: solo informan los pares en que colapsa uno de los dos. Intervalos de Clopper-Pearson. La regresión logística con los pares como grupos da un odds ratio Tabú/AG de 0.85 (p = 0.49).</p>
+  </section>
+
+  <section aria-labelledby="s4">
+    <h2 id="s4">Desempates</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Criterio</th><th>BAJA</th><th>MEDIA</th><th>ALTA</th></tr></thead>
+        <tbody>
+          <tr><td>1. Tiempo hasta el colapso</td><td>igual <span class="muted mono">(p = 0.77)</span></td><td>igual <span class="muted mono">(p = 0.43)</span></td><td>igual <span class="muted mono">(p = 0.76)</span></td></tr>
+          <tr><td>2. Costo por pedido entregado<br><span class="muted">mediana, Tabú / AG</span></td><td><span class="mono">S/ 160.9 / 153.4</span><br><span class="win">AG, 4.8 % menos</span></td><td><span class="mono">S/ 161.8 / 160.2</span><br><span class="win">AG, 1.0 % menos</span></td><td><span class="mono">S/ 161.8 / 160.9</span><br>igual</td></tr>
+          <tr><td>3. Pedidos que cambian de unidad al replanificar<br><span class="muted">mediana en 5 días, Tabú / AG</span></td><td><span class="mono">29 / 290</span><br><span class="win">Tabú, 10 veces menos</span></td><td><span class="mono">28 / 185</span><br><span class="win">Tabú, 7 veces menos</span></td><td><span class="mono">19.5 / 90.5</span><br><span class="win">Tabú, 5 veces menos</span></td></tr>
+          <tr><td>km por pedido</td><td>AG, 6.4 % menos</td><td>AG, 1.9 % menos</td><td>igual</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Pruebas pareadas por tramo: t pareada si las diferencias son normales; si no, Wilcoxon. Todas las diferencias marcadas son significativas al 5 %.</p>
+  </section>
+
+  <section aria-labelledby="s5">
+    <h2 id="s5">Decisión pendiente del equipo</h2>
+    <p>El criterio principal empata, así que la elección depende de cómo se ordene el desempate. La regla escrita pone el costo antes que la estabilidad, pero ese orden no se justificó cuando se fijó.</p>
+    <div class="options">
+      <div class="opt">
+        <span class="tag">Opción A</span>
+        <h3>Algoritmo Genético</h3>
+        <p>Se mantiene la regla tal como está escrita. El AG gana en BAJA y MEDIA por costo, y la Búsqueda Tabú en ALTA por estabilidad. Hay que defender que un ahorro de 1 a 5 % pesa más que reasignar de 5 a 10 veces más pedidos.</p>
+      </div>
+      <div class="opt rec">
+        <span class="tag">Opción B · recomendada</span>
+        <h3>Búsqueda Tabú</h3>
+        <p>La estabilidad va antes que el costo, por tres razones que ya estaban en el proyecto: el profesor pidió replanificar sin planificar desde cero; un 1-5 % de costo es poco en la práctica frente a 5-10 veces más reasignaciones; y con carga alta el AG pierde incluso su ventaja de costo. El informe explica que el orden se precisó cuando el criterio principal empató.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s6">
+    <h2 id="s6">Validez y límites</h2>
+    <ul class="plain">
+      <li><strong>Misma situación para ambos:</strong> mismos pedidos, bloqueos, flota, almacenes, parámetros y presupuesto de cómputo. Tiempo medio por replanificación: Tabú 2 004 ms y AG 2 045 ms, con un límite de 2 000 ms.</li>
+      <li><strong>Destino bloqueado:</strong> parte de los colapsos se deben a un cliente con el destino bloqueado, lo que afecta a ambos algoritmos por igual. Sin esas corridas el resultado no cambia (p = 0.80).</li>
+      <li><strong>Potencia:</strong> con 103 pares se detectaría una diferencia de unos 15 puntos en el % de colapsos. La observada es de unos 3; si existe una diferencia real, es pequeña.</li>
+      <li><strong>Tramos solapados:</strong> para tener suficientes situaciones, los tramos empiezan cada día, así que se superponen y no son del todo independientes.</li>
+      <li><strong>Una sola corrida:</strong> falta repetir el experimento con otra semilla para confirmar que la conclusión no depende del azar.</li>
+      <li><strong>Supuestos por confirmar con el profesor:</strong> medir el % de colapsos en 5 días (pregunta 13) y usar meses como niveles (SI-26).</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="s7">
+    <h2 id="s7">Cómo reproducirlo</h2>
+    <pre>java -Xmx10g -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento \
+  --modo simulacion --escenario SIM_5D --acelerado si --situaciones ventanas \
+  --carpeta-ventas juego_de_datos/ventas.v20260909-20260928T011657Z-1-001/ventas.v20260909 \
+  --carpeta-bloqueos juego_de_datos/bloqueos.v20260909-20260928T011612Z-1-001/bloqueos.v20260909 \
+  --mantenimiento juego_de_datos/mant.preventivo.09.10.txt \
+  --meses BAJA=202609-202610,MEDIA=202611-202612,ALTA=202701-202702 \
+  --paso-ventana 1 --replicas 40 --hilos 7 --salida experimento_oficial_SIM_5D.csv
+
+py analisis/analisis_experimento.py experimento_oficial_SIM_5D.csv --salida analisis/salida_oficial</pre>
+    <p class="note">Detalle en docs/avance_sem07.md (etapa 28), supuestos en docs/propuesta_cambios_IEN.md (SI-23 a SI-26) y pasos en docs/protocolo_experimento.md. Rama feature/JL.</p>
+  </section>
+
+  <footer>PaqRap · Eq5E · 1INF54 Proyecto de Diseño y Desarrollo de Software, PUCP 2026-2 · Resultado preliminar: la elección del algoritmo es decisión del equipo.</footer>
+</div>
+
+<script>
+(function () {
+  var datos = [
+    { nivel: "BAJA", carga: "78 % de C_max", tabu: [27.5, 15, 44], ag: [25.0, 13, 41] },
+    { nivel: "MEDIA", carga: "98 % de C_max", tabu: [34.3, 19, 52], ag: [42.9, 26, 61] },
+    { nivel: "ALTA", carga: "115 % de C_max", tabu: [89.3, 72, 98], ag: [92.9, 76, 99] }
+  ];
+  var svg = document.getElementById("svg");
+  var tip = document.getElementById("tip");
+  var chart = document.getElementById("chart");
+  var NS = "http://www.w3.org/2000/svg";
+  var W = 720, H = 300, m = { l: 44, r: 8, t: 16, b: 50 };
+  var iw = W - m.l - m.r, ih = H - m.t - m.b;
+  function y(v) { return m.t + ih - (v / 100) * ih; }
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(e);
+    return e;
+  }
+  var g = el("g", { "class": "grid" });
+  var ax = el("g", { "class": "axis" });
+  [0, 25, 50, 75, 100].forEach(function (v) {
+    if (v > 0) el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g);
+    var t = el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, ax);
+    t.textContent = v + " %";
+  });
+  el("line", { "class": "base", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) });
+
+  var slot = iw / datos.length, bw = Math.min(64, slot * 0.28), gap = 4;
+  datos.forEach(function (d, i) {
+    var cx = m.l + slot * i + slot / 2;
+    [["tabu", "Tabú", -1], ["ag", "AG", 1]].forEach(function (s) {
+      var v = d[s[0]], x = s[2] < 0 ? cx - gap / 2 - bw : cx + gap / 2;
+      var top = y(v[0]), r = 4, h = y(0) - top;
+      var path = "M" + x + "," + y(0) + " V" + (top + r) + " Q" + x + "," + top + " " + (x + r) + "," + top +
+        " H" + (x + bw - r) + " Q" + (x + bw) + "," + top + " " + (x + bw) + "," + (top + r) + " V" + y(0) + " Z";
+      var bar = el("path", { d: path, "class": "bar " + s[0], tabindex: "0",
+        "aria-label": d.nivel + ", " + s[1] + ": " + v[0] + " % de corridas con colapso, intervalo " + v[1] + " a " + v[2] + " %" });
+      var mx = x + bw / 2;
+      el("path", { "class": "ci", d: "M" + mx + "," + y(v[1]) + " V" + y(v[2]) + " M" + (mx - 5) + "," + y(v[1]) + " H" + (mx + 5) + " M" + (mx - 5) + "," + y(v[2]) + " H" + (mx + 5) });
+      var lab = el("text", { "class": "val", x: mx, y: Math.max(y(v[2]) - 6, m.t + 10), "text-anchor": "middle" });
+      lab.textContent = String(v[0]) ;
+      function show() {
+        tip.innerHTML = "<strong>" + d.nivel + " · " + s[1] + "</strong><br>" + String(v[0]) + " % con colapso<br>IC 95 %: " + v[1] + "–" + v[2] + " %";
+        var box = chart.getBoundingClientRect(), sb = svg.getBoundingClientRect(), k = sb.width / W;
+        tip.style.left = (sb.left - box.left + mx * k) + "px";
+        tip.style.top = (sb.top - box.top + top * k) + "px";
+        tip.hidden = false;
+      }
+      function hide() { tip.hidden = true; }
+      bar.addEventListener("mouseenter", show);
+      bar.addEventListener("focus", show);
+      bar.addEventListener("mouseleave", hide);
+      bar.addEventListener("blur", hide);
+    });
+    var t1 = el("text", { "class": "lvl", x: cx, y: H - m.b + 22, "text-anchor": "middle" });
+    t1.textContent = d.nivel;
+    var t2 = el("text", { "class": "lvl-sub", x: cx, y: H - m.b + 38, "text-anchor": "middle" });
+    t2.textContent = d.carga;
+  });
+})();
+</script>
+
+</body></html>

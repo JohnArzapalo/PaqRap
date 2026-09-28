@@ -41,7 +41,10 @@ import java.util.regex.Pattern;
  *   abiertos), se usa la distancia Manhattan.
  * - Tiempos en horas absolutas desde el día 1 a las 00:00.
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula y bloqueos), SI-02 (unión de estados en la ventana del tramo), SI-15 (bloqueadoDurante para no_evaluable), SI-22 (la ventana incluye las paradas de alimentación).
+ * NO ES SEGURO ENTRE HILOS (cachés sin sincronizar): cada simulación usa su propia
+ * instancia (ExperimentoSimulacion.copiar, etapa 28).
+ *
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula y bloqueos), SI-02 (unión de estados en la ventana del tramo), SI-15 (bloqueadoDurante para no_evaluable), SI-22 (la ventana incluye las paradas de alimentación), SI-23 (limiteEfectivo).
  */
 final class MapaVial {
 
@@ -149,6 +152,27 @@ final class MapaVial {
             t = cambios[i];   // fin del intervalo i
         }
         return t;
+    }
+
+    /** Instante en que empezó el bloqueo del nodo que está activo en tH (tH si el nodo está libre).
+     *  Igual que finBloqueo, une los bloqueos encadenados o superpuestos. */
+    double inicioBloqueo(int x, int y, double tH) {
+        int n = nodo(x, y);
+        double t = tH;
+        for (int i = intervalo(t); i > 0 && estados[i].get(n); i--) {
+            t = cambios[i - 1];   // inicio del intervalo i
+        }
+        return t;
+    }
+
+    /**
+     * Hora límite efectiva (Etapa 23, SI-23): si el destino está bloqueado en la hora límite,
+     * ese bloqueo termina después de ella y la entrega tendría que esperar al desbloqueo, así
+     * que el último momento útil para llegar es el INICIO de ese bloqueo (a esa hora el nodo ya
+     * está bloqueado: hay que llegar antes). En otro caso, la hora límite.
+     */
+    double limiteEfectivo(int x, int y, double limiteH) {
+        return bloqueado(x, y, limiteH) ? inicioBloqueo(x, y, limiteH) : limiteH;
     }
 
     /** Distancia en km (aristas) por el camino más corto que evita los bloqueos activos en tH. */
