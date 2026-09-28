@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 a 25 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 26 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -189,3 +189,43 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
 - **Pendiente:**
   - Fijar los tres niveles, con los datos oficiales y según la respuesta a la pregunta 14. Con los sintéticos, la propuesta sería alrededor de 95-100 %, 105 % y 115 % de C_max.
   - Correr el experimento completo.
+
+## Etapa 26: niveles provisionales y ensayo completo del experimento (SI-25) — SINTETICO
+
+- **Calibración al 95 % de C_max** (6 pares): colapsan 5 de 12 corridas (TABU 1/6, AG 4/6).
+- **Niveles provisionales** (`config/parametros.properties`, SI-25; los del IEN eran 30 / 60 / 90 %):
+  - para el ensayo se usaron BAJA 95 %, MEDIA 105 % y ALTA 115 %;
+  - después del ensayo, **ALTA se bajó a 110 %**, porque 115 % casi satura (97 %) y aporta pocos pares discordantes.
+- **Ensayo:** SIM_5D, situaciones por réplica, 3 niveles × 40 réplicas × 2 algoritmos = **240 corridas**, Ta = 2 s, 7 hilos (8 núcleos físicos), 2.6 h de reloj (4.6 min por corrida). Salidas en `verificacion_etapa26/` (no versionada): `ensayo_SIM_5D_SINTETICO.csv` y `analisis/`.
+
+**Variable principal: % de corridas con colapso (McNemar exacta, pares TABU/AG en la misma situación):**
+
+| Nivel | Pares | TABU | AG | Ambos | Solo TABU | Solo AG | Ninguno | p |
+|---|---|---|---|---|---|---|---|---|
+| BAJA (95 %) | 40 | 10 % [3, 24] | 20 % [9, 36] | 1 | 3 | 7 | 29 | 0.34 |
+| MEDIA (105 %) | 40 | 45 % [29, 62] | 57.5 % [41, 73] | 12 | 6 | 11 | 11 | 0.33 |
+| ALTA (115 %) | 40 | 100 % [91, 100] | 95 % [83, 99] | 38 | 2 | 0 | 0 | 0.50 |
+| **Global** | 120 | 51.7 % | 57.5 % | | 11 | 18 | | **0.26** |
+
+- **GEE** (colapso ~ algoritmo + nivel, pares como grupos): odds ratio TABU/AG = 0.645, p = 0.19.
+- **Robustez:** sin los 10 colapsos por «destino bloqueado» (5 por algoritmo, en las mismas situaciones: los deciden los datos), el resultado es el mismo (p global = 0.26).
+- **Lectura:** TABU colapsa algo menos que AG en BAJA y MEDIA (11 pares contra 18), pero **la diferencia no es significativa**. Con 120 pares solo se detectarían diferencias de unos 20 puntos, y la observada es de unos 6.
+
+**Desempates (pruebas pareadas):**
+
+| Variable | BAJA | MEDIA | ALTA |
+|---|---|---|---|
+| Tiempo hasta el colapso (log-rank) | sin diferencia (p = 0.19) | sin diferencia (p = 0.33) | sin diferencia (p = 0.96) |
+| Costo por pedido (S/, TABU vs. AG) | 188.1 vs. 186.3, sin diferencia | 195.7 vs. 193.0, sin diferencia | 196.7 vs. 193.7, sin diferencia |
+| km por pedido | AG 1.4 % menos (p = 0.01) | AG 1.6 % menos (p = 0.04) | sin diferencia |
+| Cambios de unidad (mediana) | **TABU 14.5 vs. AG 185** (p < 10⁻¹⁹) | **TABU 12.5 vs. 174.5** | **TABU 11.5 vs. 117.5** |
+
+- **Regla de decisión** (% de colapsos → tiempo hasta el colapso → costo por pedido → estabilidad): **TABU en los tres niveles, decidido por la estabilidad.** Es preliminar: son datos sintéticos.
+- **Hallazgo que afecta la justicia de la comparación:**
+  - **el AG usa en promedio 2 752 ms por replanificación, frente a Ta = 2 000 ms; TABU usa 2 003 ms.**
+  - El AG revisa el presupuesto al terminar cada generación, y con estas cargas una generación es larga. Así recibe cerca de un 38 % más de cómputo que TABU.
+  - Hay que corregirlo antes del experimento con los datos oficiales: revisar el reloj también dentro de la generación, en el evaluador de cada hijo.
+- **Réplicas:**
+  - Discordancia combinada psi = 0.24.
+  - Detectar 20 puntos requiere 49 pares en total para la prueba global (≈ 17 por nivel con 3 niveles); 15 puntos requieren 90 en total.
+  - La diferencia observada (unos 6 puntos) necesitaría varios cientos de pares. Si en los oficiales se mantiene, la decisión la tomarán los desempates.
