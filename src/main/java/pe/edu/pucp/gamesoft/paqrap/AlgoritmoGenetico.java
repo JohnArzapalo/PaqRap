@@ -28,8 +28,9 @@ import java.util.Set;
  *  Parada: por presupuesto de tiempo Ta (criterio principal) o, si
  *  maxEvaluaciones > 0, por número de evaluaciones (modo reproducible).
  *  Una "evaluación" es una decodificación Split de un cromosoma o una
- *  evaluación de un vecino de la búsqueda local. El criterio se revisa al
- *  terminar cada generación y en cada movimiento de la búsqueda local.
+ *  evaluación de un vecino de la búsqueda local. El criterio se revisa antes de
+ *  cada hijo (Etapa 27; antes, solo al terminar la generación) y en cada
+ *  movimiento de la búsqueda local.
  *
  *  Sin estado estático (Etapa 24): cada ejecución usa su propio objeto
  *  (new AlgoritmoGenetico(semilla)), con su generador aleatorio, su
@@ -121,7 +122,15 @@ class AlgoritmoGenetico {
         tiposFlota = tiposDisponibles(flotaDisponible);
         Solucion planBase = Contexto.actual().planBase;
         Poblacion poblacion = inicializarPoblacion(pedidosPendientes, tamPoblacion, planBase);
-        for (Cromosoma c : poblacion.individuos) evaluar(c, flotaDisponible);
+        // Etapa 27: el presupuesto se revisa también aquí. Si se agota, la población se queda
+        // con los individuos ya evaluados (al menos uno: el primero es el plan vigente sembrado)
+        List<Cromosoma> evaluados = new ArrayList<>();
+        for (Cromosoma c : poblacion.individuos) {
+            if (!evaluados.isEmpty() && debeDetenerse()) break;
+            evaluar(c, flotaDisponible);
+            evaluados.add(c);
+        }
+        poblacion.individuos = evaluados;
 
         Cromosoma mejorGlobal = mejorDe(poblacion.individuos).copiar();
         long tiempoMejor = System.currentTimeMillis() - inicioEjecucion;
@@ -137,6 +146,11 @@ class AlgoritmoGenetico {
             nuevaGeneracion.add(poblacion.individuos.get(0).copiar());   // elitismo simple
 
             while (nuevaGeneracion.size() < tamPoblacion) {
+                // Etapa 27: el presupuesto se revisa antes de cada hijo, no solo al terminar la
+                // generación. Con cargas altas una generación dura más de un segundo y el AG
+                // excedía Ta (2.75 s de media con Ta = 2 s), con más cómputo que Tabú.
+                // Si se agota, la generación queda incompleta: sus hijos ya evaluados cuentan.
+                if (debeDetenerse()) break;
                 Cromosoma padreA = seleccionTorneo(poblacion);
                 Cromosoma padreB = seleccionTorneo(poblacion);
 

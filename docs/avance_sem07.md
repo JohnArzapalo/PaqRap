@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 a 26 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 27 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -229,3 +229,27 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
   - Discordancia combinada psi = 0.24.
   - Detectar 20 puntos requiere 49 pares en total para la prueba global (≈ 17 por nivel con 3 niveles); 15 puntos requieren 90 en total.
   - La diferencia observada (unos 6 puntos) necesitaría varios cientos de pares. Si en los oficiales se mantiene, la decisión la tomarán los desempates.
+
+## Etapa 27: el AG respeta Ta dentro de la generación
+
+- **Problema (etapa 26):**
+  - El AG revisaba el presupuesto solo al terminar cada generación. Con cargas altas una generación es larga, y más aún si varias corridas comparten la CPU.
+  - En el ensayo (7 hilos, nivel MEDIA) el AG usaba **2 601 ms de media y hasta 3 823 ms** con Ta = 2 000 ms, mientras TABU usaba 2 003 ms: el AG tenía más cómputo.
+  - En modo por evaluaciones pasaba lo mismo: con tope 45 hacía 59 evaluaciones.
+- **Cambio (`AlgoritmoGenetico.ejecutar`):**
+  - El presupuesto se revisa **antes de cada hijo**. Si se agota, la generación queda incompleta y sus hijos ya evaluados cuentan.
+  - En la población inicial, si se agota, se conservan los individuos ya evaluados. Siempre queda al menos uno: el primero es el plan vigente sembrado.
+  - La lógica del AG (torneo, OX, mutación, búsqueda local, Split) no cambia.
+- **Verificación *(SINTETICO)*, SIM_5D nivel MEDIA:**
+
+| Condición | Antes: medio / máx. (ms) | Después: medio / máx. (ms) |
+|---|---|---|
+| 1 hilo (réplica 1) | 2 074 / 2 224 | 2 007 / 2 029 |
+| 7 hilos (ensayo, 40 réplicas; después, 7 réplicas) | 2 601 / 3 823 | 2 050 / 2 200 |
+
+  El exceso que queda, unos 50 ms, es la decodificación del último hijo y la final. TABU usa 2 003 ms.
+- **Pruebas:**
+  - `PresupuestoAgTest` tiene 3 pruebas: tope de evaluaciones a mitad de generación, tope agotado en la población inicial y tiempo por llamada.
+  - Las dos primeras **fallan con el código anterior** (59 y 30 evaluaciones) y pasan con el nuevo.
+  - **Total: 75 pruebas, todas pasan.** `Main` no cambia (708/672/672 y 816/816/816).
+- **Consecuencia para el ensayo de la etapa 26:** el AG corrió con cerca de un 30 % más de cómputo que TABU. Aun así no hubo diferencia significativa en el % de colapsos. Hay que repetir el ensayo, o correr directamente el experimento con los datos oficiales, con esta corrección.
