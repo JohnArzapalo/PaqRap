@@ -45,7 +45,10 @@ import java.util.regex.Pattern;
  *     --penalidad-estabilidad soles (por entrega que cambia de unidad; 0 = sin penalidad)
  *     --calibrar-evaluaciones si (fija un tope de evaluaciones por algoritmo equivalente a Ta)
  *     --hilos N (corridas simultáneas en este proceso; 1 por defecto; Etapa 24)
- *     --situaciones por_replica|por_nivel (una muestra de pedidos por réplica o por nivel; Etapa 25)
+ *     --situaciones por_replica|por_nivel|ventanas (muestra por réplica, por nivel, o ventanas reales; Etapas 25 y 28)
+ *     --carpeta-ventas DIR --carpeta-bloqueos DIR --meses 202609-202812 (ventanas reales de los archivos mensuales)
+ *       o --meses BAJA=202609-202610,MEDIA=202611-202612,ALTA=202701-202702 (un nivel por grupo de meses);
+ *       --paso-ventana N (días entre inicios de ventanas; 5 por defecto)
  *     --cargas NOMBRE=fraccion,... (niveles a medida, p. ej. C100=1.0,C120=1.2; Etapa 25)
  *
  * Los valores por defecto salen de config/parametros.properties.
@@ -319,6 +322,10 @@ public class Experimento {
                 case "--hilos": ExperimentoSimulacion.HILOS = Integer.parseInt(valor); break;
                 case "--situaciones": ExperimentoSimulacion.SITUACIONES = valor; break;
                 case "--cargas": ExperimentoSimulacion.CARGAS = valor; break;
+                case "--carpeta-ventas": ExperimentoSimulacion.CARPETA_VENTAS = valor; break;
+                case "--carpeta-bloqueos": ExperimentoSimulacion.CARPETA_BLOQUEOS = valor; break;
+                case "--meses": ExperimentoSimulacion.MESES = valor; break;
+                case "--paso-ventana": ExperimentoSimulacion.PASO_VENTANA = Integer.parseInt(valor); break;
                 case "--holgura-min": ExperimentoSimulacion.HOLGURA_MIN = Double.parseDouble(valor); break;
                 case "--penalidad-holgura": ExperimentoSimulacion.PENALIDAD_HOLGURA = Double.parseDouble(valor); break;
                 case "--penalidad-estabilidad": ExperimentoSimulacion.PENALIDAD_ESTABILIDAD = Double.parseDouble(valor); break;

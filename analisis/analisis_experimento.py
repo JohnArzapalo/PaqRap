@@ -591,6 +591,10 @@ def analizar_simulacion(df, out, alfa):
     df = df.sort_values(["_orden", "algoritmo"]).drop(columns="_orden")
     df["evento"] = df["censurada"] != "si"
     df["colapso"] = df["evento"].astype(int)
+    # Etapa 28: con ventanas reales (o --dia-inicio) cada corrida empieza en otro día del mes; el
+    # tiempo hasta el colapso se mide desde el inicio de la corrida, no desde el día 1 del mes
+    if "horas_desde_inicio" in df.columns:
+        df["colapso_h"] = df["horas_desde_inicio"]
     entregados = df["pedidos_entregados"].replace(0, np.nan)
     df["costo_por_pedido"] = df["costo_acumulado"] / entregados
     df["km_por_pedido"] = df["km_acumulados"] / entregados

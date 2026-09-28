@@ -41,6 +41,9 @@ import java.util.regex.Pattern;
  *   abiertos), se usa la distancia Manhattan.
  * - Tiempos en horas absolutas desde el día 1 a las 00:00.
  *
+ * NO ES SEGURO ENTRE HILOS (cachés sin sincronizar): cada simulación usa su propia
+ * instancia (ExperimentoSimulacion.copiar, etapa 28).
+ *
  * Supuestos (docs/propuesta_cambios_IEN.md): SI-01 (retícula y bloqueos), SI-02 (unión de estados en la ventana del tramo), SI-15 (bloqueadoDurante para no_evaluable), SI-22 (la ventana incluye las paradas de alimentación), SI-23 (limiteEfectivo).
  */
 final class MapaVial {

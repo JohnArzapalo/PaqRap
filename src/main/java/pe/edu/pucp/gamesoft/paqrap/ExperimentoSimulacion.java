@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -80,6 +81,13 @@ final class ExperimentoSimulacion {
     static String SITUACIONES = Parametros.texto("experimento.situaciones", "por_replica");
     /** Etapa 25: niveles a medida (--cargas NOMBRE=fraccion,...), p. ej. para calibrar; null = BAJA, MEDIA, ALTA. */
     static String CARGAS = null;
+    /**
+     * Etapa 28, ventanas reales (--situaciones ventanas): carpetas con los archivos MENSUALES del
+     * profesor (ventas.aaaamm.txt y bloqueo.aamm.txt) y rango de meses (--meses 202609-202812).
+     * Cada situación es un tramo real de 5 días de un mes (inicio los días 1, 6, 11, 16, 21, 26),
+     * con los pedidos, bloqueos y mantenimientos de ese mes; no se inventa ningún pedido.
+     */
+    static String CARPETA_VENTAS = null, CARPETA_BLOQUEOS = null, MESES = null;
 
     private ExperimentoSimulacion() {
     }
@@ -95,10 +103,15 @@ final class ExperimentoSimulacion {
      * TABU y AG corren EXACTAMENTE las mismas situaciones (diseño pareado).
      */
     private static class Situacion {
-        long semillaCarga;       // 0 = archivo de ventas tal cual
+        long semillaCarga;       // 0 = archivo de ventas tal cual; en ventanas reales, aaaammdd de inicio
         Path ruta;
         String archivoCarga;
         int originales, paquetes;
+        // Etapa 28, ventanas reales: bloqueos, inicio y mantenimientos PROPIOS de la situación
+        // (null / -1 = los de la configuración base)
+        Path bloqueos = null;
+        double inicioMin = -1;
+        List<Mantenimiento> mantenimientos = null;
 
         /** Los pedidos se leen al empezar la corrida (en su hilo), no se guardan todos en memoria. */
         List<Pedido> pedidos() throws IOException {
@@ -126,8 +139,15 @@ final class ExperimentoSimulacion {
     }
 
     static void ejecutar() throws IOException {
-        String archivo = Experimento.ARCHIVO_EXPLICITO ? Experimento.ARCHIVO_VENTAS : ARCHIVO_MES;
+        boolean ventanas = "ventanas".equalsIgnoreCase(SITUACIONES);
+        Map<String, List<Integer>> grupos = ventanas ? gruposDeMeses() : Map.of();
+        List<Integer> meses = new ArrayList<>();
+        for (List<Integer> g : grupos.values()) meses.addAll(g);
+        Collections.sort(meses);
+        String archivo = Experimento.ARCHIVO_EXPLICITO ? Experimento.ARCHIVO_VENTAS
+                : ventanas ? archivoVentas(meses.get(0)).toString() : ARCHIVO_MES;   // en ventanas: base de C_max
         String bloqueos = ARCHIVO_BLOQUEOS != null ? ARCHIVO_BLOQUEOS
+                : ventanas ? archivoBloqueos(meses.get(0)).toString()
                 : Files.exists(Paths.get(BLOQUEOS_MES)) ? BLOQUEOS_MES : "no";
         boolean sintetico = (archivo + bloqueos).toUpperCase(Locale.ROOT).contains("SINTETICO");
         boolean ventasSinteticas = archivo.toUpperCase(Locale.ROOT).contains("SINTETICO");
@@ -146,7 +166,9 @@ final class ExperimentoSimulacion {
         if (PENALIDAD_HOLGURA != null) base.penalidadHolgura = PENALIDAD_HOLGURA;
         base.mapa = "no".equalsIgnoreCase(bloqueos) || "no".equalsIgnoreCase(Parametros.texto("red.bloqueos", "si"))
                 ? null : MapaVial.leer(bloqueos);
-        if (ARCHIVO_MANTENIMIENTO != null) base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO);
+        // Etapa 28: solo los mantenimientos del mes de las ventas (el archivo oficial trae dos meses)
+        if (ARCHIVO_MANTENIMIENTO != null)
+            base.mantenimientos = Mantenimiento.leer(ARCHIVO_MANTENIMIENTO, Mantenimiento.mesDeArchivo(archivo));
         String salida = Experimento.SALIDA_CSV != null ? Experimento.SALIDA_CSV
                 : "resultados_simulacion" + (sintetico ? "_SINTETICO" : "") + ".csv";
         String modoParada = CALIBRAR_EVALUACIONES ? "evaluaciones_calibradas"
@@ -211,10 +233,26 @@ final class ExperimentoSimulacion {
             }
         }
         boolean porReplica = !"por_nivel".equalsIgnoreCase(SITUACIONES);
+        String etiquetaSituaciones = ventanas ? "ventanas" : porReplica ? "por_replica" : "por_nivel";
         boolean excluir = EXCLUIR_DESTINOS_BLOQUEADOS && ventasSinteticas && base.mapa != null;
-        System.out.println("Situaciones: " + (porReplica
-                ? "una muestra de pedidos por réplica (la misma para TABU y AG)"
+        System.out.println("Situaciones: " + (ventanas
+                ? "ventanas reales de 5 días de los meses " + meses.get(0) + " a " + meses.get(meses.size() - 1)
+                  + " (la misma para TABU y AG)"
+                : porReplica ? "una muestra de pedidos por réplica (la misma para TABU y AG)"
                 : "una muestra de pedidos por nivel (todas las réplicas)"));
+        if (ventanas) {   // niveles = grupos de meses reales, sin remuestreo
+            nombres.clear();
+            fracciones.clear();
+            int k = 0;
+            for (Map.Entry<String, List<Integer>> g : grupos.entrySet()) {
+                k++;
+                if (Experimento.FILTRO_NIVELES != null && !Experimento.FILTRO_NIVELES.contains(g.getKey())) continue;
+                Nivel n = nivelVentanas(g.getKey(), g.getValue(), cmax, semillaBase + k);
+                niveles.add(n);
+                System.out.printf(Locale.US, "  %-6s meses %s: %d ventanas (paso %d días, semilla %d); carga media %.0f%% de C_max%n",
+                        n.nombre, g.getValue(), n.situaciones.size(), PASO_VENTANA, semillaBase + k, n.fraccion * 100);
+            }
+        }
         for (int k = 0; k < nombres.size(); k++) {
             if (Experimento.FILTRO_NIVELES != null && !Experimento.FILTRO_NIVELES.contains(nombres.get(k))) continue;
             Nivel n = new Nivel();
@@ -263,7 +301,9 @@ final class ExperimentoSimulacion {
         for (Nivel n : niveles)
             for (String alg : Experimento.ALGORITMOS) {
                 if (Experimento.FILTRO_ALGORITMOS != null && !Experimento.FILTRO_ALGORITMOS.contains(alg)) continue;
-                for (int r = 1; r <= Experimento.REPLICAS; r++) {
+                // En ventanas reales un nivel puede tener menos ventanas que las réplicas pedidas
+                int replicas = ventanas ? n.situaciones.size() : Experimento.REPLICAS;
+                for (int r = 1; r <= replicas; r++) {
                     Corrida c = new Corrida();
                     c.nivel = n; c.situacion = n.situacion(r);
                     c.algoritmo = alg; c.replica = r; c.semilla = Experimento.SEMILLA_BASE + r;
@@ -281,7 +321,10 @@ final class ExperimentoSimulacion {
         String config = System.getProperty("paqrap.config", Parametros.RUTA_POR_DEFECTO);
         if (Files.exists(Paths.get(config))) hashes.put(config, sha256(Paths.get(config)));
         for (Nivel n : niveles)
-            for (Situacion s : n.situaciones) hashes.put(s.ruta.toString(), sha256(s.ruta));
+            for (Situacion s : n.situaciones) {
+                hashes.put(s.ruta.toString(), sha256(s.ruta));
+                if (s.bloqueos != null) hashes.put(s.bloqueos.toString(), sha256(s.bloqueos));
+            }
         String pc = System.getenv().getOrDefault("COMPUTERNAME", "desconocida");
         Path archivoHashes = Paths.get(salida.replaceFirst("[.]csv$", "") + "_hashes.txt");
         try (PrintWriter h = new PrintWriter(Files.newBufferedWriter(archivoHashes, StandardCharsets.UTF_8))) {
@@ -331,6 +374,10 @@ final class ExperimentoSimulacion {
                 filas.add(hilos.submit(() -> {
                     Simulador.Config cfg = copiar(base);
                     cfg.semilla = c.semilla;
+                    // Ventanas reales (etapa 28): bloqueos, día de inicio y mantenimientos de su mes
+                    if (c.situacion.bloqueos != null) cfg.mapa = MapaVial.leer(c.situacion.bloqueos.toString());
+                    if (c.situacion.inicioMin >= 0) cfg.inicioMin = c.situacion.inicioMin;
+                    if (c.situacion.mantenimientos != null) cfg.mantenimientos = c.situacion.mantenimientos;
                     if (CALIBRAR_EVALUACIONES) cfg.maxEvaluaciones = topesCorrida.get(c.algoritmo);
                     if (ESCENARIO == Simulador.Escenario.SIM_5D && !ACELERADO)
                         cfg.reloj = Reloj.escalado(5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 30));
@@ -379,13 +426,14 @@ final class ExperimentoSimulacion {
                             r.viajesTotales, r.viajesMedio, r.viajesMax, r.bloqueosEncontrados, r.averiasAplicadas,
                             r.trasvases, r.parcialesCreadas, ms, cfg.reglaDestino, r.pedidosInentregablesBloqueo,
                             cfg.penalidadEstabilidad, pc, hashVentas, hashBloqueos, cfg.holguraMin, cfg.penalidadHolgura,
-                            DIA_INICIO, (r.colapsoMin - cfg.inicioMin) / 60.0, porReplica ? "por_replica" : "por_nivel",
+                            (int) Math.round(cfg.inicioMin / 1440) + 1, (r.colapsoMin - cfg.inicioMin) / 60.0, etiquetaSituaciones,
                             c.situacion.semillaCarga);
                     fila.consola = String.format(Locale.US, "  [%3d/%d] %-5s %-4s rep=%d  %s %s (%.1f h desde el inicio)  causa=%s  costo=%.0f  en plazo=%.1f%%  "
                                     + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)", orden, corridas.size(), c.nivel.nombre,
                             c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
                             (r.colapsoMin - cfg.inicioMin) / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
                             r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000);
+                    r.registro.clear();   // Etapa 28: los eventos ya no se usan; no se guardan hasta el final
                     return fila;
                 }));
             }
@@ -421,6 +469,108 @@ final class ExperimentoSimulacion {
         }
         if (sintetico) System.out.println("*** DATOS SINTÉTICOS - NO VÁLIDOS PARA EL INFORME ***");
         System.out.println("\nResultados guardados en: " + Paths.get(salida).toAbsolutePath());
+    }
+
+    // ===================== Ventanas reales (etapa 28) =====================
+
+    /** Archivo de ventas del mes aaaamm en CARPETA_VENTAS (formato del profesor: ventas.202609.txt). */
+    static Path archivoVentas(int aaaamm) {
+        return Paths.get(CARPETA_VENTAS, "ventas." + aaaamm + ".txt");
+    }
+
+    /** Archivo de bloqueos del mes aaaamm en CARPETA_BLOQUEOS (formato del profesor: bloqueo.2609.txt). */
+    static Path archivoBloqueos(int aaaamm) {
+        return Paths.get(CARPETA_BLOQUEOS, String.format(Locale.ROOT, "bloqueo.%04d.txt", aaaamm % 10000));
+    }
+
+    /** Meses aaaamm del rango MESES ("202609-202812") con archivo de ventas Y de bloqueos, en orden. */
+    static List<Integer> mesesDisponibles(String rango) {
+        if (CARPETA_VENTAS == null || CARPETA_BLOQUEOS == null || rango == null)
+            throw new IllegalArgumentException("--situaciones ventanas requiere --carpeta-ventas, --carpeta-bloqueos y --meses");
+        String[] r = rango.trim().split("-");
+        YearMonth desde = YearMonth.of(Integer.parseInt(r[0]) / 100, Integer.parseInt(r[0]) % 100);
+        YearMonth hasta = r.length > 1 ? YearMonth.of(Integer.parseInt(r[1]) / 100, Integer.parseInt(r[1]) % 100) : desde;
+        List<Integer> meses = new ArrayList<>();
+        for (YearMonth m = desde; !m.isAfter(hasta); m = m.plusMonths(1)) {
+            int aaaamm = m.getYear() * 100 + m.getMonthValue();
+            if (Files.exists(archivoVentas(aaaamm)) && Files.exists(archivoBloqueos(aaaamm))) meses.add(aaaamm);
+        }
+        if (meses.isEmpty()) throw new IllegalArgumentException("No hay meses con ventas y bloqueos en " + rango);
+        return meses;
+    }
+
+    /**
+     * Niveles de las ventanas reales a partir de --meses:
+     *  - "202609-202812": un solo nivel, REAL;
+     *  - "BAJA=202609-202610,MEDIA=202611-202612,ALTA=202701-202702": un nivel por grupo de
+     *    meses. En los datos del profesor la demanda diaria crece mes a mes (5 000 pedidos en cada
+     *    vez menos días), así que cada grupo es un nivel de carga REAL, sin inventar pedidos.
+     */
+    static Map<String, List<Integer>> gruposDeMeses() {
+        Map<String, List<Integer>> grupos = new LinkedHashMap<>();
+        if (MESES != null && MESES.contains("=")) {
+            for (String par : MESES.split(",")) {
+                String[] nr = par.trim().split("=");
+                grupos.put(nr[0].trim().toUpperCase(Locale.ROOT), mesesDisponibles(nr[1]));
+            }
+        } else {
+            grupos.put("REAL", mesesDisponibles(MESES));
+        }
+        return grupos;
+    }
+
+    /** Días entre inicios de ventanas consecutivas (--paso-ventana; 5 = ventanas sin solaparse). */
+    static int PASO_VENTANA = 5;
+
+    /**
+     * Nivel de ventanas reales: los tramos de 5 días de cada mes, con inicio cada PASO_VENTANA
+     * días, que caen DENTRO de los días con pedidos del archivo (el profesor trae 5 000 pedidos
+     * por mes; en los meses de más demanda cubren menos días, y una ventana posterior al último
+     * pedido estaría vacía). Cada ventana usa los pedidos, bloqueos y mantenimientos de su mes.
+     * Se eligen REPLICAS ventanas al azar con semilla fija (todas si hay menos); la réplica r es
+     * la ventana r, la misma para TABU y AG. La fracción del nivel es la carga media de las
+     * ventanas elegidas / C_max.
+     */
+    private static Nivel nivelVentanas(String nombre, List<Integer> meses, double cmax, long semilla) throws IOException {
+        List<Situacion> todas = new ArrayList<>();
+        for (int mes : meses) {
+            // Mantenimientos SOLO de este mes (lista vacía si el archivo no cubre el mes)
+            List<Mantenimiento> mant = ARCHIVO_MANTENIMIENTO == null ? new ArrayList<>()
+                    : Mantenimiento.leer(ARCHIVO_MANTENIMIENTO, mes);
+            List<Pedido> pedidosMes = LectorPedidos.leerAbsoluto(archivoVentas(mes).toString());
+            double ultimaHora = 0;
+            for (Pedido p : pedidosMes) ultimaHora = Math.max(ultimaHora, p.horaRegistro);
+            // La ventana [d, d+5) días debe terminar antes del último pedido del archivo
+            for (int d = 1; (d + 4) * 24.0 <= ultimaHora; d += PASO_VENTANA) {
+                Situacion s = new Situacion();
+                s.ruta = archivoVentas(mes);
+                s.archivoCarga = s.ruta.getFileName().toString();
+                s.bloqueos = archivoBloqueos(mes);
+                s.inicioMin = (d - 1) * 1440.0;
+                s.mantenimientos = mant;
+                s.semillaCarga = mes * 100L + d;   // identifica la ventana: aaaammdd de inicio
+                Set<String> orig = new LinkedHashSet<>();
+                for (Pedido p : pedidosMes)
+                    if (p.horaRegistro >= (d - 1) * 24.0 && p.horaRegistro < (d + 4) * 24.0) {
+                        orig.add(p.idOriginal);
+                        s.paquetes += p.cantidad;
+                    }
+                s.originales = orig.size();
+                todas.add(s);
+            }
+        }
+        if (todas.isEmpty()) throw new IllegalArgumentException("El nivel " + nombre + " no tiene ventanas con pedidos");
+        if (todas.size() < Experimento.REPLICAS)
+            System.out.println("  AVISO: el nivel " + nombre + " tiene solo " + todas.size() + " ventanas (se pidieron "
+                    + Experimento.REPLICAS + "); se usan todas. Para más, use --paso-ventana 1 o amplíe los meses.");
+        Collections.shuffle(todas, new Random(semilla));
+        Nivel n = new Nivel();
+        n.nombre = nombre;
+        n.situaciones.addAll(todas.subList(0, Math.min(Experimento.REPLICAS, todas.size())));
+        double paquetes = 0;
+        for (Situacion s : n.situaciones) paquetes += s.paquetes;
+        n.fraccion = paquetes / n.situaciones.size() / 5.0 / cmax;
+        return n;
     }
 
     /** Situación a partir de un archivo de pedidos: cuenta pedidos originales y paquetes. */
@@ -488,7 +638,11 @@ final class ExperimentoSimulacion {
         return topes;
     }
 
-    private static Simulador.Config copiar(Simulador.Config b) {
+    /** Configuración de una corrida a partir de la base. Etapa 28: cada corrida recibe SU PROPIO
+     *  MapaVial (mismos bloqueos), porque las cachés de distancias no son seguras entre hilos:
+     *  compartido entre corridas en paralelo (--hilos), la caché crecía sin límite (falta de
+     *  memoria con los datos oficiales) y podía devolver distancias equivocadas. */
+    static Simulador.Config copiar(Simulador.Config b) {
         Simulador.Config c = new Simulador.Config();
         c.escenario = b.escenario;
         c.saMin = b.saMin;
@@ -496,7 +650,7 @@ final class ExperimentoSimulacion {
         c.maxEvaluaciones = b.maxEvaluaciones;
         c.horizonteMin = b.horizonteMin;
         c.detenerEnColapso = b.detenerEnColapso;
-        c.mapa = b.mapa;
+        c.mapa = b.mapa == null ? null : new MapaVial(b.mapa.bloqueos);
         c.almacenesIntermedios = b.almacenesIntermedios;
         c.alimentacion = b.alimentacion;
         c.estrategiaParciales = b.estrategiaParciales;

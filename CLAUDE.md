@@ -27,7 +27,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - 10 autos (24 paquetes, 40 km/h, S/ 8 por km).
   - 15 motos (8 paquetes, 25 km/h, S/ 6 por km).
   - 12 bicicletas (4 paquetes, 12 km/h, S/ 3 por km).
-  - Las velocidades 40/25/12 están por confirmar frente a la hoja auxiliar, que dice 20/40/14.
+  - Velocidades: las del enunciado, 40/25/12 km/h (decisión del equipo; la hoja auxiliar dice 20/40/14).
 - **Bloqueos:** solo planificados y **conocidos de antemano** (archivo `aaaamm.bloqueadas`). Un nodo bloqueado no se atraviesa. Solo hay polígonos abiertos.
 - **Averías:** tipos 1, 2 y 3. Con trasvase, otra unidad recoge la carga en 30 min. **Las unidades son almacenes móviles.**
 - **Colapso logístico (definición binaria del profesor):** basta **un producto no entregado dentro de su plazo** para que la simulación termine. La definición multivariable del ISA quedó descartada.
@@ -47,7 +47,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 27)
+## 3. Estado del código (etapa 28)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -69,8 +69,10 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
 - **Etapa 25:** situaciones por réplica (SI-24): la réplica r de cada nivel es una muestra de pedidos propia, la misma para TABU y AG (diseño pareado). Se agregaron `--cargas` para niveles a medida, el análisis del % de colapsos con McNemar exacta y `potencia.py` para proporciones pareadas. Calibración sintética: la zona útil está entre 100 % y 115 % de C_max (`docs/avance_sem07.md`). Hay 72 pruebas.
 - **Etapa 26 (ensayo SINTETICO, 240 corridas):** niveles provisionales BAJA 95 %, MEDIA 105 % y ALTA 110 % (SI-25). % de colapsos: TABU 51.7 % frente a AG 57.5 %, **sin diferencia significativa** (McNemar global p = 0.26). Los desempates dan TABU por estabilidad (unos 13 cambios de unidad frente a unos 160); el costo por pedido no difiere y el AG hace de 1.4 a 1.6 % menos km en BAJA y MEDIA. **El AG excede Ta: 2 752 ms de media frente a 2 000** (`docs/avance_sem07.md`).
 - **Etapa 27:** el AG revisa Ta antes de cada hijo (antes, solo al terminar la generación). Con 7 hilos pasó de 2 601 ms de media (máximo 3 823) a 2 050 ms (máximo 2 200); Tabú usa 2 003 ms. Hay 75 pruebas. El ensayo de la etapa 26 se hizo con el AG excedido y hay que repetirlo.
-- **Supuestos** SI-01 a SI-25 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
-- **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
+- **Etapa 28 (datos oficiales):** los datos del profesor están en `juego_de_datos/` (no versionados; 36 meses, sin errores de validación). Se corrigieron dos errores: el `MapaVial` era compartido entre hilos (falta de memoria y posibles distancias equivocadas; ahora hay uno por corrida) y el mantenimiento ignoraba el mes (ahora solo se usan los del mes simulado). Se agregaron las **ventanas reales** (SI-26): los niveles son grupos de meses con demanda creciente. Hay 79 pruebas.
+- **Resultado del experimento oficial (etapa 28, 103 pares):** % de colapsos TABU 46.6 % frente a AG 49.5 %, **sin diferencia significativa** (McNemar global p = 0.65; con 103 pares se detectarían unos 15 puntos). El tiempo hasta el colapso no difiere. El AG es de 1 a 5 % más barato por pedido en BAJA y MEDIA; Tabú es de 3 a 10 veces más estable. Con la regla acordada: AG en BAJA y MEDIA (costo) y TABU en ALTA (estabilidad). **La elección final queda para decisión del equipo** (`docs/avance_sem07.md`).
+- **Supuestos** SI-01 a SI-26 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
+- **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
 ## 4. Cómo compilar, probar y ejecutar
 
@@ -90,7 +92,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 
 ## 5. Diseño del experimento vigente
 
-- **Factores:** algoritmo (TABU, AG) × carga. Los niveles del IEN (BAJA 30 %, MEDIA 60 %, ALTA 90 % de C_max; C_max = 1 536 paquetes/día) dan 0 % de colapsos en 5 días. **Niveles provisionales (SI-25): BAJA 95 %, MEDIA 105 %, ALTA 110 %**, calibrados con los sintéticos (pregunta 14). Con los sintéticos, la zona útil está entre 100 % y 115 % de C_max. Los niveles definitivos se fijan con los datos oficiales (`docs/protocolo_experimento.md` §4).
+- **Factores:** algoritmo (TABU, AG) × carga. **Con los datos oficiales (SI-26), la carga son grupos de meses reales**, porque la demanda del profesor crece mes a mes: BAJA = 2026-09/10 (78 % de C_max), MEDIA = 2026-11/12 (98 %) y ALTA = 2027-01/02 (115 %). Los niveles del IEN (30/60/90 %) no producen colapsos en 5 días. Los niveles calibrados de SI-25 (95/105/110 %) solo se usan con los sintéticos.
 - **Variable principal (indicación del profesor): % de corridas con colapso.**
   - Cada corrida da un resultado sí/no. El **horizonte** es el tiempo simulado dentro del cual se mira si hubo colapso; en SIM_5D son **los 5 días**.
   - **Decisión del equipo:** se usa **SIM_5D**, porque todos trabajan con ese escenario. Falta la confirmación del profesor (pregunta 13).
@@ -121,7 +123,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 2. **Quitar el estado estático** (hecho en la etapa 24) de los algoritmos, para correr varias simulaciones en paralelo y los 3 escenarios en un servidor. Es necesario porque el % de colapsos exige muchas réplicas.
 3. **Calibrar las condiciones de SIM_5D** (herramientas y calibración sintética hechas en la etapa 25; falta repetirla con los datos oficiales y fijar los niveles, pregunta 14) para que haya colapsos en una parte de las corridas (§5), y actualizar `docs/protocolo_experimento.md` y el análisis en Python con la variable principal nueva.
 4. **Corregir el exceso de tiempo del AG** (hecho en la etapa 27): el AG revisa Ta solo al terminar cada generación y usa 2.75 s de media con Ta = 2 s. Debe revisar el reloj también dentro de la generación (antes de evaluar cada hijo) y agregar una prueba que verifique que el tiempo por llamada no supera Ta más un margen pequeño. Coordinar con Torres, porque cambia código que defiende.
-5. **Experimento comparativo completo** con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
+5. **Experimento comparativo completo** (hecho con los datos oficiales en la etapa 28; falta la decisión del equipo) con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
 6. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 7. `inyectarPedido` para el escenario DIA_A_DIA, cuando el equipo defina el formato.
 

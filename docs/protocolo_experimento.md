@@ -49,6 +49,23 @@ El resto queda como está: Ta = 2000 ms, Sa = 60 min, tope de 30 días, penalida
 - **Análisis:** McNemar exacta por nivel y global sobre los pares discordantes; regresión logística GEE (pares como grupos); intervalos de Clopper-Pearson. Desempates, en este orden: tiempo hasta el colapso (log-rank), costo por pedido y estabilidad, con pruebas pareadas (t pareada o Wilcoxon).
 - **Escenario complementario:** «hasta el colapso» (`ESCENARIO=COLAPSO`) mide cuánto dura cada algoritmo, porque ahí toda corrida termina colapsando.
 
+## 3b. Datos oficiales del profesor (etapa 28)
+
+Están en `juego_de_datos/`, tal como los publicó el profesor (no se editan):
+- `ventas.v20260909.../ventas.v20260909/ventas.aaaamm.txt`: un archivo por mes, de 2026-01 a 2028-12. Desde 2026-09 son 5 000 pedidos por mes.
+- `bloqueos.v20260909.../bloqueos.v20260909/bloqueo.aamm.txt`: un archivo por mes.
+- `mant.preventivo.09.10.txt`: mantenimientos de septiembre y octubre de 2026. El lector usa solo los del mes simulado.
+
+Los 36 meses pasan `ValidadorEntradas` sin errores.
+
+**Situaciones con ventanas reales** (decisión del equipo, si la demanda real produce colapsos): cada réplica es un tramo real de 5 días de un mes, que empieza el día 1, 6, 11, 16, 21 o 26. Usa los pedidos, bloqueos y mantenimientos de ese mes, sin inventar pedidos. TABU y AG corren el mismo tramo:
+
+```
+java -Xmx10g -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacion --escenario SIM_5D --acelerado si --situaciones ventanas --carpeta-ventas juego_de_datos/ventas.v20260909-20260928T011657Z-1-001/ventas.v20260909 --carpeta-bloqueos juego_de_datos/bloqueos.v20260909-20260928T011612Z-1-001/bloqueos.v20260909 --mantenimiento juego_de_datos/mant.preventivo.09.10.txt --meses 202609-202812 --replicas 40 --hilos 7 --salida resultados_ventanas.csv
+```
+
+Las ventanas se eligen al azar, con la semilla `carga.semilla_base`, entre todas las del rango. La columna `semilla_carga` identifica cada una con el formato aaaammdd de su inicio.
+
 ## 4. Calibrar los niveles de carga (con los datos oficiales)
 
 Para que el porcentaje distinga algo, los niveles deben producir colapsos en **una parte** de las corridas: ni 0 % ni 100 % en ambos algoritmos. Con los datos sintéticos, 30/60/90 % de C_max dan 0 % de colapsos en 5 días y 120 % o más da 100 % (`docs/avance_sem07.md`, etapa 25). Con los oficiales hay que repetir el barrido:

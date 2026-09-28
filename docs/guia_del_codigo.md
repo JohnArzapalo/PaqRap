@@ -47,7 +47,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 | `Simulador` | Eventos discretos: reloj, llegada de pedidos, replanificación con estado cada Sa y por evento, movimiento nodo a nodo, averías, trasvase, stock, mantenimiento, colapso, registro de eventos e instantánea JSON. |
 | `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`, que crean un objeto del algoritmo por llamada con la semilla del ciclo. |
 | `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo`, `caminoTramo`, `finBloqueo`/`inicioBloqueo` y `limiteEfectivo` (Etapa 23). |
-| `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo. |
+| `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo (solo los registros del mes simulado, etapa 28). |
 | `Reloj` | Ritmo: sin espera, escalado (SIM_5D) o real (DIA_A_DIA); espera interrumpible. |
 | `ServicioSimulacion` | Fachada para un visualizador: corre el simulador en un hilo, da la instantánea y recibe averías y cambios de velocidad. |
 | `EscritorJson` | Escritor JSON mínimo para la instantánea. |
@@ -56,7 +56,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 | Clase | Responsabilidad |
 |---|---|
 | `Experimento` | Punto de entrada del experimento. Modo estático (ventanas) y lectura de argumentos. |
-| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). Situaciones por réplica (`--situaciones por_replica`, por defecto): la réplica r de cada nivel usa su propia muestra de pedidos, la misma para TABU y AG; `--cargas NOMBRE=fracción` define niveles a medida (etapa 25). |
+| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). Situaciones por réplica (`--situaciones por_replica`, por defecto): la réplica r de cada nivel usa su propia muestra de pedidos, la misma para TABU y AG; `--cargas NOMBRE=fracción` define niveles a medida (etapa 25). Ventanas reales (`--situaciones ventanas --carpeta-ventas --carpeta-bloqueos --meses`): cada réplica es un tramo real de 5 días de un mes del profesor, con sus pedidos, bloqueos y mantenimientos; cada corrida recibe su propio `MapaVial` (etapa 28). |
 | `CapacidadFlota` | C_max = Σ n·q·⌊21/t⌋. |
 | `GeneradorCarga` | Pedidos por nivel (bootstrap del archivo base, semilla fija). |
 | `GeneradorDatosSinteticos` | Pedidos y bloqueos sintéticos del mes. |

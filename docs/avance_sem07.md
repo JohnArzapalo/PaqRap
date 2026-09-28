@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 a 27 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 28 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -253,3 +253,51 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
   - Las dos primeras **fallan con el código anterior** (59 y 30 evaluaciones) y pasan con el nuevo.
   - **Total: 75 pruebas, todas pasan.** `Main` no cambia (708/672/672 y 816/816/816).
 - **Consecuencia para el ensayo de la etapa 26:** el AG corrió con cerca de un 30 % más de cómputo que TABU. Aun así no hubo diferencia significativa en el % de colapsos. Hay que repetir el ensayo, o correr directamente el experimento con los datos oficiales, con esta corrección.
+
+## Etapa 28: datos oficiales, ventanas reales y experimento completo (SI-26)
+
+- **Datos oficiales** en `juego_de_datos/`, publicados por el profesor y no versionados:
+  - ventas y bloqueos mensuales de 2026-01 a 2028-12;
+  - mantenimiento de 2026-09/10.
+  - Los 36 meses pasan `ValidadorEntradas` sin errores; solo hay avisos de clientes ubicados en un almacén.
+- **La demanda del profesor crece mes a mes:** 5 000 pedidos por mes en cada vez menos días. Va del 9 % de C_max (2026-01) al 73 % (2026-09), 106 % (2027-01) y 350 % (2028-12). C_max oficial = 1 296 paquetes/día.
+- **Correcciones:**
+  1. `MapaVial` compartido entre corridas en paralelo: sus cachés no son seguras entre hilos. Con los bloqueos oficiales la memoria se agotó, y podía dar distancias equivocadas. Error introducido en la etapa 24. Ahora `ExperimentoSimulacion.copiar` da un mapa propio a cada corrida.
+  2. `Mantenimiento.leer` ignoraba el mes: el archivo oficial trae septiembre y octubre, y al simular septiembre se aplicaban 37 mantenimientos en lugar de 19. Ahora se filtra por el mes de las ventas.
+  3. El análisis usaba la hora absoluta del mes como tiempo hasta el colapso; ahora usa `horas_desde_inicio`.
+  4. Los eventos de cada corrida ya no se guardan en memoria hasta el final.
+- **Ventanas reales** (decisión del equipo, SI-26):
+  - `--situaciones ventanas --carpeta-ventas --carpeta-bloqueos --meses NOMBRE=aaaamm-aaaamm,... --paso-ventana N`.
+  - Cada situación es un tramo real de 5 días, con los pedidos, bloqueos y mantenimientos de su mes, que termina antes del último pedido del archivo. Los niveles son grupos de meses.
+- **Calibración previa** (septiembre, 4 réplicas): la demanda real de septiembre (73 %, días 1-5) dio 0 de 8 corridas con colapso. Con carga remuestreada al 90-115 %, colapsa entre 38 % y 75 %. Por eso se eligieron meses reales de 78 a 115 %.
+- **Pruebas:** hay 4 nuevas (mapa propio por corrida, ventanas comunes a ambos algoritmos, ventanas dentro de los días con pedidos con niveles por grupo, mantenimiento por mes). **Total: 79 pruebas, todas pasan.**
+
+**Experimento oficial** (SIM_5D, Ta = 2 s, 7 hilos, 206 corridas, 1.7 h de reloj). Salidas en `verificacion_etapa28/` (no versionada): `experimento_oficial_SIM_5D.csv` y `analisis/`.
+
+| Nivel (meses reales) | Carga | Pares | % colapso TABU | % colapso AG | Solo TABU | Solo AG | p (McNemar) |
+|---|---|---|---|---|---|---|---|
+| BAJA (2026-09/10) | 78 % | 40 | 27.5 [15, 44] | 25.0 [13, 41] | 4 | 3 | 1.00 |
+| MEDIA (2026-11/12) | 98 % | 35 | 34.3 [19, 52] | 42.9 [26, 61] | 3 | 6 | 0.51 |
+| ALTA (2027-01/02) | 115 % | 28 | 89.3 [72, 98] | 92.9 [76, 99] | 1 | 2 | 1.00 |
+| **Global** | | 103 | **46.6** | **49.5** | 8 | 11 | **0.65** |
+
+- **GEE:** odds ratio TABU/AG = 0.85, p = 0.49. **Sin los colapsos por destino bloqueado** (el ruido que afecta a ambos): global, solo TABU 7 pares y solo AG 9, p = 0.80.
+- **Potencia:** con psi = 0.18, 103 pares alcanzan para detectar diferencias de unos 15 puntos (65 pares necesarios). La diferencia observada es de unos 3 puntos, así que **si existe, es pequeña**.
+
+**Desempates (pruebas pareadas):**
+
+| Variable | BAJA | MEDIA | ALTA |
+|---|---|---|---|
+| Tiempo hasta el colapso (log-rank) | sin diferencia (p = 0.77) | sin diferencia (p = 0.43) | sin diferencia (p = 0.76) |
+| Costo por pedido (S/, TABU vs. AG) | 160.9 vs. **153.4** (AG 4.8 % menos, p < 10⁻⁹) | 161.8 vs. **160.2** (AG 1.0 % menos, p = 0.003) | sin diferencia |
+| km por pedido | AG 6.4 % menos | AG 1.9 % menos | sin diferencia |
+| Cambios de unidad (mediana) | **TABU 29** vs. 290 | **TABU 28** vs. 185 | **TABU 19.5** vs. 90.5 |
+| Tiempo por replanificación | TABU 2 004 ms; AG 2 045 ms (Ta = 2 000) | | |
+
+- **Regla acordada** (% de colapsos → tiempo hasta el colapso → costo por pedido → estabilidad):
+  - **AG en BAJA y MEDIA**, decidido por el costo por pedido;
+  - **TABU en ALTA**, decidido por la estabilidad.
+- **Lectura:** los dos algoritmos son **equivalentes en lo principal**: colapsan en la misma proporción y al mismo tiempo. Se diferencian en un intercambio:
+  - el AG es algo más barato con carga baja o media (1-5 % por pedido);
+  - Tabú es mucho más estable: de 3 a 10 veces menos reasignaciones de unidades al replanificar.
+- La elección final depende de cuánto pese cada criterio y queda para decisión del equipo.
