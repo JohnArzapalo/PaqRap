@@ -25,9 +25,13 @@ class ReproducibilidadTest {
         List<Pedido> ped = Instancias.sinteticoI1();
         List<UnidadTransporte> flota = Experimento.flotaOficial();
 
+        // Cada corrida con su propio contexto, como en el simulador: los ids de las
+        // partes del reparto por productos (SI-28) se numeran desde cero en cada una
+        Contexto.restablecer();
         BusquedaTabu ta = new BusquedaTabu(1001);
         Solucion a = ta.ejecutarDesdeCero(ped, flota, 0, 20_000, 8, Integer.MAX_VALUE);
 
+        Contexto.restablecer();
         BusquedaTabu tb = new BusquedaTabu(1001);
         Solucion b = tb.ejecutarDesdeCero(ped, flota, 0, 20_000, 8, Integer.MAX_VALUE);
 

@@ -15,12 +15,11 @@ import java.util.List;
  * y difundir la instantánea a todos los dispositivos conectados (ver
  * docs/propuesta_arquitectura_integracion.md).
  *
- * SUPUESTOS: una simulación por servicio. El Contexto de planificación es por
- * hilo, pero los algoritmos aún guardan estado estático (semilla, contadores)
- * y la velocidad es un dato global del tipo de unidad (SI-19): para correr
- * varios escenarios a la vez, usar un proceso (JVM) por escenario.
+ * Una simulación por servicio. Desde la etapa 24 los algoritmos no tienen
+ * estado estático, así que varios servicios (uno por escenario) pueden correr
+ * a la vez en el mismo proceso: es lo que hace ServidorWeb (Etapa 32).
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-18 (avería externa en el instante actual), SI-19 (una simulación por JVM).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-18 (avería externa en el instante actual).
  */
 final class ServicioSimulacion {
 
@@ -51,6 +50,36 @@ final class ServicioSimulacion {
     /** Estado actual en JSON (se puede llamar en cualquier momento, desde cualquier hilo). */
     String instantanea() {
         return simulador.instantaneaJson();
+    }
+
+    /** Bitácora: eventos desde la posición indicada (JSON con "total" y "eventos"). */
+    String eventos(int desde) {
+        return simulador.eventosJson(desde);
+    }
+
+    /** Resumen para el reporte de cierre (por tipo de unidad y plan vigente). */
+    String reporte() {
+        return simulador.reporteJson();
+    }
+
+    /** Pedido registrado desde el visualizador (operación día a día): llega en el instante actual. */
+    void registrarPedido(Pedido p) {
+        simulador.inyectarPedido(p);
+    }
+
+    /** Minuto simulado actual. */
+    double minutoActual() {
+        return simulador.minutoActual();
+    }
+
+    /** Resultado final (null mientras corre). */
+    Simulador.Resultado resultado() {
+        return resultado;
+    }
+
+    /** Error que detuvo la simulación (null si no hubo). */
+    Throwable error() {
+        return error;
     }
 
     /** Avería registrada desde el visualizador (tipos 1, 2 o 3), en el instante actual. */

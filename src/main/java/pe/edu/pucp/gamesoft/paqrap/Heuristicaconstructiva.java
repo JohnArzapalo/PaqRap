@@ -128,27 +128,33 @@ class Heuristicaconstructiva {
         // que menos aumentan las entregas tarde y, a igualdad, el costo. Se
         // consideran las rutas ya armadas y, como opción, abrir una ruta nueva
         // en una unidad libre (una por tipo). A igualdad gana una ruta existente.
+        // Reparto por productos (SI-28): si el pedido no cabe entero a tiempo, una
+        // unidad lleva los productos que le caben y el resto se inserta en otra.
         sinAsignar.sort(Comparator.comparingDouble(cx::limiteEfectivo));
         List<Pedido> definitivamenteSinAsignar = new ArrayList<>();
-        for (Pedido p : sinAsignar) {
-            List<RutaAlg> candidatas = new ArrayList<>(solucion.rutas);
-            List<TipoUnidad> tiposLibres = new ArrayList<>();
-            for (UnidadTransporte u : libres) {
-                if (tiposLibres.contains(u.tipo)) continue;
-                tiposLibres.add(u.tipo);
-                RutaAlg nueva = new RutaAlg();
-                nueva.unidad = u;
-                candidatas.add(nueva);
-            }
-            OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(solucion, candidatas, p);
-            if (mejor == null) {
-                definitivamenteSinAsignar.add(p);
-                continue;
-            }
-            mejor.aplicar();
-            if (!solucion.rutas.contains(mejor.ruta)) {   // se abrió una ruta en una unidad libre
-                libres.remove(mejor.ruta.unidad);
-                solucion.rutas.add(mejor.ruta);
+        for (Pedido pendiente : sinAsignar) {
+            Pedido p = pendiente;
+            while (p != null) {
+                List<RutaAlg> candidatas = new ArrayList<>(solucion.rutas);
+                List<TipoUnidad> tiposLibres = new ArrayList<>();
+                for (UnidadTransporte u : libres) {
+                    if (tiposLibres.contains(u.tipo)) continue;
+                    tiposLibres.add(u.tipo);
+                    RutaAlg nueva = new RutaAlg();
+                    nueva.unidad = u;
+                    candidatas.add(nueva);
+                }
+                OperadoresVecindario.Pieza pieza = OperadoresVecindario.mejorPieza(solucion, candidatas, p);
+                if (pieza == null) {
+                    definitivamenteSinAsignar.add(p);
+                    break;
+                }
+                pieza.posicion.aplicar();
+                if (!solucion.rutas.contains(pieza.posicion.ruta)) {   // se abrió una ruta en una unidad libre
+                    libres.remove(pieza.posicion.ruta.unidad);
+                    solucion.rutas.add(pieza.posicion.ruta);
+                }
+                p = pieza.resto;   // productos que faltan (null si fue entero)
             }
         }
 

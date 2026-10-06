@@ -654,6 +654,7 @@ final class ExperimentoSimulacion {
         c.almacenesIntermedios = b.almacenesIntermedios;
         c.alimentacion = b.alimentacion;
         c.estrategiaParciales = b.estrategiaParciales;
+        c.reparto = b.reparto;
         c.reglaDestino = b.reglaDestino;
         c.penalidadEstabilidad = b.penalidadEstabilidad;
         c.holguraMin = b.holguraMin;

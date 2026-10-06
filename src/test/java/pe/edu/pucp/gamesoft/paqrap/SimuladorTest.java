@@ -37,12 +37,15 @@ class SimuladorTest {
         return c;
     }
 
-    /** Un pedido que nadie puede llevar (12 paquetes, solo hay una bicicleta)
-     *  colapsa en el minuto exacto de su hora límite (hl = 4 h -> 240 min),
-     *  aunque la replanificación sea cada 7 min. */
+    /** Un pedido que no se puede completar a tiempo (20 paquetes y una sola
+     *  bicicleta: aun repartiendo en viajes de 4, con 1.5 h por viaje, solo
+     *  llegan 12 antes de las 4 h) colapsa en el minuto exacto de su hora
+     *  límite (hl = 4 h -> 240 min), aunque la replanificación sea cada 7 min.
+     *  Hasta la etapa 30 eran 12 paquetes, que entonces no cabían en la
+     *  bicicleta; con el reparto por productos (SI-28) sí llegan a tiempo. */
     @Test
     void pedidoVencidoSinEntregaColapsaEnElMinutoExacto() {
-        List<Pedido> pedidos = List.of(new Pedido("A", "A", 30, 14, 12, 4, 0.0));
+        List<Pedido> pedidos = List.of(new Pedido("A", "A", 30, 14, 20, 4, 0.0));
         List<UnidadTransporte> flota = List.of(new UnidadTransporte("TB01", TipoUnidad.BICICLETA));
         Simulador.Resultado r = Simulador.simular(pedidos, flota, Planificador.tabu(8), config(7));
         assertFalse(r.censurada);
@@ -110,7 +113,9 @@ class SimuladorTest {
     }
 
     /** 10.3: un pedido urgente de 20 paquetes sin autos colapsa por capacidad si no se
-     *  divide; con la estrategia "urgentes" se reparte entre motos y se entrega a tiempo. */
+     *  divide; con la estrategia "urgentes" se reparte entre motos y se entrega a tiempo.
+     *  Etapa 31 (SI-28): con el reparto por productos (lo vigente) también se entrega a
+     *  tiempo, sin estrategia "urgentes": el planificador reparte según la capacidad. */
     @Test
     void entregasParcialesEvitanElColapsoPorCapacidad() {
         List<Pedido> pedidos = List.of(new Pedido("G", "G", 30, 14, 20, 4, 0.0));
@@ -119,6 +124,7 @@ class SimuladorTest {
         Simulador.Config sin = config(30);
         sin.horizonteMin = 600;
         sin.estrategiaParciales = "ninguna";
+        sin.reparto = false;
         Simulador.Resultado r1 = Simulador.simular(pedidos, flota, Planificador.tabu(8), sin);
         assertFalse(r1.censurada);
         assertEquals("capacidad", r1.causaColapso);
@@ -126,10 +132,20 @@ class SimuladorTest {
         Simulador.Config con = config(30);
         con.horizonteMin = 600;
         con.estrategiaParciales = "urgentes";
+        con.reparto = false;
         Simulador.Resultado r2 = Simulador.simular(pedidos, flota, Planificador.tabu(8), con);
         assertTrue(r2.censurada, "sin colapso: " + r2.causaColapso);
         assertEquals(1, r2.parcialesCreadas);
         assertEquals(1, r2.pedidosEnPlazo);
+
+        Simulador.Config porProductos = config(30);
+        porProductos.horizonteMin = 600;
+        porProductos.estrategiaParciales = "ninguna";
+        porProductos.reparto = true;
+        Simulador.Resultado r3 = Simulador.simular(pedidos, flota, Planificador.tabu(8), porProductos);
+        assertTrue(r3.censurada, "sin colapso: " + r3.causaColapso);
+        assertTrue(r3.parcialesCreadas >= 1, "el pedido se repartió");
+        assertEquals(1, r3.pedidosEnPlazo);
     }
 
     /** 13.3: el registro de eventos incluye replanificaciones, cargas, entregas y el colapso. */

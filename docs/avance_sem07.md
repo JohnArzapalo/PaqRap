@@ -366,3 +366,57 @@ La raíz del repositorio queda solo con código, configuración, datos, document
 - `salidas/` y `exposicion/` están en `.gitignore`.
 - Se actualizaron las referencias en `README.md`, `CLAUDE.md`, `Resultados/LEEME.md`, `docs/protocolo_experimento.md`, `docs/guia_del_codigo.md`, `docs/modulos_por_integrante.md` y `docs/insumo_exposicion.md`. Los avances de etapas anteriores conservan las rutas de su momento.
 - **Pruebas:** se agregó una (`VisualizadorrutasTest`: la imagen se guarda aunque la carpeta no exista). **Total: 80 pruebas, todas pasan.**
+
+## Etapa 31: las unidades entregan productos, no pedidos (SI-28)
+
+**Indicación del profesor:** cada unidad recibe productos, no necesariamente el pedido completo. Hasta la etapa 30 un pedido de hasta 24 productos iba entero en una sola unidad. Con los datos oficiales de septiembre de 2026 (pedidos de 1 a 10 productos, media 5.5), **el 61 % no cabía en una bicicleta y el 20 % solo cabía en un auto**.
+
+**Cambios** (todos en el evaluador y los operadores comunes; el AG no reparte por su cuenta, porque ya no se usa en la solución):
+
+| Pieza | Qué hace |
+|---|---|
+| `Pedido.parte`, `Pedido.conCantidad` | Reparten los productos de una entrega en almacén; todas las partes comparten `idOriginal`. |
+| `OperadoresVecindario.mejorPieza` | Si el pedido cabe entero a tiempo, va entero. Si no, una unidad lleva la pieza más grande que llega a tiempo y el resto queda para otra. La usan C&W, la reparación del plan vigente y la Inserción de Tabú. |
+| `OperadoresVecindario.reparto` (operador de Tabú, `tabu.peso_reparto = 0.15`) | Divide una entrega entre dos unidades o une dos partes del mismo pedido; atributo tabú (pedido original, unidad). |
+| `Compartido.evaluarRuta` | Partes seguidas del mismo pedido son **una visita** (una llegada, una hora de entrega). **H en productos**. La estabilidad de una parte nueva se mide contra la unidad de la entrega de la que salió (`idPadre`). |
+| `Simulador.adoptarReparto` | Registra las partes que crea o une el planificador y verifica que se conserven los productos de cada pedido. |
+| `reparto.productos=si` | `no` vuelve a la regla anterior; `parciales.estrategia` pasa a `ninguna`. |
+
+**Pruebas:** hay 5 nuevas en `RepartoProductosTest`: dos motos llevan un pedido de 10, sin reparto queda sin asignar con H = 10, visita única, el operador Reparto conserva los productos y el simulador entrega los 10. Se ajustaron 4 existentes (H en productos; un pedido de 12 con una bicicleta ya no colapsa, porque ahora se reparte; una configuración explícita de reparto; contexto propio por corrida). **Total: 85 pruebas, todas pasan.**
+
+## Etapa 32: solución integrada (planificador + visualizador web)
+
+Entregable de la semana 8: la solución integrada y desplegada, con la GUI de los tres escenarios.
+
+- **Planificador como servicio** (`ServidorWeb`):
+  - usa el servidor HTTP que trae Java, sin dependencias;
+  - corre una corrida por escenario (SIM_5D, COLAPSO y DIA_A_DIA), cada una en su hilo, y las tres pueden ir a la vez;
+  - API REST en `docs/diseno/diagrama_integracion.md`;
+  - planifica con Búsqueda Tabú sobre los datos oficiales desde la fecha que se elija (`CorridaWeb`, `DatosOficiales`, que también cruza el fin de mes).
+- **Visualizador** (`web/index.html`):
+  - parte del prototipo v03 del equipo, con la misma paleta, componentes y lógica de dibujo, pero sin el backend simulado en JavaScript: lee la instantánea cada segundo y la bitácora, y envía comandos;
+  - el **mapa ocupa alrededor del 75-80 % del ancho y casi todo el alto**; los paneles van en una columna lateral con pestañas (Resumen, Flota y Bitácora) y los indicadores clave flotan sobre el mapa;
+  - roles de control y observador; cualquier dispositivo ve la misma corrida.
+- **Simulador:**
+  - instantánea con lo que dibuja el visualizador: inicio, capacidad, km por unidad, entregas por plazo, utilización y estado «asignado»;
+  - bitácora (`eventosJson`) y reporte (`reporteJson`);
+  - **pedidos registrados en vivo** (`inyectarPedido`) para la operación día a día.
+- **Replanificación ante pedidos urgentes (SI-29):** al analizar los colapsos de la simulación de 5 días con los datos oficiales, todos los casos por «destino bloqueado» eran pedidos de 4 h cuyo destino se bloquea entre 33 y 62 min después del registro. Entraban al plan en la siguiente replanificación periódica, cuando ya no había tiempo. Ahora su llegada dispara una replanificación (`simulacion.urgente_min = 120`).
+- **Despliegue:** `scripts/compilar.sh` (sin Maven), `scripts/iniciar_servidor.sh/.bat`, `scripts/paqrap.service` (systemd) y `docs/despliegue_aws.md` (EC2; Vercel solo serviría para el frontend y exigiría HTTPS en el planificador).
+- **Entregable:** `scripts/empaquetar_solucion.sh` genera `sol.integrada.sem08/PaqRap_sol_integrada_sem08.zip` desde el último commit.
+- **Pruebas:** hay 4 nuevas en `SolucionIntegradaTest`: pedido registrado desde fuera, replanificación por pedido urgente, datos que cruzan el fin de mes y campos que lee el visualizador. **Total: 89 pruebas, todas pasan.**
+
+**Simulación de 5 días con los datos oficiales, solo Tabú** (6 ventanas reales por nivel, paso de 5 días; BAJA = 2026-09/10, MEDIA = 2026-11/12, ALTA = 2027-01/02; salidas locales en `salidas/etapa31/`):
+
+| Configuración | BAJA | MEDIA | ALTA | Sin colapso |
+|---|---|---|---|---|
+| Regla anterior: pedido entero, «urgentes», sin replanificación por urgencia | 5/6 | 4/6 | 1/6 | 10/18 |
+| Reparto por productos (etapa 31) | 5/6 | 4/6 | 3/6 | 12/18 |
+| Reparto + replanificación por urgencia (etapa 32, configuración por defecto) | **6/6** | 4/6 | 1/6 | 11/18 |
+
+- El reparto por productos no empeora ningún nivel y mejora con carga alta.
+- La replanificación por urgencia resuelve el colapso por bloqueo que había con carga baja (la ventana del 21/10).
+- Con 6 ventanas por nivel y Ta medido en tiempo real, las diferencias en ALTA (3 frente a 1) están dentro del azar de una sola corrida por ventana; no son concluyentes.
+- Los colapsos que quedan son de carga media y alta. La mitad son por «destino bloqueado» (pedidos de 4 h cuyo destino se bloquea poco después del registro; pregunta 17) y la otra mitad por llegada tardía con la flota saturada (ALTA = 115 % de C_max).
+
+**Demostración (visualizador, SIM_5D desde el 16/09/2026, ritmo de 30 min):** terminó sin colapso. Hubo 796 entregas, 100 % en plazo y un costo de S/ 126 031, en 30.0 min reales. Uso de la flota: autos 17 %, motos 16 % y bicicletas 36 %; con el reparto, las bicicletas llevan partes de pedidos que antes no les cabían.

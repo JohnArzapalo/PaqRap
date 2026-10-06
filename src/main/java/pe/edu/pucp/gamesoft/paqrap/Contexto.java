@@ -98,6 +98,20 @@ final class Contexto {
     Map<String, String> asignacionVigente = null;
     double penalidadCambio = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
     /**
+     * Reparto por productos (Etapa 31, SI-28; indicación del profesor): las unidades
+     * entregan productos, no pedidos. Con "si", una entrega en almacén puede repartirse
+     * entre varias unidades: una lleva n productos y otra el resto. Con "no", cada
+     * entrega va entera en una sola unidad (comportamiento hasta la etapa 30).
+     */
+    boolean reparto = Parametros.texto("reparto.productos", "si").equalsIgnoreCase("si");
+    /** Partes creadas al repartir; el simulador lo conserva entre ciclos para que los ids no se repitan. */
+    int partesCreadas = 0;
+
+    /** Id nuevo y único (en la simulación) para una parte de la entrega p. */
+    String nuevoIdParte(Pedido p) {
+        return p.idOriginal + "+" + (++partesCreadas);
+    }
+    /**
      * Holgura de seguridad (Etapa 22, SI-20): una entrega que el plan hace llegar A TIEMPO
      * pero con menos de holguraH horas de margen paga penalidadHolgura soles por cada hora
      * que le falta de margen. Va a S, nunca a H: no cambia qué es "tarde", solo hace que,

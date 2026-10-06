@@ -6,6 +6,12 @@ package pe.edu.pucp.gamesoft.paqrap;
  * parciales (P13-P14); todas comparten idOriginal, posición y hora límite.
  * El simulador puede dividirla más (Etapa 10.3, entregas parciales flexibles).
  *
+ * Reparto por productos (Etapa 31, SI-28; indicación del profesor): las
+ * unidades entregan PRODUCTOS, no pedidos. Mientras los productos estén en
+ * un almacén, el planificador puede repartir una entrega entre varias
+ * unidades según su capacidad libre: una lleva n productos y otra el resto
+ * (parte y conCantidad). Todas las partes comparten idOriginal.
+ *
  * Origen de los paquetes al planificar (Etapas 11 y 12):
  *  - en un almacén (aBordoDe == null y enAveriada == null): hay que cargarlos
  *    en un punto de carga (RECARGA o la salida desde un almacén);
@@ -23,6 +29,7 @@ class Pedido {
     double horaRegistro;    // hora (en horas) en que llegó el pedido; 0 = inicio de la instancia
     String aBordoDe;        // unidad que ya lleva los paquetes (null si no)
     String enAveriada;      // unidad averiada que guarda los paquetes (null si no)
+    String idPadre;         // parte creada en este ciclo: entrega de la que salió (para la estabilidad)
 
     Pedido(String id, int x, int y, int cantidad, int plazoMaximoHoras) {
         this(id, x, y, cantidad, plazoMaximoHoras, 0.0);
@@ -57,6 +64,26 @@ class Pedido {
         Pedido p = new Pedido(id, idOriginal, x, y, cantidad, plazoMaximoHoras, horaRegistro - instanteH);
         p.aBordoDe = aBordoDe;
         p.enAveriada = enAveriada;
+        p.idPadre = idPadre;
+        return p;
+    }
+
+    /** La misma entrega (mismo id) con otra cantidad de productos: lo que queda
+     *  en una unidad después de repartir, o la suma al unir dos partes. */
+    Pedido conCantidad(int nuevaCantidad) {
+        Pedido p = copiaRelativa(0);
+        p.cantidad = nuevaCantidad;
+        return p;
+    }
+
+    /** Nueva parte de esta entrega con "cantidad" de sus productos (reparto por
+     *  productos, SI-28). Recuerda de qué entrega salió, para que cambiar de
+     *  unidad esos productos pague la penalidad de estabilidad como cualquier cambio. */
+    Pedido parte(String nuevoId, int cantidad) {
+        Pedido p = new Pedido(nuevoId, idOriginal, x, y, cantidad, plazoMaximoHoras, horaRegistro);
+        p.aBordoDe = aBordoDe;
+        p.enAveriada = enAveriada;
+        p.idPadre = idPadre != null ? idPadre : id;
         return p;
     }
 

@@ -17,6 +17,10 @@ import java.util.Random;
  *    PROVISIONALES: verificar contra el ISA §4.2.
  *  - Inserción: si hay entregas sin asignar, el primer candidato de cada
  *    iteración es una Inserción en la mejor posición factible.
+ *  - Reparto (Etapa 31, SI-28): las unidades entregan productos, no pedidos.
+ *    Divide una entrega entre dos unidades o une dos partes del mismo pedido.
+ *    Con reparto, la Inserción también reparte: si el pedido no cabe entero a
+ *    tiempo, una unidad lleva n productos y el resto queda para otra.
  *
  * La solución de trabajo contiene TODAS las unidades de la flota: las que
  * no tienen pedidos aparecen como rutas vacías (0 km, S/ 0, no cuentan como
@@ -44,6 +48,8 @@ class BusquedaTabu {
     static final double PESO_CROSS = Parametros.decimal("tabu.peso_cross", 0.15);
     /** Peso del operador Recarga (solo en la simulación con estado; Etapa 10.2). */
     static final double PESO_RECARGA = Parametros.decimal("tabu.peso_recarga", 0.10);
+    /** Peso del operador Reparto (solo con reparto.productos=si; Etapa 31, SI-28). */
+    static final double PESO_REPARTO = Parametros.decimal("tabu.peso_reparto", 0.15);
 
     /** Generador aleatorio de ESTA ejecución: la misma semilla da la misma búsqueda. */
     private final Random azar;
@@ -158,10 +164,14 @@ class BusquedaTabu {
      *  sin asignar, el primer candidato de cada iteración es una Inserción; los
      *  demás, un operador elegido al azar según sus pesos. */
     private Movimiento generarVecino(Solucion base, boolean primerCandidato) {
-        if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, azar);
+        boolean reparto = Contexto.actual().reparto;
+        if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, azar, reparto);
         boolean conEstado = Contexto.actual().conEstado;
-        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS + (conEstado ? PESO_RECARGA : 0);
+        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS + (conEstado ? PESO_RECARGA : 0)
+                + (reparto ? PESO_REPARTO : 0);
         double r = azar.nextDouble() * total;
+        if (reparto && r < PESO_REPARTO) return OperadoresVecindario.reparto(base, azar);
+        if (reparto) r -= PESO_REPARTO;
         if (r < PESO_REUBICACION) return OperadoresVecindario.reubicacion(base, azar);
         r -= PESO_REUBICACION;
         if (r < PESO_INTERCAMBIO) return OperadoresVecindario.intercambio(base, azar);

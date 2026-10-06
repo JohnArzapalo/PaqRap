@@ -52,8 +52,8 @@ class Compartido {
     /** Resultado de evaluar una ruta en el contexto vigente. */
     static final class EvalRuta {
         double km, costo, finH;   // costo = km × costo/km + penalidad de estabilidad (si hay plan vigente)
-        int tarde;
-        int cambiosDeUnidad;      // entregas que cambian de unidad frente al plan vigente
+        int tarde;                // PRODUCTOS que llegan después de su hora límite (SI-28)
+        int cambiosDeUnidad;     // entregas que cambian de unidad frente al plan vigente
         double faltaHolguraH;     // horas de margen que faltan (entregas a tiempo con margen < holgura)
         boolean factible = true;
         String motivo;
@@ -126,6 +126,18 @@ class Compartido {
         double km = 0;
         for (int i = 0; i < n; i++) {
             ParadaAlg p = r.paradas.get(i);
+            if (i > 0 && mismaVisita(r.paradas.get(i - 1), p)) {
+                // Reparto por productos (SI-28): partes consecutivas del mismo pedido son UNA
+                // visita al cliente, con la misma llegada y una sola hora de entrega
+                Pedido ped = p.pedido;
+                if (ped.enAveriada != null && (trasvasados == null || !trasvasados.contains(ped.enAveriada)))
+                    e.infactible("entrega sin trasvase previo");
+                e.llegada[i] = e.llegada[i - 1];
+                registrarLlegada(e, cx, ped, e.llegada[i]);
+                if (registro != null) registro.add(new Hito(Hito.Tipo.ENTREGA, e.llegada[i], reloj, px, py, px, py, p, p.cantidad));
+                carga -= p.cantidad;
+                continue;
+            }
             int qx = p.x(), qy = p.y();
             if (p.tipo == TipoParada.ENTREGA) {   // destino bloqueado con la regla NODO_VECINO (Etapa 17)
                 int[] punto = cx.puntoDeEntrega(px, py, qx, qy, reloj, cx.velocidad(tipo));
@@ -145,14 +157,7 @@ class Compartido {
                         e.infactible("entrega sin trasvase previo");
                     reloj = cx.esperaDestino(qx, qy, reloj);
                     e.llegada[i] = reloj;
-                    if (reloj > ped.horaLimite()) e.tarde++;
-                    else if (cx.conEstado && cx.holguraH > 0) {
-                        // El margen se mide hasta la hora límite EFECTIVA (SI-23): si el destino se
-                        // bloquea antes del plazo y hasta después, el margen real acaba cuando empieza
-                        // el bloqueo (un pequeño retraso obligaría a esperar y la entrega saldría tarde)
-                        double margen = cx.limiteEfectivo(ped) - reloj;
-                        if (margen < cx.holguraH) e.faltaHolguraH += cx.holguraH - margen;
-                    }
+                    registrarLlegada(e, cx, ped, reloj);
                     double fin = cx.avanzar(reloj, HORAS_ENTREGA);
                     if (registro != null) registro.add(new Hito(Hito.Tipo.ENTREGA, reloj, fin, qx, qy, qx, qy, p, p.cantidad));
                     reloj = fin;
@@ -214,6 +219,8 @@ class Compartido {
             for (ParadaAlg p : r.paradas) {
                 if (p.tipo != TipoParada.ENTREGA) continue;
                 String antes = cx.asignacionVigente.get(p.pedido.id);
+                // Parte nueva de este ciclo (SI-28): se compara con la unidad de la entrega de la que salió
+                if (antes == null && p.pedido.idPadre != null) antes = cx.asignacionVigente.get(p.pedido.idPadre);
                 if (antes != null && !antes.equals(r.unidad.codigo)) e.cambiosDeUnidad++;
             }
             e.costo += e.cambiosDeUnidad * cx.penalidadCambio;
@@ -221,6 +228,27 @@ class Compartido {
         // Holgura de seguridad (Etapa 22): solo S
         e.costo += e.faltaHolguraH * cx.penalidadHolgura;
         return e;
+    }
+
+    /** Plazo de una entrega a la que se llega en "llegada": los productos tarde suman en
+     *  tarde (H se cuenta en productos, SI-28); si llega a tiempo, el margen que le falta
+     *  para la holgura de seguridad suma en faltaHolguraH. */
+    private static void registrarLlegada(EvalRuta e, Contexto cx, Pedido ped, double llegada) {
+        if (llegada > ped.horaLimite()) e.tarde += ped.cantidad;
+        else if (cx.conEstado && cx.holguraH > 0) {
+            // El margen se mide hasta la hora límite EFECTIVA (SI-23): si el destino se
+            // bloquea antes del plazo y hasta después, el margen real acaba cuando empieza
+            // el bloqueo (un pequeño retraso obligaría a esperar y la entrega saldría tarde)
+            double margen = cx.limiteEfectivo(ped) - llegada;
+            if (margen < cx.holguraH) e.faltaHolguraH += cx.holguraH - margen;
+        }
+    }
+
+    /** true si "b" entrega otra parte del mismo pedido justo después de "a": es la
+     *  misma visita al cliente (reparto por productos, SI-28). */
+    static boolean mismaVisita(ParadaAlg a, ParadaAlg b) {
+        return a.tipo == TipoParada.ENTREGA && b.tipo == TipoParada.ENTREGA
+                && a.pedido.idOriginal.equals(b.pedido.idOriginal) && a.x() == b.x() && a.y() == b.y();
     }
 
     /** Paquetes en almacén de las entregas desde "desde" hasta la próxima RECARGA. */
@@ -251,14 +279,15 @@ class Compartido {
         return p.tipo == TipoParada.ENTREGA && horaLlegada > p.pedido.horaLimite();
     }
 
-    /** Número de entregas de la ruta que llegan fuera de plazo. */
+    /** Productos de la ruta que llegan fuera de plazo (SI-28). */
     static int pedidosTarde(RutaAlg r) {
         return evaluarRuta(r).tarde;
     }
 
     /** 4.1.4 Función objetivo jerárquica de dos niveles: recalcula H y S
      *  de una Solución completa a partir de sus rutas.
-     *  H = entregas sin asignar + entregas fuera de plazo.
+     *  H = productos sin asignar + productos fuera de plazo (SI-28: las unidades
+     *  entregan productos; basta un producto tarde para el colapso).
      *  S = costo total en soles. Se compara primero H y luego S.
      *  Siempre usa la unidad REAL de cada ruta (tipo, velocidad y costo).
      *  Además registra las violaciones de restricciones duras (rutas
@@ -266,7 +295,8 @@ class Compartido {
      *  como resguardo, cada violación suma en H. */
     static void evaluarSolucion(Solucion s) {
         Contexto cx = Contexto.actual();
-        int h = s.pedidosSinAsignar.size();
+        int h = 0;
+        for (Pedido p : s.pedidosSinAsignar) h += p.cantidad;
         double total = 0;
         int[] uso = new int[cx.almacenes.size()];
         int infactibles = 0;
@@ -275,7 +305,7 @@ class Compartido {
             r.distanciaKm = e.km;
             r.costo = e.costo;
             total += e.costo;
-            h += e.tarde;   // un pedido fuera de plazo incumple la política: cuenta en H
+            h += e.tarde;   // un producto fuera de plazo incumple la política: cuenta en H
             if (!e.factible) { infactibles++; h += r.paradas.size() + 1; }
             for (int i = 0; i < uso.length; i++) uso[i] += e.usoAlmacen[i];
         }

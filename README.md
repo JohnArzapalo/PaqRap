@@ -9,13 +9,29 @@ PaqRap planifica y simula en tiempo real el reparto de paquetes de una flota de 
 
 Ambas replanifican cada 60 min, y además ante un evento (una avería o un bloqueo), partiendo del plan vigente y del estado real de cada unidad: posición, carga a bordo, averías y mantenimiento.
 
-> ⚠️ **Los datos incluidos son SINTÉTICOS** (`datos/*SINTETICO*`), generados mientras no estén los oficiales. Toda salida producida con ellos lleva la marca «SINTETICO» y **no es válida para el informe**.
+**Algoritmo elegido: Búsqueda Tabú** (etapa 30, `Resultados/LEEME.md`). Los datos oficiales del profesor están en `juego_de_datos/`; los de `datos/` son SINTÉTICOS y no sirven para el informe.
 
 ---
 
-## Resultado principal: 5 días sin colapso
+## Solución integrada (entregable de la semana 8)
 
-Con la configuración actual, **ninguno de los dos algoritmos colapsa en la simulación de 5 días**: 42 de 42 corridas, en 4 niveles de carga y 4 tramos del mes, con 100 % de pedidos en plazo.
+El **Planificador** (Java) y el **Visualizador** (web) funcionan como un solo servicio. Cualquier dispositivo con navegador puede ver los tres escenarios: operación día a día, simulación de 5 días y simulación hasta el colapso.
+
+```bash
+scripts/iniciar_servidor.sh        # Linux o macOS (Windows: scripts\iniciar_servidor.bat)
+```
+
+Después, abrir **http://localhost:8080/**, o la IP del servidor desde otro dispositivo.
+
+- Diagrama de la interacción entre Planificador y Visualizador, y contrato de la API: [docs/diseno/diagrama_integracion.md](docs/diseno/diagrama_integracion.md)
+- Despliegue en AWS EC2: [docs/despliegue_aws.md](docs/despliegue_aws.md)
+- ZIP del entregable: `scripts/empaquetar_solucion.sh`, que lo genera en `sol.integrada.sem08/`.
+
+---
+
+## Resultado de la etapa 22 (datos sintéticos): 5 días sin colapso
+
+Con la configuración de la etapa 22 y los datos sintéticos, **ninguno de los dos algoritmos colapsa en la simulación de 5 días**: 42 de 42 corridas, en 4 niveles de carga y 4 tramos del mes, con 100 % de pedidos en plazo. Los resultados con los datos oficiales están en `Resultados/`.
 
 | | Búsqueda Tabú | Algoritmo Genético |
 |---|---|---|
@@ -37,7 +53,7 @@ Qué se configuró y por qué: **[docs/configuracion_5_dias.md](docs/configuraci
 
 Todos los comandos se ejecutan en la raíz del proyecto.
 
-**Compilar y correr las pruebas** (64 pruebas JUnit):
+**Compilar y correr las pruebas** (89 pruebas JUnit):
 
 ```bash
 mvn test
@@ -101,7 +117,9 @@ juego_de_datos/                              ventas, bloqueos y mantenimiento OF
 analisis/                                    análisis estadístico y de potencia (Python)
 docs/                                        documentación
 Resultados/                                  resultados oficiales del experimento (ver LEEME.md)
-scripts/                                     experimento por PC (ejecutar_pc1/2/3.bat)
+scripts/                                     experimento por PC, servidor web y empaquetado
+web/                                         visualizador (HTML/JS + Leaflet)
+sol.integrada.sem08/                         ZIP del entregable de la semana 8
 baseline/                                    salida de referencia congelada de Main
 salidas/                                     salidas locales: figuras de Main, CSV de scripts/ (no se versiona)
 exposicion/                                  diapositivas de la exposición (no se versiona)
