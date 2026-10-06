@@ -142,10 +142,10 @@ Log-rank propio verificado con lifelines (columna p_lifelines).
 | ALTA | cambios_de_unidad | t pareada | 3.432e-18 | 20 | 91 | -78.022 | sí | TABU |
 | ALTA | pedidos_inentregables_bloqueo | Wilcoxon (rangos con signo) | 0.5637 | 0 | 0 |  | no | sin diferencia |
 
-## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> costo por pedido -> estabilidad)
+## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> estabilidad -> costo por pedido)
 
 | nivel | decision |
 |---|---|
 | ALTA | TABU (decide: cambios_de_unidad) |
-| BAJA | AG (decide: costo_por_pedido) |
-| MEDIA | AG (decide: costo_por_pedido) |
+| BAJA | TABU (decide: cambios_de_unidad) |
+| MEDIA | TABU (decide: cambios_de_unidad) |

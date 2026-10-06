@@ -10,7 +10,13 @@ nbactions*.xml
 __pycache__/
 *.pyc
 
-# Salidas grandes o regenerables
+# Salidas locales y regenerables: figuras de Main, CSV de scripts/, verificaciones
+salidas/
+
+# Diapositivas de la exposición (no se versionan)
+exposicion/
+
+# Salidas grandes o regenerables (rutas antiguas)
 verificacion_*/
 analisis/salida*/
 datos/generados/

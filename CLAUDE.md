@@ -47,7 +47,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 29)
+## 3. Estado del código (etapa 30)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -72,7 +72,8 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
 - **Etapa 28 (datos oficiales):** los datos del profesor están en `juego_de_datos/` (versionados; 36 meses, sin errores de validación). Se corrigieron dos errores: el `MapaVial` era compartido entre hilos (falta de memoria y posibles distancias equivocadas; ahora hay uno por corrida) y el mantenimiento ignoraba el mes (ahora solo se usan los del mes simulado). Se agregaron las **ventanas reales** (SI-26): los niveles son grupos de meses con demanda creciente. Hay 79 pruebas.
 - **Resultado del experimento oficial (etapa 28, 103 pares):** % de colapsos TABU 46.6 % frente a AG 49.5 %, **sin diferencia significativa** (McNemar global p = 0.65; con 103 pares se detectarían unos 15 puntos). El tiempo hasta el colapso no difiere. El AG es de 1 a 5 % más barato por pedido en BAJA y MEDIA; Tabú es de 3 a 10 veces más estable. Con la regla acordada: AG en BAJA y MEDIA (costo) y TABU en ALTA (estabilidad). **La elección final queda para decisión del equipo** (`docs/avance_sem07.md`).
 - **Etapa 29, veredicto con 3 corridas** (semillas 1000, 2000 y 3000; 309 pares; `Resultados/`): % de colapsos TABU 46.3 % frente a AG 48.2 %, **equivalentes** (GEE agrupada por tramo p = 0.46; ninguna corrida es significativa y la dirección cambia). Los desempates son estables: AG de 1.4 a 4.5 % más barato en BAJA y MEDIA; TABU de 4 a 10 veces más estable. **Falta que el equipo decida el orden costo/estabilidad.** Nueva opción `--semilla-base`; el análisis combina corridas.
-- **Supuestos** SI-01 a SI-26 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
+- **Etapa 30, ALGORITMO ELEGIDO: Búsqueda Tabú** (decisión del equipo, SI-27). Empatan en % de colapsos y en tiempo hasta el colapso. El desempate pone la **estabilidad antes que el costo** porque el profesor pidió replanificar sin empezar de cero (la estabilidad ya estaba en la función objetivo, SI-16); porque 1-5 % de costo pesa poco frente a 4-10 veces más reasignaciones; y porque con carga alta el AG pierde su ventaja de costo. Tabú gana en los tres niveles y en las tres corridas. Material para la exposición: `docs/insumo_exposicion.md`.
+- **Supuestos** SI-01 a SI-27 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
 ## 4. Cómo compilar, probar y ejecutar
@@ -87,7 +88,12 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 ```
 
 - Los parámetros están comentados en `config/parametros.properties`.
-- Resultados oficiales versionados en `Resultados/` (ver `Resultados/LEEME.md`). Experimento: `ejecutar_pc1/2/3.bat` (una PC por nivel de carga). Por defecto corren SIM_5D con situaciones por réplica, `REPLICAS=40` y `HILOS=1`; con `ESCENARIO=COLAPSO` corren hasta el colapso. Pasos completos en `docs/protocolo_experimento.md`.
+- **Carpetas de la raíz:**
+  - `scripts/`: los `.bat` del experimento (trabajan desde la raíz).
+  - `salidas/`: todo lo local y regenerable (figuras de `Main` en `salidas/figuras/`, CSV de los scripts, carpetas `verificacion_*`). Git la ignora.
+  - `exposicion/`: diapositivas. Git la ignora.
+  - `baseline/`: salida de referencia congelada de `Main`.
+- Resultados oficiales versionados en `Resultados/` (ver `Resultados/LEEME.md`). Experimento: `scripts/ejecutar_pc1/2/3.bat` (una PC por nivel de carga; los CSV quedan en `salidas/`). Por defecto corren SIM_5D con situaciones por réplica, `REPLICAS=40` y `HILOS=1`; con `ESCENARIO=COLAPSO` corren hasta el colapso. Pasos completos en `docs/protocolo_experimento.md`.
 - Análisis en Python: `analisis/analisis_experimento.py`, `analisis/potencia.py` y `analisis/unir_csv.py`. Requieren pandas, scipy, matplotlib, statsmodels y lifelines.
 - **Varias simulaciones por proceso** (etapa 24): `--hilos N` las corre en paralelo. Con parada por evaluaciones el resultado no depende de N. Con parada por tiempo (Ta), usar N ≤ núcleos físicos, porque los hilos se reparten la CPU.
 
@@ -101,10 +107,10 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 - **Situaciones por réplica (SI-24):** en cada nivel, la réplica r es una muestra de pedidos propia, y **TABU y AG corren exactamente la misma**: mismos pedidos, bloqueos, flota, almacenes y parámetros. Así el porcentaje resume muchas situaciones y el diseño es pareado.
 - **Calibración de las condiciones:** para que el porcentaje compare algo, las condiciones deben producir colapsos en una parte de las corridas (idealmente entre 20 % y 80 %). Con 0 % en ambos algoritmos no se puede elegir. Si hace falta, se sube la carga o se agregan averías, **igual para ambos algoritmos**.
 - **Regla de destino bloqueado (pregunta 11):** con `no_evaluable`, los pedidos imposibles por bloqueo no cuentan como colapso, lo que cambia directamente el porcentaje. Se reportan aparte y se ajusta la regla según lo que responda el profesor.
-- **Variables secundarias (desempate, en este orden):**
+- **Variables secundarias (desempate, en este orden; SI-27):**
   - tiempo hasta el colapso;
-  - costo por pedido entregado (no el acumulado, que premia al que colapsa antes);
-  - cambios de unidad (estabilidad).
+  - cambios de unidad (estabilidad), antes que el costo (decisión del equipo, SI-27);
+  - costo por pedido entregado (no el acumulado, que premia al que colapsa antes).
   - También se reportan km por pedido, % en plazo y pedidos no entregables por bloqueo.
 - **Reproducibilidad:**
   - Semillas del algoritmo: 1000 + r. Semilla de la situación: `semilla_base + 1000·(k+1) + r`.
@@ -124,7 +130,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 2. **Quitar el estado estático** (hecho en la etapa 24) de los algoritmos, para correr varias simulaciones en paralelo y los 3 escenarios en un servidor. Es necesario porque el % de colapsos exige muchas réplicas.
 3. **Calibrar las condiciones de SIM_5D** (herramientas y calibración sintética hechas en la etapa 25; falta repetirla con los datos oficiales y fijar los niveles, pregunta 14) para que haya colapsos en una parte de las corridas (§5), y actualizar `docs/protocolo_experimento.md` y el análisis en Python con la variable principal nueva.
 4. **Corregir el exceso de tiempo del AG** (hecho en la etapa 27): el AG revisa Ta solo al terminar cada generación y usa 2.75 s de media con Ta = 2 s. Debe revisar el reloj también dentro de la generación (antes de evaluar cada hijo) y agregar una prueba que verifique que el tiempo por llamada no supera Ta más un margen pequeño. Coordinar con Torres, porque cambia código que defiende.
-5. **Experimento comparativo completo** (hecho con los datos oficiales en la etapa 28; falta la decisión del equipo) con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
+5. **Experimento comparativo completo** (hecho en las etapas 28 y 29; **algoritmo elegido: Búsqueda Tabú**, etapa 30) con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
 6. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 7. `inyectarPedido` para el escenario DIA_A_DIA, cuando el equipo defina el formato.
 

@@ -1,4 +1,4 @@
-# Avance semana 07: etapas 8 a 15 y 23 a 29 (indicaciones nuevas del profesor)
+# Avance semana 07: etapas 8 a 15 y 23 a 30 (indicaciones nuevas del profesor)
 
 Cada etapa se cierra con: compilación, todas las pruebas JUnit y un resumen aquí.
 Donde una indicación del profesor choca con el IEN v01 o con una decisión anterior, **prevalece la del profesor** y se anota en la sección "Choques resueltos".
@@ -196,7 +196,7 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
 - **Niveles provisionales** (`config/parametros.properties`, SI-25; los del IEN eran 30 / 60 / 90 %):
   - para el ensayo se usaron BAJA 95 %, MEDIA 105 % y ALTA 115 %;
   - después del ensayo, **ALTA se bajó a 110 %**, porque 115 % casi satura (97 %) y aporta pocos pares discordantes.
-- **Ensayo:** SIM_5D, situaciones por réplica, 3 niveles × 40 réplicas × 2 algoritmos = **240 corridas**, Ta = 2 s, 7 hilos (8 núcleos físicos), 2.6 h de reloj (4.6 min por corrida). Salidas en `verificacion_etapa26/` (no versionada): `ensayo_SIM_5D_SINTETICO.csv` y `analisis/`.
+- **Ensayo:** SIM_5D, situaciones por réplica, 3 niveles × 40 réplicas × 2 algoritmos = **240 corridas**, Ta = 2 s, 7 hilos (8 núcleos físicos), 2.6 h de reloj (4.6 min por corrida). Salidas en `salidas/verificacion_etapa26/` (no versionada): `ensayo_SIM_5D_SINTETICO.csv` y `analisis/`.
 
 **Variable principal: % de corridas con colapso (McNemar exacta, pares TABU/AG en la misma situación):**
 
@@ -272,7 +272,7 @@ CSV: `barrido1_SINTETICO.csv` (120-180 %) y `barrido2_SINTETICO.csv` (100-115 %)
 - **Calibración previa** (septiembre, 4 réplicas): la demanda real de septiembre (73 %, días 1-5) dio 0 de 8 corridas con colapso. Con carga remuestreada al 90-115 %, colapsa entre 38 % y 75 %. Por eso se eligieron meses reales de 78 a 115 %.
 - **Pruebas:** hay 4 nuevas (mapa propio por corrida, ventanas comunes a ambos algoritmos, ventanas dentro de los días con pedidos con niveles por grupo, mantenimiento por mes). **Total: 79 pruebas, todas pasan.**
 
-**Experimento oficial** (SIM_5D, Ta = 2 s, 7 hilos, 206 corridas, 1.7 h de reloj). Salidas en `verificacion_etapa28/` (no versionada): `experimento_oficial_SIM_5D.csv` y `analisis/`.
+**Experimento oficial** (SIM_5D, Ta = 2 s, 7 hilos, 206 corridas, 1.7 h de reloj). Salidas en `salidas/verificacion_etapa28/` (no versionada): `experimento_oficial_SIM_5D.csv` y `analisis/`.
 
 | Nivel (meses reales) | Carga | Pares | % colapso TABU | % colapso AG | Solo TABU | Solo AG | p (McNemar) |
 |---|---|---|---|---|---|---|---|
@@ -329,3 +329,40 @@ Por nivel, con las tres corridas combinadas: BAJA 27.5 % frente a 26.7 %, MEDIA 
 - **Con la regla escrita** (costo antes que estabilidad): AG en BAJA y MEDIA, TABU en ALTA. Igual en las tres corridas.
 - **Pendiente:** la decisión del equipo sobre el orden costo/estabilidad y, con ella, el algoritmo elegido.
 - **Pruebas:** 79, todas pasan.
+
+## Etapa 30: elección del algoritmo (SI-27)
+
+- **Decisión del equipo: se elige la Búsqueda Tabú.**
+- **Base:**
+  - Con las tres corridas oficiales (etapa 29, 309 pares) los algoritmos empatan en el criterio del profesor (% de colapsos: Tabú 46.3 %, AG 48.2 %, GEE p = 0.46) y en el tiempo hasta el colapso.
+  - En los desempates, Tabú reasigna de 4 a 10 veces menos pedidos entre unidades al replanificar, y el AG es de 1.4 a 4.5 % más barato por pedido con carga baja y media (igual con carga alta).
+- **Orden de los desempates (SI-27):** tiempo hasta el colapso → **estabilidad** → costo por pedido. La estabilidad va antes que el costo por tres razones:
+  1. el profesor pidió «replanificar, no planificar desde cero», y por eso la estabilidad ya estaba en la función objetivo (SI-16);
+  2. un 1-5 % de costo pesa poco frente a reasignar cientos de pedidos (choferes y carga ya asignada);
+  3. con carga alta el AG pierde incluso su ventaja de costo.
+- El orden se precisó después de que el criterio principal empatara. Queda registrado así, con honestidad, en SI-27 y en el insumo de la exposición.
+- **Cambios:**
+  - `analisis/analisis_experimento.py` (`REGLA_SIMULACION`): la estabilidad ahora va antes que el costo.
+  - Se regeneraron los análisis de las tres corridas y del combinado: **Tabú gana en BAJA, MEDIA y ALTA en las tres corridas y en el combinado, decidido por la estabilidad** (`Resultados/*/analisis/decision.md`).
+- **Documentación:**
+  - SI-27 en `docs/propuesta_cambios_IEN.md`;
+  - `docs/insumo_exposicion.md` §9 (conclusión y cómo exponerla);
+  - `Resultados/LEEME.md`, `docs/protocolo_experimento.md` y `CLAUDE.md`.
+- **Lo que se cede al elegir Tabú:** entre 1.4 y 4.5 % más de costo por pedido con carga baja y media, y de 0.7 a 5.8 % más km. No se cede nada en colapsos ni en tiempo hasta el colapso.
+
+### Orden de carpetas
+
+La raíz del repositorio queda solo con código, configuración, datos, documentación y resultados.
+
+| Antes | Después |
+|---|---|
+| `ejecutar_pc1/2/3.bat` y `ejecutar_nivel.bat` en la raíz | `scripts/`. El script vuelve a la raíz (`cd /d "%~dp0.."`), así que las rutas de datos no cambian. Se ejecuta con `scripts\ejecutar_pc1.bat`. |
+| CSV del experimento (`resultados_*.csv`) en la raíz | `salidas/` |
+| PNG de `Main` en la raíz | `salidas/figuras/`. `Visualizadorrutas` crea la carpeta si no existe. |
+| `verificacion_etapa26/` y `verificacion_etapa28/` en la raíz | `salidas/` |
+| `Resultados/Experimento oficial PaqRap_1.html` | `Resultados/corrida1_semilla1000/resumen_corrida1.html` |
+| `exposicion/` (diapositivas) sin versionar | sigue sin versionar, ahora en `.gitignore` |
+
+- `salidas/` y `exposicion/` están en `.gitignore`.
+- Se actualizaron las referencias en `README.md`, `CLAUDE.md`, `Resultados/LEEME.md`, `docs/protocolo_experimento.md`, `docs/guia_del_codigo.md`, `docs/modulos_por_integrante.md` y `docs/insumo_exposicion.md`. Los avances de etapas anteriores conservan las rutas de su momento.
+- **Pruebas:** se agregó una (`VisualizadorrutasTest`: la imagen se guarda aunque la carpeta no exista). **Total: 80 pruebas, todas pasan.**

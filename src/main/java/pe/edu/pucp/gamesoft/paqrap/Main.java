@@ -13,6 +13,9 @@ import java.util.List;
  */
 public class Main {
 
+    /** Carpeta de las imágenes de la demostración (ignorada por git; se crea si no existe). */
+    static final String FIGURAS = "salidas/figuras/";
+
     public static void main(String[] args) {
         // ================= INSTANCIA 1: plazos holgados (8, 12 y 36 h) =================
         List<Pedido> pedidos = new ArrayList<>();
@@ -48,16 +51,16 @@ public class Main {
 
         // ================= IMÁGENES Y VENTANAS =================
         System.out.println();
-        System.out.println("=== Imágenes (se guardan en la carpeta del proyecto) ===");
-        Visualizadorrutas.guardarPNG(r1[0], "I1 - Solución inicial (Clarke & Wright)", "01_inicial.png");
-        Visualizadorrutas.guardarPNG(r1[1], "I1 - Búsqueda Tabú", "02_tabu.png");
-        Visualizadorrutas.guardarPNG(r1[3], "I1 - AG + Split - generación 0", "03_ag_generacion0.png");
-        Visualizadorrutas.guardarPNG(r1[2], "I1 - AG + Split - final", "04_ag_final.png");
-        Visualizadorrutas.guardarPNG(r2[0], "I2 (plazos ajustados) - Clarke & Wright", "06_urgente_inicial.png");
-        Visualizadorrutas.guardarPNG(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú", "07_urgente_tabu.png");
-        Visualizadorrutas.guardarPNG(r2[2], "I2 (plazos ajustados) - AG + Split", "08_urgente_ag.png");
+        System.out.println("=== Imágenes (se guardan en " + FIGURAS + ") ===");
+        Visualizadorrutas.guardarPNG(r1[0], "I1 - Solución inicial (Clarke & Wright)", FIGURAS + "01_inicial.png");
+        Visualizadorrutas.guardarPNG(r1[1], "I1 - Búsqueda Tabú", FIGURAS + "02_tabu.png");
+        Visualizadorrutas.guardarPNG(r1[3], "I1 - AG + Split - generación 0", FIGURAS + "03_ag_generacion0.png");
+        Visualizadorrutas.guardarPNG(r1[2], "I1 - AG + Split - final", FIGURAS + "04_ag_final.png");
+        Visualizadorrutas.guardarPNG(r2[0], "I2 (plazos ajustados) - Clarke & Wright", FIGURAS + "06_urgente_inicial.png");
+        Visualizadorrutas.guardarPNG(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú", FIGURAS + "07_urgente_tabu.png");
+        Visualizadorrutas.guardarPNG(r2[2], "I2 (plazos ajustados) - AG + Split", FIGURAS + "08_urgente_ag.png");
         Visualizadorrutas.guardarConvergenciaPNG(AG.historialConvergencia,
-                "Convergencia del AG en I2 (mejor H y S por generación)", "05_ag_convergencia.png");
+                "Convergencia del AG en I2 (mejor H y S por generación)", FIGURAS + "05_ag_convergencia.png");
 
         Visualizadorrutas.mostrar(r2[1], "I2 (plazos ajustados) - Búsqueda Tabú");
         Visualizadorrutas.mostrar(r2[2], "I2 (plazos ajustados) - AG + Split");

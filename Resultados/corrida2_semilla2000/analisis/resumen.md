@@ -142,13 +142,13 @@ Log-rank propio verificado con lifelines (columna p_lifelines).
 | ALTA | cambios_de_unidad | t pareada | 1.153e-08 | 20 | 74 | -72.973 | sí | TABU |
 | ALTA | pedidos_inentregables_bloqueo | iguales (sin diferencias) | 1 | 0 | 0 |  | no | sin diferencia |
 
-## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> costo por pedido -> estabilidad)
+## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> estabilidad -> costo por pedido)
 
 | nivel | decision |
 |---|---|
 | ALTA | TABU (decide: cambios_de_unidad) |
-| BAJA | AG (decide: costo_por_pedido) |
-| MEDIA | AG (decide: costo_por_pedido) |
+| BAJA | TABU (decide: cambios_de_unidad) |
+| MEDIA | TABU (decide: cambios_de_unidad) |
 
 
 ## Análisis sin las corridas con colapso por destino bloqueado

@@ -62,7 +62,7 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 | `GeneradorDatosSinteticos` | Pedidos y bloqueos sintéticos del mes. |
 | `LectorPedidos` | Lee `ventas2026mm` (ventana o absoluto) y divide los pedidos de más de 24 paquetes. |
 | `ValidadorEntradas` | Valida ventas, bloqueos y mantenimiento antes de correr. |
-| `Main`, `Visualizadorrutas` | Demostración con instancias de juguete e imágenes PNG (Swing). |
+| `Main`, `Visualizadorrutas` | Demostración con instancias de juguete e imágenes PNG (Swing), guardadas en `salidas/figuras/` (la carpeta se crea si no existe). |
 | `PaqRap` | Clase principal de plantilla de NetBeans. |
 
 ---

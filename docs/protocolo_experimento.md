@@ -100,7 +100,7 @@ Por ejemplo, con psi = 0.30, detectar 20 puntos requiere 61 pares por nivel, y d
 - **Decisión global** (qué algoritmo colapsa menos, sumando los niveles): la McNemar global usa todos los pares, así que el número de pares de `potencia.py` es el **total**. Con 3 niveles, cada nivel necesita un tercio.
 - **Diferencia en cada nivel por separado:** ese número de pares hace falta **en cada nivel**.
 
-Con los sintéticos (etapa 25), la discordancia combinada fue psi = 0.56. Detectar 20 puntos requiere entonces 118 pares: **40 réplicas por nivel** para la decisión global (valor por defecto de `ejecutar_nivel.bat`), o 118 por nivel para decidir en cada uno. Con los datos oficiales, recalcular con el CSV de la calibración y fijar `REPLICAS`.
+Con los sintéticos (etapa 25), la discordancia combinada fue psi = 0.56. Detectar 20 puntos requiere entonces 118 pares: **40 réplicas por nivel** para la decisión global (valor por defecto de `scripts/ejecutar_nivel.bat`), o 118 por nivel para decidir en cada uno. Con los datos oficiales, recalcular con el CSV de la calibración y fijar `REPLICAS`.
 
 ## 5. Ejecutar, repartido por nivel entre 3 PCs
 
@@ -111,16 +111,16 @@ set VENTAS=datos\ventas2026MM.txt
 set BLOQUEOS=datos\2026MM.bloqueadas
 set REPLICAS=40
 set HILOS=6
-ejecutar_pc1.bat      (en la PC 1: nivel BAJA)
-ejecutar_pc2.bat      (en la PC 2: nivel MEDIA)
-ejecutar_pc3.bat      (en la PC 3: nivel ALTA)
+scripts\ejecutar_pc1.bat      (en la PC 1: nivel BAJA)
+scripts\ejecutar_pc2.bat      (en la PC 2: nivel MEDIA)
+scripts\ejecutar_pc3.bat      (en la PC 3: nivel ALTA)
 ```
 
 Cada script:
 1. compila si hace falta;
 2. valida los archivos de entrada y se detiene si hay errores;
 3. corre SIM_5D (`--acelerado si`, `--situaciones por_replica`) con ambos algoritmos × `REPLICAS` situaciones de su nivel, `HILOS` a la vez;
-4. escribe `resultados_<PC>_pcN_SIM_5D_<NIVEL>.csv`, `..._hashes.txt` (SHA-256 de ventas, bloqueos, configuración y **cada** archivo generado) y `..._certutil.txt` (hash independiente de Windows).
+4. escribe en `salidas/` el archivo `resultados_<PC>_pcN_SIM_5D_<NIVEL>.csv`, `..._hashes.txt` (SHA-256 de ventas, bloqueos, configuración y **cada** archivo generado) y `..._certutil.txt` (hash independiente de Windows).
 
 Para el escenario complementario, repetir con `set ESCENARIO=COLAPSO`.
 
@@ -135,17 +135,17 @@ Para el escenario complementario, repetir con `set ESCENARIO=COLAPSO`.
 Para comprobar que un resultado no depende de la velocidad de la PC, repetir un nivel en modo reproducible:
 ```
 set EXTRA=--calibrar-evaluaciones si
-ejecutar_pc1.bat
+scripts\ejecutar_pc1.bat
 ```
 Esto mide cuántas evaluaciones hace cada algoritmo en Ta en esa PC (`..._calibracion.txt`) y corre con esos topes: con la misma semilla, el resultado es idéntico en cualquier PC. **El experimento del IEN se reporta con el modo por tiempo**; este modo solo sirve para verificar.
 
 ## 7. Unir y analizar
 
-En la PC que analiza, copiar los CSV de las 3 PCs y ejecutar:
+En la PC que analiza, copiar a `salidas/` los CSV de las 3 PCs y ejecutar:
 ```
-py analisis/unir_csv.py resultados_*_pc1_SIM_5D_BAJA.csv resultados_*_pc2_SIM_5D_MEDIA.csv resultados_*_pc3_SIM_5D_ALTA.csv --salida resultados_unidos.csv
-py analisis/analisis_experimento.py resultados_unidos.csv --salida analisis/salida_final
-py analisis/potencia.py resultados_unidos.csv
+py analisis/unir_csv.py salidas/resultados_*_pc1_SIM_5D_BAJA.csv salidas/resultados_*_pc2_SIM_5D_MEDIA.csv salidas/resultados_*_pc3_SIM_5D_ALTA.csv --salida salidas/resultados_unidos.csv
+py analisis/analisis_experimento.py salidas/resultados_unidos.csv --salida salidas/analisis_final
+py analisis/potencia.py salidas/resultados_unidos.csv
 ```
 
 ## 8. Qué va al IEN
@@ -159,6 +159,6 @@ py analisis/potencia.py resultados_unidos.csv
 | Desempate: tiempo hasta el colapso | Kaplan-Meier por nivel y log-rank | `kaplan_meier_<NIVEL>.png`, `logrank.md` |
 | Desempate: costo y estabilidad | Pruebas pareadas por nivel (t pareada o Wilcoxon) | `comparaciones.md` |
 | Robustez | El mismo análisis sin los colapsos por destino bloqueado | `sin_destino_bloqueado/resumen.md` |
-| Conclusión | Regla: % de colapsos → tiempo hasta el colapso → costo por pedido → estabilidad | `decision.md` |
+| Conclusión | Regla (SI-27): % de colapsos → tiempo hasta el colapso → estabilidad → costo por pedido. Resultado: Búsqueda Tabú | `decision.md` |
 | Potencia | Pares necesarios para McNemar exacta | salida de `potencia.py` |
 | Gráficos | Diagramas de caja por variable | `caja_*.png` |

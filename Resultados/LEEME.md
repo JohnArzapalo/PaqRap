@@ -9,13 +9,13 @@ Todo lo de esta carpeta se hizo con los **datos oficiales del profesor** (`juego
 | `corrida2_semilla2000/` | Corrida 2: mismos tramos, semillas 2001-2040. |
 | `corrida3_semilla3000/` | Corrida 3: mismos tramos, semillas 3001-3040. |
 | `combinado/` | Las tres corridas unidas (618 filas, 309 pares) y su análisis. |
-| `Experimento oficial PaqRap_1.html` | Resumen de una página de la corrida 1. |
 
 En cada corrida:
 - `experimento_oficial_SIM_5D.csv`: una fila por corrida (algoritmo × tramo).
 - `..._hashes.txt`: SHA-256 de cada archivo de entrada, para comprobar que todas las PCs usaron los mismos datos.
 - `consola.log`: salida del programa.
 - `analisis/`: tablas (`.md` y `.csv`), gráficos y `resumen.md`.
+- Solo en la corrida 1: `resumen_corrida1.html`, resumen de una página.
 
 ## Veredicto (etapa 29)
 
@@ -28,7 +28,7 @@ En cada corrida:
 
 - En el % de colapsos, los dos algoritmos son **equivalentes**. Ninguna corrida muestra diferencia y la dirección cambia de una corrida a otra.
 - **Desempates, iguales en las tres corridas:** el AG es de 1.4 a 4.5 % más barato por pedido en BAJA y MEDIA, y la Búsqueda Tabú hace de 4 a 10 veces menos cambios de unidad al replanificar.
-- El algoritmo elegido depende de que el equipo decida si la estabilidad va antes que el costo.
+- **Algoritmo elegido: Búsqueda Tabú** (etapa 30, SI-27). Como empatan en colapsos, el equipo puso la estabilidad antes que el costo en el desempate; con esa regla, Tabú gana en los tres niveles y en las tres corridas (`combinado/analisis/decision.md`).
 
 ## Por qué hay tres corridas
 

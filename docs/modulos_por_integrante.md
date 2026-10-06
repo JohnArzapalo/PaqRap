@@ -128,7 +128,7 @@ Así, Tabú queda con Arzapalo y Alcca, el AG con Alvarado y Torres, y el simula
 2. **¿Qué variable responde el experimento y por qué hay censura?**
    `colapso_h`, las horas hasta el primer pedido fuera de plazo. Si no colapsa dentro del horizonte (30 días), la corrida queda **censurada**. Con censuras, `analisis_experimento.py` usa Kaplan-Meier y la prueba log-rank por nivel; sin censuras, un ANOVA de dos factores o ART, según la normalidad (Shapiro).
 3. **¿Cómo se garantiza que los datos de las tres PC sean los mismos?**
-   `ExperimentoSimulacion` calcula el SHA-256 de cada entrada y lo escribe en `<salida>_hashes.txt` y en las columnas `sha256_*` del CSV. Además, `ejecutar_nivel.bat` genera el hash con `certutil` para contrastarlo. Antes de correr, `ValidadorEntradas` revisa el formato, las coordenadas y que ningún destino quede inalcanzable.
+   `ExperimentoSimulacion` calcula el SHA-256 de cada entrada y lo escribe en `<salida>_hashes.txt` y en las columnas `sha256_*` del CSV. Además, `scripts/ejecutar_nivel.bat` genera el hash con `certutil` para contrastarlo. Antes de correr, `ValidadorEntradas` revisa el formato, las coordenadas y que ningún destino quede inalcanzable.
 4. **¿Qué es `--calibrar-evaluaciones`?**
    Mide cuántas evaluaciones hace cada algoritmo en Ta sobre una instancia fija: día 2, de 08:00 a 12:00 (SI-17). Luego fija ese tope por algoritmo (`cfg.maxEvaluaciones`), para que el resultado no dependa de la velocidad de cada PC. Los topes se escriben en `<salida>_calibracion.txt`.
 5. **¿Cuántas réplicas hacen falta?**

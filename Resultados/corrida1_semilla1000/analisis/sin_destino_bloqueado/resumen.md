@@ -14,7 +14,7 @@ IC: Clopper-Pearson al 95 %. Solo los pares discordantes (solo_TABU, solo_AG) in
 
 **Global (todos los niveles, McNemar exacta sobre los pares discordantes sumados):** solo TABU colapsa en 7 pares, solo AG en 9; p = 0.8036 → **sin diferencia significativa**.
 
-**Regresión logística GEE (pares como grupos), colapso ~ algoritmo + nivel:** odds ratio TABU/AG = 0.646, p = 0.3038.
+**Regresión logística GEE (agrupada por tramo), colapso ~ algoritmo + nivel:** odds ratio TABU/AG = 0.646, p = 0.3038.
 
 ## 1. Estadística descriptiva por nivel y algoritmo
 
@@ -130,10 +130,10 @@ Log-rank propio verificado con lifelines (columna p_lifelines).
 | ALTA | cambios_de_unidad | t pareada | 2.66e-07 | 16.5 | 92.5 | -82.1622 | sí | TABU |
 | ALTA | pedidos_inentregables_bloqueo | Wilcoxon (rangos con signo) | 1 | 0 | 0 |  | no | sin diferencia |
 
-## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> costo por pedido -> estabilidad)
+## 4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> estabilidad -> costo por pedido)
 
 | nivel | decision |
 |---|---|
 | ALTA | TABU (decide: cambios_de_unidad) |
-| BAJA | AG (decide: costo_por_pedido) |
-| MEDIA | AG (decide: costo_por_pedido) |
+| BAJA | TABU (decide: cambios_de_unidad) |
+| MEDIA | TABU (decide: cambios_de_unidad) |

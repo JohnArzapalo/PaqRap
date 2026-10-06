@@ -84,9 +84,13 @@ VARIABLES_SIMULACION = {
     "pedidos_inentregables_bloqueo": ("Pedidos inentregables por bloqueo (datos)", False),
 }
 # Etapa 25 (indicación del profesor): primero el % de corridas con colapso; luego desempatan
-# el tiempo hasta el colapso, el costo por pedido y la estabilidad. Se usa el costo POR PEDIDO:
+# el tiempo hasta el colapso, la estabilidad y el costo por pedido. Se usa el costo POR PEDIDO:
 # el acumulado es menor en una corrida que colapsa antes, y premiaría al algoritmo que colapsa.
-REGLA_SIMULACION = ["colapso", "colapso_h", "costo_por_pedido", "cambios_de_unidad"]
+# Etapa 30 (decisión del equipo): la ESTABILIDAD va antes que el costo, porque el profesor pidió
+# "replanificar, no planificar desde cero" (por eso la estabilidad ya estaba en la función
+# objetivo, SI-16) y porque reasignar pedidos entre unidades cambia la operación real mucho más
+# que una diferencia de costo de pocos puntos (SI-27).
+REGLA_SIMULACION = ["colapso", "colapso_h", "cambios_de_unidad", "costo_por_pedido"]
 
 
 # ============================ utilidades ============================
@@ -702,7 +706,7 @@ def analizar_simulacion(df, out, alfa):
     out.tabla(pd.DataFrame(filas), "comparaciones",
               "3. Tabú vs. AG por nivel (en pares: t pareada si las diferencias son normales; si no, Wilcoxon)")
     out.tabla(decidir(filas, "nivel", REGLA_SIMULACION), "decision",
-              "4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> costo por pedido -> estabilidad)")
+              "4. Regla de decisión (% de colapsos -> tiempo hasta el colapso -> estabilidad -> costo por pedido)")
     cajas(df, "nivel", variables, out)
 
 

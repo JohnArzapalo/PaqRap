@@ -7,7 +7,7 @@ Documento fuente para preparar las diapositivas. Reúne todo lo necesario, desde
   - Búsqueda Tabú: Alcca y Arzapalo.
   - Algoritmo Genético Híbrido + Split: Alvarado y Torres.
   - Los cuatro deben poder explicar ambos algoritmos.
-- Estado: commit `b3571fc`, rama `feature/JL`.
+- Estado: rama `feature/JL`. **Algoritmo elegido: Búsqueda Tabú** (§9, SI-27).
 - Las marcas **[CONTRASTAR CON EL ISA]** señalan lo que no está en el repositorio y hay que verificar con el documento de diseño (ISA) antes de exponer.
 
 ---
@@ -135,7 +135,7 @@ Clases: `AlgoritmoGenetico`, `Cromosoma`, `Poblacion` y la búsqueda local con `
 **¿Qué algoritmo es mejor para PaqRap?** El profesor indicó el criterio:
 - **Es normal que algunas corridas de 5 días lleguen al colapso.**
 - **Gana el algoritmo con menor porcentaje de corridas con colapso.**
-- Si empatan, deciden en este orden: **el tiempo hasta el colapso, el costo por pedido entregado y la estabilidad** (pedidos que cambian de unidad al replanificar).
+- Si empatan, deciden en este orden: **el tiempo hasta el colapso, la estabilidad** (pedidos que cambian de unidad al replanificar) **y el costo por pedido entregado**. El orden estabilidad-costo lo fijó el equipo (SI-27, §9).
 
 ### 6.2 Datos: los oficiales del profesor
 
@@ -277,8 +277,8 @@ Cerca del 40 % de los colapsos se deben a un destino bloqueado, que afecta a amb
 | Criterio | BAJA | MEDIA | ALTA |
 |---|---|---|---|
 | 1. Tiempo hasta el colapso (log-rank) | igual (p = 0.88) | igual (p = 0.19) | igual (p = 0.91) |
-| 2. Costo por pedido entregado (mediana, Tabú / AG) | S/ 160.1 / 153.1: **AG 4.5 % menos** | S/ 162.5 / 160.3: **AG 1.4 % menos** | S/ 164.2 / 164.0: igual |
-| 3. Pedidos que cambian de unidad al replanificar (mediana en 5 días, Tabú / AG) | 27 / 289.5: **Tabú, 10 veces menos** | 27 / 175: **Tabú, 6 veces menos** | 20 / 87: **Tabú, 4 veces menos** |
+| 2. Pedidos que cambian de unidad al replanificar (mediana en 5 días, Tabú / AG) | 27 / 289.5: **Tabú, 10 veces menos** | 27 / 175: **Tabú, 6 veces menos** | 20 / 87: **Tabú, 4 veces menos** |
+| 3. Costo por pedido entregado (mediana, Tabú / AG) | S/ 160.1 / 153.1: **AG 4.5 % menos** | S/ 162.5 / 160.3: **AG 1.4 % menos** | S/ 164.2 / 164.0: igual |
 | km por pedido | AG 5.8 % menos | AG 2.4 % menos | AG 0.7 % menos |
 
 Estos desempates **se repiten igual en las tres corridas**. Con varias corridas los p-valores son orientativos, porque se repiten tramos; las diferencias marcadas tienen p < 10⁻⁹.
@@ -291,7 +291,7 @@ En `Resultados/combinado/analisis/`:
 - `caja_costo_por_pedido.png`, `caja_cambios_de_unidad.png` y `caja_km_por_pedido.png`: los desempates.
 - `caja_planificador_ms_medio.png`: el tiempo por replanificación, como prueba de que ambos usan el mismo presupuesto.
 
-Tablas en `.md` y `.csv` en la misma carpeta: `colapsos`, `colapsos_por_corrida`, `comparaciones`, `decision`, `descriptiva` y `causas_colapso`. También está el resumen de una página: `Resultados/Experimento oficial PaqRap_1.html`.
+Tablas en `.md` y `.csv` en la misma carpeta: `colapsos`, `colapsos_por_corrida`, `comparaciones`, `decision`, `descriptiva` y `causas_colapso`. También está el resumen de una página: `Resultados/corrida1_semilla1000/resumen_corrida1.html`.
 
 ---
 
@@ -302,15 +302,18 @@ Tablas en `.md` y `.csv` en la misma carpeta: `colapsos`, `colapsos_por_corrida`
 3. **Costo por pedido:** el AG es algo más barato con carga baja y media (1.4 a 4.5 %); con carga alta no hay diferencia.
 4. **Estabilidad:** Tabú reasigna de 4 a 10 veces menos pedidos entre unidades al replanificar, en todos los niveles.
 
-**Elección del algoritmo: decisión del equipo.** Depende de qué pesa más cuando empatan en colapsos:
+### Algoritmo elegido: **Búsqueda Tabú** (decisión del equipo, SI-27)
 
-- **Si el costo va antes → Algoritmo Genético.** Gana en BAJA y MEDIA, y Tabú en ALTA. Hay que defender que un ahorro de 1 a 5 % vale más que 4 a 10 veces más reasignaciones.
-- **Si la estabilidad va antes → Búsqueda Tabú.** Argumentos que ya estaban en el proyecto antes del experimento:
-  - el profesor pidió **«replanificar, no planificar desde cero»**, y por eso la estabilidad ya era parte de la función objetivo;
-  - un 1-5 % de costo es poco en la práctica, frente a cambiar de unidad a cientos de pedidos (choferes, carga ya asignada);
-  - con carga alta el AG pierde incluso su ventaja de costo.
+**Regla de decisión:** % de colapsos → tiempo hasta el colapso → **estabilidad** → costo por pedido. Con esa regla, **Tabú gana en los tres niveles, en las tres corridas y en el combinado**, siempre por la estabilidad.
 
-**[COMPLETAR CON LA DECISIÓN DEL EQUIPO]**
+**Por qué la estabilidad va antes que el costo.** Son argumentos que ya estaban en el proyecto antes del experimento:
+1. **El profesor pidió «replanificar, no planificar desde cero».** Por eso la estabilidad ya era parte de la función objetivo de ambos algoritmos: S/ 16 por pedido que cambia de unidad (SI-16).
+2. **Diferencia práctica:** un 1-5 % de costo es poco frente a cambiar de unidad a cientos de pedidos. Cada cambio significa reasignar choferes y carga ya asignada en la operación real.
+3. **Con carga alta el AG pierde incluso su ventaja de costo**, y es justo donde el sistema está más exigido.
+
+**Cómo decirlo con honestidad en la exposición:** el criterio del profesor (% de colapsos) empató. El orden de los desempates se precisó entonces, con argumentos del caso, y quedó registrado como supuesto SI-27. Si se hubiera puesto el costo antes, el AG ganaría en BAJA y MEDIA, con un ahorro de 1.4 a 4.5 %.
+
+**Qué pierde PaqRap al elegir Tabú:** entre 1.4 y 4.5 % más de costo por pedido con carga baja y media (unos S/ 2 a 7 por pedido), y de 0.7 a 5.8 % más km. No pierde nada en colapsos ni en tiempo hasta el colapso.
 
 ---
 
@@ -339,8 +342,9 @@ Tablas en `.md` y `.csv` en la misma carpeta: `colapsos`, `colapsos_por_corrida`
 | SI-23 | Hora límite efectiva ante bloqueos del destino |
 | SI-24 | Variable principal binaria y diseño pareado |
 | SI-26 | Ventanas reales como situaciones y niveles como grupos de meses |
+| SI-27 | Orden de desempates: tiempo hasta el colapso → estabilidad → costo; se elige la Búsqueda Tabú |
 
-La lista completa (SI-01 a SI-26) está en `docs/propuesta_cambios_IEN.md`.
+La lista completa (SI-01 a SI-27) está en `docs/propuesta_cambios_IEN.md`.
 
 ---
 
@@ -385,7 +389,7 @@ La lista completa (SI-01 a SI-26) está en `docs/propuesta_cambios_IEN.md`.
 12. **Resultado principal:** `pct_colapso.png` + tabla por nivel. Mensaje: empatan.
 13. **Estabilidad del veredicto:** tabla por corrida. Mensaje: la dirección cambia, así que es azar.
 14. **Desempates:** tabla de la §8.2 + `caja_cambios_de_unidad.png` y `caja_costo_por_pedido.png`.
-15. **Conclusión y elección:** el algoritmo elegido y su justificación.
+15. **Conclusión y elección: Búsqueda Tabú.** Empate en colapsos y en tiempo; gana por estabilidad (de 4 a 10 veces menos reasignaciones) con las tres razones de la §9, y lo que se cede en costo.
 16. **Límites y trabajo futuro:** §10; averías, escenario hasta el colapso con datos oficiales, 2-opt y cross-exchange.
 17. **Preguntas.**
 
