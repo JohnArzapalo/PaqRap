@@ -1,6 +1,7 @@
 package pe.edu.pucp.gamesoft.paqrap;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +17,7 @@ import java.util.Map;
  * Base de tiempo: la hora 0 relativa es el instante de planificación
  * (instanteBaseH, en horas absolutas desde el día 1 00:00).
  *
- * Supuestos (docs/propuesta_cambios_IEN.md): SI-02 (ventana del tramo), SI-03 (espera en destino bloqueado), SI-06 (alimentación), SI-14 (nodo vecino), SI-16 (penalidad de estabilidad), SI-19 (contexto por hilo).
+ * Supuestos (docs/propuesta_cambios_IEN.md): SI-02 (ventana del tramo), SI-03 (espera en destino bloqueado), SI-06 (alimentación), SI-14 (nodo vecino), SI-16 (penalidad de estabilidad), SI-19 (contexto por hilo), SI-23 (hora límite efectiva).
  */
 final class Contexto {
 
@@ -97,6 +98,20 @@ final class Contexto {
     Map<String, String> asignacionVigente = null;
     double penalidadCambio = Parametros.decimal("estabilidad.penalidad_por_cambio", 16);
     /**
+     * Reparto por productos (Etapa 31, SI-28; indicación del profesor): las unidades
+     * entregan productos, no pedidos. Con "si", una entrega en almacén puede repartirse
+     * entre varias unidades: una lleva n productos y otra el resto. Con "no", cada
+     * entrega va entera en una sola unidad (comportamiento hasta la etapa 30).
+     */
+    boolean reparto = Parametros.texto("reparto.productos", "si").equalsIgnoreCase("si");
+    /** Partes creadas al repartir; el simulador lo conserva entre ciclos para que los ids no se repitan. */
+    int partesCreadas = 0;
+
+    /** Id nuevo y único (en la simulación) para una parte de la entrega p. */
+    String nuevoIdParte(Pedido p) {
+        return p.idOriginal + "+" + (++partesCreadas);
+    }
+    /**
      * Holgura de seguridad (Etapa 22, SI-20): una entrega que el plan hace llegar A TIEMPO
      * pero con menos de holguraH horas de margen paga penalidadHolgura soles por cada hora
      * que le falta de margen. Va a S, nunca a H: no cambia qué es "tarde", solo hace que,
@@ -106,6 +121,18 @@ final class Contexto {
      */
     double holguraH = Parametros.decimal("plan.holgura_min", 60) / 60.0;
     double penalidadHolgura = Parametros.decimal("plan.penalidad_holgura", 200);
+    /**
+     * Velocidades cambiadas en caliente en ESTA simulación (P16; Etapa 24). Un tipo que
+     * no aparece usa su velocidad configurada (TipoUnidad.velocidadPromedio). Antes el
+     * cambio modificaba el enum y afectaba a todas las simulaciones del proceso.
+     */
+    final Map<TipoUnidad, Double> velocidades = new EnumMap<>(TipoUnidad.class);
+
+    /** Velocidad (km/h) del tipo de unidad en este contexto. */
+    double velocidad(TipoUnidad t) {
+        return velocidades.getOrDefault(t, t.velocidadPromedio);
+    }
+
     /** Regla para destinos bloqueados (red.destino_bloqueado). */
     ReglaDestino reglaDestino = ReglaDestino.desde(Parametros.texto("red.destino_bloqueado", "esperar"));
 
@@ -171,6 +198,23 @@ final class Contexto {
     double esperaDestino(int x, int y, double tRelH) {
         if (mapa == null || reglaDestino == ReglaDestino.NODO_VECINO) return tRelH;
         return mapa.finBloqueo(x, y, instanteBaseH + tRelH) - instanteBaseH;
+    }
+
+    /**
+     * Hora límite efectiva (relativa) del pedido (Etapa 23, SI-23): su hora límite, salvo
+     * que el destino esté bloqueado en ella por un bloqueo que dura más allá; entonces es el
+     * inicio de ese bloqueo (MapaVial.limiteEfectivo). Llegar en [efectiva, límite] obliga a
+     * esperar el desbloqueo y la entrega sale tarde. Con NODO_VECINO no se espera en el destino,
+     * así que rige la hora límite.
+     */
+    double limiteEfectivo(Pedido p) {
+        return limiteEfectivo(mapa, reglaDestino, p, instanteBaseH);
+    }
+
+    /** Misma regla para quien trabaja con horas absolutas (el Simulador: instanteBaseH = 0). */
+    static double limiteEfectivo(MapaVial mapa, ReglaDestino regla, Pedido p, double instanteBaseH) {
+        if (mapa == null || regla == ReglaDestino.NODO_VECINO) return p.horaLimite();
+        return mapa.limiteEfectivo(p.x, p.y, instanteBaseH + p.horaLimite()) - instanteBaseH;
     }
 
     /**

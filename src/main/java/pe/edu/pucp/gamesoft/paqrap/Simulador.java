@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -76,7 +77,13 @@ class Simulador {
         double penalidadHolgura = Parametros.decimal("plan.penalidad_holgura", 200);
         boolean almacenesIntermedios = !"no".equalsIgnoreCase(Parametros.texto("almacenes.intermedios", "si"));
         boolean alimentacion = !"no".equalsIgnoreCase(Parametros.texto("turnos.alimentacion", "si"));
-        String estrategiaParciales = Parametros.texto("parciales.estrategia", "urgentes");
+        /** Etapa 32: un pedido cuya hora límite EFECTIVA (SI-23) queda a menos de estos minutos de su
+         *  registro es urgente y su llegada dispara una replanificación (evento), sin esperar a Sa.
+         *  0 = desactivado (así se corrió el experimento de las etapas 28 y 29). */
+        double urgenteMin = Parametros.decimal("simulacion.urgente_min", 120);
+        /** Reparto por productos (Etapa 31, SI-28): una entrega puede repartirse entre varias unidades. */
+        boolean reparto = !"no".equalsIgnoreCase(Parametros.texto("reparto.productos", "si"));
+        String estrategiaParciales = Parametros.texto("parciales.estrategia", "ninguna");
         double umbralUrgenciaH = Parametros.decimal("parciales.umbral_h", 8);
         int tamanoParcial = (int) Parametros.entero("parciales.tamano", 8);
         List<Averia> averias = new ArrayList<>();
@@ -160,6 +167,7 @@ class Simulador {
         Averia averia;
         boolean averiaDejoLugar;
         int viajes;
+        double km;   // recorridos por esta unidad (para el visualizador y el reporte)
 
         Unidad(UnidadTransporte u) {
             this.u = u;
@@ -191,6 +199,11 @@ class Simulador {
     private boolean primerPlan = true;
     private boolean colapsoRegistrado = false;
     private int ciclo = 0;
+    /** Partes creadas al repartir productos (SI-28); se pasa a cada Contexto para que los ids no se repitan. */
+    private int partesCreadas = 0;
+    /** Minutos de llegada de los pedidos urgentes (ordenados); cada uno dispara una replanificación (Etapa 32). */
+    private final List<Double> llegadasUrgentes = new ArrayList<>();
+    private int siguienteUrgente = 0;
     private double sumaMs = 0;
     private double ultimaReplanEvento = -1;
     private int repeticionesEnInstante = 0;
@@ -201,8 +214,12 @@ class Simulador {
     private final ReentrantLock cerrojo = new ReentrantLock();
     /** Averías registradas desde fuera (visualizador): {código de unidad, tipo}. */
     private final ConcurrentLinkedQueue<Object[]> averiasExternas = new ConcurrentLinkedQueue<>();
+    /** Pedidos registrados desde fuera (visualizador, operación día a día); llegan en el instante actual. */
+    private final ConcurrentLinkedQueue<Pedido> pedidosExternos = new ConcurrentLinkedQueue<>();
     /** Cambios de velocidad pendientes (se aplican en la siguiente replanificación, P16). */
     private final ConcurrentLinkedQueue<Object[]> velocidadesPendientes = new ConcurrentLinkedQueue<>();
+    /** Velocidades vigentes en ESTA simulación tras los cambios en caliente (Etapa 24). */
+    private final EnumMap<TipoUnidad, Double> velocidades = new EnumMap<>(TipoUnidad.class);
     private volatile Thread hilo;
     private volatile boolean detenerSolicitado;
     private double tActual = 0;
@@ -218,6 +235,10 @@ class Simulador {
         }
         porLlegar = new ArrayList<>(pedidos);
         porLlegar.sort(Comparator.comparingDouble(p -> p.horaRegistro));
+        // Etapa 32: llegadas urgentes (hora límite efectiva a menos de urgenteMin del registro)
+        for (Pedido p : porLlegar)
+            if (cfg.urgenteMin > 0 && (Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0) - p.horaRegistro) * 60 < cfg.urgenteMin)
+                llegadasUrgentes.add(p.horaRegistro * 60);
         Set<String> originales = new LinkedHashSet<>();
         for (Pedido p : porLlegar) originales.add(p.idOriginal);
         res.pedidosOriginalesTotal = originales.size();
@@ -256,6 +277,28 @@ class Simulador {
         averiasExternas.add(new Object[]{codigoUnidad, tipo});
         Thread h = hilo;
         if (h != null) h.interrupt();   // corta la espera del reloj para atenderla ya
+    }
+
+    /**
+     * Pedido registrado desde el visualizador (operación día a día). Llega en el
+     * instante simulado actual (su hora de registro se fija al atenderlo) y
+     * dispara una replanificación inmediata. Seguro desde otro hilo.
+     * @param p entrega con id, destino, cantidad y plazo (la hora de registro se ignora)
+     */
+    void inyectarPedido(Pedido p) {
+        pedidosExternos.add(p);
+        Thread h = hilo;
+        if (h != null) h.interrupt();   // corta la espera del reloj para atenderlo ya
+    }
+
+    /** Minuto simulado actual (para quien registra pedidos desde fuera). */
+    double minutoActual() {
+        return tActual;
+    }
+
+    /** Velocidad (km/h) del tipo en esta simulación: la configurada, salvo cambio en caliente. */
+    double velocidad(TipoUnidad tipo) {
+        return velocidades.getOrDefault(tipo, tipo.velocidadPromedio);
     }
 
     /** Cambio de velocidad en caliente: se aplica en la siguiente replanificación (P16). */
@@ -297,6 +340,8 @@ class Simulador {
                 }
             }
             if (iAveria < averias.size()) T = Math.min(T, averias.get(iAveria).tiempoMin);
+            while (siguienteUrgente < llegadasUrgentes.size() && llegadasUrgentes.get(siguienteUrgente) < t) siguienteUrgente++;
+            if (siguienteUrgente < llegadasUrgentes.size()) T = Math.min(T, llegadasUrgentes.get(siguienteUrgente));
             for (Mantenimiento m : cfg.mantenimientos) {
                 if (m.inicioMin > t) T = Math.min(T, m.inicioMin);
                 if (m.finMin > t) T = Math.min(T, m.finMin);
@@ -312,7 +357,7 @@ class Simulador {
             } finally {
                 cerrojo.lock();
             }
-            if (!completo || !averiasExternas.isEmpty() || detenerSolicitado) {
+            if (!completo || !averiasExternas.isEmpty() || !pedidosExternos.isEmpty() || detenerSolicitado) {
                 Thread.interrupted();
                 T = Math.max(t, Math.min(T, cfg.reloj.ahora(T)));   // se atiende en el instante real actual
             }
@@ -362,6 +407,19 @@ class Simulador {
             Object[] externa;
             while ((externa = averiasExternas.poll()) != null) {   // registradas desde el visualizador
                 replanEvento |= aplicarAveria(new Averia(t, (String) externa[0], (Integer) externa[1]), t);
+            }
+            while (siguienteUrgente < llegadasUrgentes.size() && llegadasUrgentes.get(siguienteUrgente) <= t) {
+                siguienteUrgente++;   // llegó un pedido urgente: se replanifica ya (evento)
+                replanEvento = true;
+            }
+            Pedido nuevo;
+            while ((nuevo = pedidosExternos.poll()) != null) {   // registrados desde el visualizador
+                nuevo.horaRegistro = t / 60.0;
+                registrarLlegada(nuevo, t);
+                registrar(new Evt(Evt.T.REPLANIFICACION, t, nuevo.x, nuevo.y, List.of(nuevo.id), null, t, nuevo.cantidad), "",
+                        "pedido " + nuevo.idOriginal + " registrado: " + nuevo.cantidad + " paq. a (" + nuevo.x + ","
+                                + nuevo.y + "), plazo " + nuevo.plazoMaximoHoras + " h");
+                replanEvento = true;
             }
             for (Unidad un : unidades) {
                 if (un.estado != EstadoUnidad.AVERIADA) continue;
@@ -449,6 +507,7 @@ class Simulador {
             case NODO:
                 un.x = e.x;
                 un.y = e.y;
+                un.km += 1;
                 res.kmAcumulados += 1;
                 res.costoAcumulado += un.u.tipo.costoPorKilometro;
                 break;
@@ -608,31 +667,34 @@ class Simulador {
 
     // ============================ Replanificación ============================
 
+    /** Llegada de una entrega: pasa a pendiente (en almacén) y su plazo entra a la cola del colapso. */
+    private void registrarLlegada(Pedido p, double t) {
+        if (cfg.mapa != null && cfg.reglaDestino == Contexto.ReglaDestino.NO_EVALUABLE
+                && cfg.mapa.bloqueadoDurante(p.x, p.y, p.horaRegistro, p.horaLimite())) {
+            // Destino bloqueado desde el registro hasta la hora límite: nadie puede cumplir.
+            // Se excluye del colapso y se cuenta aparte (Etapa 17.1).
+            if (inentregables.add(p.idOriginal)) res.pedidosInentregablesBloqueo++;
+            registrar(new Evt(Evt.T.BLOQUEO, t, p.x, p.y, List.of(p.id), null, t, 0), "",
+                    "pedido inentregable por bloqueo (excluido del colapso)");
+            return;
+        }
+        entregas.put(p.id, p);
+        estado.put(p.id, "P");
+        partesDe.computeIfAbsent(p.idOriginal, k -> new ArrayList<>()).add(p.id);
+        plazos.add(p);
+    }
+
     private void replanificar(double t) {
         // Cambios de velocidad en caliente: rigen desde esta planificación (P16)
         Object[] v;
         while ((v = velocidadesPendientes.poll()) != null) {
-            ((TipoUnidad) v[0]).velocidadPromedio = (Double) v[1];
+            velocidades.put((TipoUnidad) v[0], (Double) v[1]);
             registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
                     "velocidad de " + v[0] + " = " + v[1] + " km/h");
         }
         // Llegada de pedidos
-        while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= t) {
-            Pedido p = porLlegar.get(siguiente++);
-            if (cfg.mapa != null && cfg.reglaDestino == Contexto.ReglaDestino.NO_EVALUABLE
-                    && cfg.mapa.bloqueadoDurante(p.x, p.y, p.horaRegistro, p.horaLimite())) {
-                // Destino bloqueado desde el registro hasta la hora límite: nadie puede cumplir.
-                // Se excluye del colapso y se cuenta aparte (Etapa 17.1).
-                if (inentregables.add(p.idOriginal)) res.pedidosInentregablesBloqueo++;
-                registrar(new Evt(Evt.T.BLOQUEO, t, p.x, p.y, List.of(p.id), null, t, 0), "",
-                        "pedido inentregable por bloqueo (excluido del colapso)");
-                continue;
-            }
-            entregas.put(p.id, p);
-            estado.put(p.id, "P");
-            partesDe.computeIfAbsent(p.idOriginal, k -> new ArrayList<>()).add(p.id);
-            plazos.add(p);
-        }
+        while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= t)
+            registrarLlegada(porLlegar.get(siguiente++), t);
         List<Unidad> operativas = new ArrayList<>();
         for (Unidad un : unidades) {
             if (un.estado == EstadoUnidad.OPERATIVA && !enMantenimiento(un, t)) operativas.add(un);
@@ -648,6 +710,8 @@ class Simulador {
         cx.holguraH = cfg.holguraMin / 60.0;
         cx.penalidadHolgura = cfg.penalidadHolgura;
         cx.alimentacion = cfg.alimentacion;
+        cx.reparto = cfg.reparto;
+        cx.velocidades.putAll(velocidades);   // cambios en caliente de ESTA simulación (P16)
         cx.conEstado = true;
         if (cfg.almacenesIntermedios) {
             cx.almacenes.add(new Contexto.AlmacenPlan(Compartido.ALMACEN_NOROESTE, stock[1]));
@@ -694,12 +758,20 @@ class Simulador {
         aPlanificar.sort(Comparator.comparing(p -> p.id));   // orden estable (reproducible)
         if (aPlanificar.isEmpty() || disponibles.isEmpty()) return;   // nada que cambiar: sigue el plan vigente
 
+        cx.partesCreadas = partesCreadas;   // ids de partes únicos en toda la simulación (SI-28)
         Contexto.usar(cx);
         try {
             // Estabilidad (Etapa 18): el costo de cambiar entregas de unidad se mide contra el plan vigente
             if (!primerPlan) cx.asignacionVigente = asignacionAnterior;
             cx.planBase = primerPlan ? null : planVigenteReparado(operativas, aPlanificar, disponibles);
             primerPlan = false;
+            if (cx.planBase != null) {
+                // La reparación pudo repartir pedidos nuevos (SI-28): ambos algoritmos
+                // parten de esas mismas partes
+                adoptarReparto(cx.planBase.todasLasEntregas(), t);
+                aPlanificar = cx.planBase.todasLasEntregas();
+                aPlanificar.sort(Comparator.comparing(p -> p.id));
+            }
             long semillaCiclo = cfg.semilla * 1_000_003L + ciclo++;
             long t0 = System.nanoTime();
             Planificador.Plan plan;
@@ -712,6 +784,11 @@ class Simulador {
             }
             double ms = (System.nanoTime() - t0) / 1e6;
             Contexto.usar(cx);   // el planificador pudo cambiarlo
+            partesCreadas = cx.partesCreadas;
+            List<Pedido> entregasPlan = new ArrayList<>(plan.sinAsignar);
+            for (RutaAlg r : plan.rutas)
+                for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) entregasPlan.add(pa.pedido);
+            adoptarReparto(entregasPlan, t);   // partes que creó o unió el planificador (SI-28)
             res.replanificaciones++;
             sumaMs += ms;
             res.planificadorMsMax = Math.max(res.planificadorMsMax, ms);
@@ -754,16 +831,21 @@ class Simulador {
      * ir en unidades distintas de cualquier tipo (cada parte suma 1 h de
      * acondicionamiento). Estrategia "ninguna": solo los bloques de 24.
      */
+    /** Hora límite efectiva (absoluta, en horas) de una entrega: la urgencia real (SI-23). */
+    private double limiteEfectivoH(Pedido p) {
+        return Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0);
+    }
+
     private void dividirUrgentes(double t, List<Unidad> operativas) {
         if (!"urgentes".equalsIgnoreCase(cfg.estrategiaParciales)) return;
         List<Pedido> urgentes = new ArrayList<>();
         for (Map.Entry<String, String> e : estado.entrySet()) {
             if (!"P".equals(e.getValue())) continue;
             Pedido p = entregas.get(e.getKey());
-            if (p.cantidad > cfg.tamanoParcial && p.horaLimite() * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
+            if (p.cantidad > cfg.tamanoParcial && limiteEfectivoH(p) * 60 - t <= cfg.umbralUrgenciaH * 60) urgentes.add(p);
         }
         if (urgentes.isEmpty()) return;
-        urgentes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
+        urgentes.sort(Comparator.<Pedido>comparingDouble(this::limiteEfectivoH).thenComparing(p -> p.id));
         int autosLibres = 0;
         for (Unidad un : operativas) {
             double libre = un.eventos.isEmpty() ? un.ocupadoHasta : un.eventos.peekLast().min;
@@ -844,13 +926,72 @@ class Simulador {
         }
         List<Pedido> faltantes = new ArrayList<>();
         for (Pedido p : aPlanificar) if (!usados.contains(p.id)) faltantes.add(p);
-        faltantes.sort(Comparator.comparingDouble(Pedido::horaLimite).thenComparing(p -> p.id));
-        for (Pedido p : faltantes) {
-            OperadoresVecindario.PosicionInsercion mejor = OperadoresVecindario.mejorInsercion(s, s.rutas, p);
-            if (mejor == null) s.pedidosSinAsignar.add(p);
-            else mejor.aplicar();
+        faltantes.sort(Comparator.<Pedido>comparingDouble(cx::limiteEfectivo).thenComparing(p -> p.id));   // urgencia real (SI-23)
+        for (Pedido pendiente : faltantes) {
+            // Reparto por productos (SI-28): si no cabe entero a tiempo, una unidad
+            // lleva los productos que le caben y el resto va a otra
+            Pedido p = pendiente;
+            while (p != null) {
+                OperadoresVecindario.Pieza pieza = OperadoresVecindario.mejorPieza(s, s.rutas, p);
+                if (pieza == null) {
+                    s.pedidosSinAsignar.add(p);
+                    break;
+                }
+                pieza.posicion.aplicar();
+                p = pieza.resto;
+            }
         }
         return s;
+    }
+
+    /**
+     * Reparto por productos (Etapa 31, SI-28): el planificador puede repartir entre
+     * unidades los productos en almacén de un pedido (partes nuevas) o volver a
+     * unir partes. El simulador adopta ese reparto: registra las partes nuevas,
+     * actualiza la cantidad de las que cambiaron y retira (estado "X") las que ya
+     * no existen. Los productos de cada pedido deben conservarse; si no, es un
+     * error del planificador y se detiene la simulación.
+     * @param plan entregas del plan (copias relativas al instante t)
+     */
+    private void adoptarReparto(List<Pedido> plan, double t) {
+        Map<String, Pedido> enPlan = new LinkedHashMap<>();
+        Set<String> cambiados = new LinkedHashSet<>();
+        for (Pedido p : plan) {
+            if (!p.enAlmacen()) continue;   // lo que va a bordo o en una averiada no se reparte
+            enPlan.put(p.id, p);
+            Pedido actual = entregas.get(p.id);
+            if (actual == null || actual.cantidad != p.cantidad) cambiados.add(p.idOriginal);
+        }
+        for (Map.Entry<String, String> e : estado.entrySet())
+            if ("P".equals(e.getValue()) && !enPlan.containsKey(e.getKey())) cambiados.add(entregas.get(e.getKey()).idOriginal);
+        for (String original : cambiados) {
+            List<String> ids = partesDe.get(original);
+            Pedido base = entregas.get(ids.get(0));   // registro, plazo y destino (absolutos) del pedido
+            int antes = 0, despues = 0;
+            for (String id : ids) if ("P".equals(estado.get(id))) antes += entregas.get(id).cantidad;
+            for (Pedido p : enPlan.values()) if (p.idOriginal.equals(original)) despues += p.cantidad;
+            if (antes != despues)
+                throw new IllegalStateException("Reparto inconsistente del pedido " + original + ": "
+                        + antes + " productos en almacén antes y " + despues + " en el plan");
+            for (String id : new ArrayList<>(ids)) {
+                if ("P".equals(estado.get(id)) && !enPlan.containsKey(id)) {   // se unió a otra parte
+                    estado.put(id, "X");
+                    ids.remove(id);
+                }
+            }
+            for (Pedido p : enPlan.values()) {
+                if (!p.idOriginal.equals(original)) continue;
+                Pedido abs = new Pedido(p.id, original, base.x, base.y, p.cantidad, base.plazoMaximoHoras, base.horaRegistro);
+                boolean nueva = !entregas.containsKey(p.id);
+                entregas.put(p.id, abs);
+                if (nueva) {
+                    estado.put(p.id, "P");
+                    ids.add(p.id);
+                    plazos.add(abs);
+                    res.parcialesCreadas++;
+                }
+            }
+        }
     }
 
     private static boolean enRuta(List<ParadaAlg> ruta, String id) {
@@ -874,7 +1015,7 @@ class Simulador {
             for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) asignacion.put(pa.pedido.id, un.u.codigo);
             List<Hito> hitos = new ArrayList<>();
             Compartido.evaluarRuta(r, hitos);
-            double v = un.u.tipo.velocidadPromedio;
+            double v = velocidad(un.u.tipo);
             double retraso = 0;   // minutos de espera agregados (resguardo ante un bloqueo inmediato)
             for (Hito h : hitos) {
                 double ini = t + 60 * h.inicioH + retraso, fin = t + 60 * h.finH + retraso;
@@ -1011,7 +1152,9 @@ class Simulador {
      * Estado completo en JSON, en el instante actual, para cualquier visualizador:
      * reloj simulado y real; semáforo; colapso; almacenes con stock; unidades con
      * posición, estado, carga, próximas paradas y camino restante; bloqueos
-     * activos; pedidos pendientes y en curso; indicadores. Seguro desde otro hilo.
+     * activos; pedidos pendientes, asignados y en curso; indicadores. Seguro
+     * desde otro hilo. Los minutos se cuentan desde el día 1 a las 00:00 del
+     * primer mes de datos (Etapa 32: es el formato que lee el visualizador web).
      */
     String instantaneaJson() {
         cerrojo.lock();
@@ -1019,7 +1162,8 @@ class Simulador {
             double t = tActual;
             EscritorJson j = new EscritorJson().abrirObjeto(null);
             j.abrirObjeto("reloj").valor("simulado_min", t).valor("simulado", formatear(t))
-             .valor("real_ms", System.currentTimeMillis()).valor("escenario", cfg.escenario.name()).cerrarObjeto();
+             .valor("real_ms", System.currentTimeMillis()).valor("escenario", cfg.escenario.name())
+             .valor("inicio_min", cfg.inicioMin).valor("horizonte_min", cfg.horizonte()).cerrarObjeto();
             // Semáforo: % de entregas cuyo resultado ya se conoce que llegaron en plazo
             int enPlazo = 0, conocidas = 0;
             for (Map.Entry<String, Double> e : entregadaEn.entrySet()) {
@@ -1033,7 +1177,8 @@ class Simulador {
              .valor("umbral_verde", Visualizadorrutas.UMBRAL_VERDE).valor("umbral_ambar", Visualizadorrutas.UMBRAL_AMBAR)
              .cerrarObjeto();
             j.abrirObjeto("colapso").valor("ocurrio", colapsoRegistrado);
-            if (colapsoRegistrado) j.valor("min", res.colapsoMin).valor("pedido", res.pedidoColapso)
+            if (colapsoRegistrado) j.valor("simulado_min", res.colapsoMin).valor("simulado", formatear(res.colapsoMin))
+                    .valor("limite_min", res.colapsoMin).valor("pedido", res.pedidoColapso)
                     .valor("unidad", res.unidadColapso).valor("causa", res.causaColapso);
             j.cerrarObjeto();
             j.abrirArreglo("almacenes");
@@ -1041,17 +1186,26 @@ class Simulador {
             for (int i = 0; i < alm.length; i++) {
                 if (i > 0 && !cfg.almacenesIntermedios) continue;
                 j.abrirObjeto(null).valor("codigo", alm[i].codigo).valor("x", alm[i].x).valor("y", alm[i].y)
-                 .valor("stock", stock[i]).cerrarObjeto();   // stock null = infinito (central)
+                 .valor("stock", stock[i]);   // stock null = infinito (central)
+                if (i == 0) j.valor("capacidad", (String) null);
+                else j.valor("capacidad", Compartido.STOCK_INTERMEDIO);
+                j.cerrarObjeto();
             }
             j.cerrarArreglo();
+            Map<String, String> asignadaA = new HashMap<>();   // entregas en almacén que ya tienen unidad en el plan
             j.abrirArreglo("unidades");
             for (Unidad un : unidades) {
                 int carga = 0;
                 for (String id : un.aBordo) carga += entregas.get(id).cantidad;
+                for (ParadaAlg pa : un.rutaVigente)
+                    if (pa.tipo == TipoParada.ENTREGA) asignadaA.put(pa.pedido.id, un.u.codigo);
                 j.abrirObjeto(null).valor("codigo", un.u.codigo).valor("tipo", un.u.tipo.name())
                  .valor("estado", un.estado.name()).valor("x", un.x).valor("y", un.y)
                  .valor("carga", carga).valor("capacidad", un.u.tipo.capacidadMaxima)
-                 .valor("velocidad", un.u.tipo.velocidadPromedio).valor("ocupado_hasta_min", un.ocupadoHasta);
+                 .valor("velocidad", velocidad(un.u.tipo)).valor("ocupado_hasta_min", un.ocupadoHasta)
+                 .valor("km", un.km);
+                if (un.estado == EstadoUnidad.AVERIADA && un.averia != null) j.valor("averia_tipo", un.averia.tipo);
+                else j.valor("averia_tipo", (String) null);
                 j.abrirArreglo("a_bordo");
                 for (String id : un.aBordo) j.valor(null, id);
                 j.cerrarArreglo();
@@ -1083,19 +1237,110 @@ class Simulador {
                 String est = e.getValue();
                 if (est.equals("E") || est.equals("X")) continue;
                 Pedido p = entregas.get(e.getKey());
-                String situacion = est.equals("P") ? "pendiente" : est.startsWith("U:") ? "en_curso" : "en_averiada";
+                String unidad = est.length() > 2 ? est.substring(2) : asignadaA.get(p.id);
+                String situacion = est.startsWith("U:") ? "en_curso" : est.startsWith("A:") ? "en_averiada"
+                        : unidad != null ? "asignado" : "pendiente";
                 j.abrirObjeto(null).valor("id", p.id).valor("pedido", p.idOriginal).valor("x", p.x).valor("y", p.y)
                  .valor("cantidad", p.cantidad).valor("limite_min", p.horaLimite() * 60).valor("estado", situacion)
-                 .valor("unidad", est.length() > 2 ? est.substring(2) : null).valor("vencida", vencidas.contains(p.id))
-                 .cerrarObjeto();
+                 .valor("unidad", unidad).valor("vencida", vencidas.contains(p.id))
+                 .valor("plazo_h", p.plazoMaximoHoras).cerrarObjeto();
             }
             j.cerrarArreglo();
             j.abrirObjeto("indicadores").valor("entregas_realizadas", entregadaEn.size())
              .valor("replanificaciones", res.replanificaciones).valor("costo_acumulado", res.costoAcumulado)
              .valor("km_acumulados", res.kmAcumulados).valor("averias", res.averiasAplicadas)
-             .valor("trasvases", res.trasvases).valor("pedidos_inentregables_bloqueo", res.pedidosInentregablesBloqueo)
-             .cerrarObjeto();
+             .valor("trasvases", res.trasvases).valor("pedidos_inentregables_bloqueo", res.pedidosInentregablesBloqueo);
+            j.abrirObjeto("entregas_por_plazo");   // por plazo comprometido (4, 8, 12, 18 y 36 h)
+            Map<Integer, int[]> porPlazo = new java.util.TreeMap<>();
+            for (int h : new int[]{4, 8, 12, 18, 36}) porPlazo.put(h, new int[2]);
+            for (Map.Entry<String, Double> e : entregadaEn.entrySet()) {
+                Pedido p = entregas.get(e.getKey());
+                int[] c = porPlazo.computeIfAbsent(p.plazoMaximoHoras, k -> new int[2]);
+                c[0]++;
+                if (e.getValue() <= p.horaLimite() * 60 + TOLERANCIA_MIN) c[1]++;
+            }
+            for (Map.Entry<Integer, int[]> e : porPlazo.entrySet())
+                j.abrirObjeto(String.valueOf(e.getKey())).valor("entregas", e.getValue()[0])
+                 .valor("en_plazo", e.getValue()[1]).cerrarObjeto();
+            j.cerrarObjeto();
+            // Utilización: horas en movimiento / horas transcurridas, por tipo de unidad
+            j.abrirObjeto("utilizacion_por_tipo");
+            double horas = Math.max(1e-9, (t - cfg.inicioMin) / 60.0);
+            for (TipoUnidad tipo : TipoUnidad.values()) {
+                double mov = 0;
+                int n = 0;
+                for (Unidad un : unidades) if (un.u.tipo == tipo) { mov += un.km / velocidad(tipo); n++; }
+                j.valor(tipo.name(), n == 0 ? 0 : Math.round(1000 * mov / (n * horas)) / 10.0);
+            }
+            j.cerrarObjeto();
+            j.cerrarObjeto();
             return j.cerrarObjeto().toString();
+        } finally {
+            cerrojo.unlock();
+        }
+    }
+
+    /** Máximo de eventos que se envían en una consulta (el primero que se conecta tarde no recibe miles). */
+    static final int MAX_EVENTOS_POR_CONSULTA = 300;
+
+    /**
+     * Bitácora para el visualizador: eventos del registro a partir de la posición
+     * "desde" (el cliente guarda "total" y lo envía en la siguiente consulta).
+     * Seguro desde otro hilo.
+     */
+    String eventosJson(int desde) {
+        cerrojo.lock();
+        try {
+            List<Evt> reg = res.registro;
+            EscritorJson j = new EscritorJson().abrirObjeto(null).valor("total", reg.size()).abrirArreglo("eventos");
+            for (int i = Math.max(Math.max(0, desde), reg.size() - MAX_EVENTOS_POR_CONSULTA); i < reg.size(); i++) {
+                Evt e = reg.get(i);
+                j.abrirObjeto(null).valor("t", e.tipo.name()).valor("min", e.min).valor("simulado", formatear(e.min))
+                 .valor("unidad", e.unidad.isEmpty() ? null : e.unidad).valor("detalle", textoEvento(e)).cerrarObjeto();
+            }
+            return j.cerrarArreglo().cerrarObjeto().toString();
+        } finally {
+            cerrojo.unlock();
+        }
+    }
+
+    /** Texto legible de un evento para la bitácora. */
+    private static String textoEvento(Evt e) {
+        String quien = e.unidad.isEmpty() ? "" : e.unidad + " ";
+        switch (e.tipo) {
+            case ENTREGA:
+                return quien + "entrega " + e.cantidad + " paq. de " + String.join(", ", e.entregas)
+                        + " en (" + e.x + "," + e.y + ")";
+            case COLAPSO:
+                return "Colapso logístico: " + String.join(", ", e.entregas) + " no llegó a tiempo (" + e.detalle + ")";
+            default:
+                return (quien + e.detalle).trim();
+        }
+    }
+
+    /** Resumen por tipo de unidad y plan vigente para el reporte de cierre del visualizador. */
+    String reporteJson() {
+        cerrojo.lock();
+        try {
+            double horas = Math.max(0, (tActual - cfg.inicioMin) / 60.0);
+            EscritorJson j = new EscritorJson().abrirObjeto(null).valor("escenario", cfg.escenario.name())
+                    .valor("simulado_min", tActual).valor("horas", horas).abrirArreglo("porTipo");
+            for (TipoUnidad tipo : TipoUnidad.values()) {
+                double km = 0, mov = 0;
+                int n = 0;
+                for (Unidad un : unidades) if (un.u.tipo == tipo) { km += un.km; mov += un.km / velocidad(tipo); n++; }
+                if (n == 0) continue;
+                j.abrirObjeto(null).valor("tipo", tipo.name()).valor("unidades", n).valor("km", km)
+                 .valor("costo", km * tipo.costoPorKilometro)
+                 .valor("utilizacion", horas == 0 ? 0 : 100 * mov / (n * horas)).cerrarObjeto();
+            }
+            j.cerrarArreglo().abrirArreglo("ultimoPlan");
+            for (Unidad un : unidades)
+                if (!un.rutaVigente.isEmpty())
+                    j.abrirObjeto(null).valor("unidad", un.u.codigo).valor("paradas", un.rutaVigente.size()).cerrarObjeto();
+            int vigentes = 0;
+            for (String est : estado.values()) if (!est.equals("E") && !est.equals("X")) vigentes++;
+            return j.cerrarArreglo().valor("pedidos_vigentes", vigentes).cerrarObjeto().toString();
         } finally {
             cerrojo.unlock();
         }

@@ -44,6 +44,13 @@ import java.util.regex.Pattern;
  *     --destino-bloqueado esperar|nodo_vecino|no_evaluable --excluir-destinos-bloqueados si|no
  *     --penalidad-estabilidad soles (por entrega que cambia de unidad; 0 = sin penalidad)
  *     --calibrar-evaluaciones si (fija un tope de evaluaciones por algoritmo equivalente a Ta)
+ *     --hilos N (corridas simultáneas en este proceso; 1 por defecto; Etapa 24)
+ *     --semilla-base S (la réplica r usa la semilla S + r en los algoritmos; 1000 por defecto; Etapa 29)
+ *     --situaciones por_replica|por_nivel|ventanas (muestra por réplica, por nivel, o ventanas reales; Etapas 25 y 28)
+ *     --carpeta-ventas DIR --carpeta-bloqueos DIR --meses 202609-202812 (ventanas reales de los archivos mensuales)
+ *       o --meses BAJA=202609-202610,MEDIA=202611-202612,ALTA=202701-202702 (un nivel por grupo de meses);
+ *       --paso-ventana N (días entre inicios de ventanas; 5 por defecto)
+ *     --cargas NOMBRE=fraccion,... (niveles a medida, p. ej. C100=1.0,C120=1.2; Etapa 25)
  *
  * Los valores por defecto salen de config/parametros.properties.
  *
@@ -313,6 +320,14 @@ public class Experimento {
                     ExperimentoSimulacion.CALIBRAR_EVALUACIONES = !"no".equalsIgnoreCase(valor);
                     break;
                 case "--dia-inicio": ExperimentoSimulacion.DIA_INICIO = Integer.parseInt(valor); break;
+                case "--hilos": ExperimentoSimulacion.HILOS = Integer.parseInt(valor); break;
+                case "--semilla-base": SEMILLA_BASE = Long.parseLong(valor); break;
+                case "--situaciones": ExperimentoSimulacion.SITUACIONES = valor; break;
+                case "--cargas": ExperimentoSimulacion.CARGAS = valor; break;
+                case "--carpeta-ventas": ExperimentoSimulacion.CARPETA_VENTAS = valor; break;
+                case "--carpeta-bloqueos": ExperimentoSimulacion.CARPETA_BLOQUEOS = valor; break;
+                case "--meses": ExperimentoSimulacion.MESES = valor; break;
+                case "--paso-ventana": ExperimentoSimulacion.PASO_VENTANA = Integer.parseInt(valor); break;
                 case "--holgura-min": ExperimentoSimulacion.HOLGURA_MIN = Double.parseDouble(valor); break;
                 case "--penalidad-holgura": ExperimentoSimulacion.PENALIDAD_HOLGURA = Double.parseDouble(valor); break;
                 case "--penalidad-estabilidad": ExperimentoSimulacion.PENALIDAD_ESTABILIDAD = Double.parseDouble(valor); break;
@@ -356,19 +371,19 @@ public class Experimento {
     private static Resultado ejecutarCorrida(Corrida c, List<UnidadTransporte> flota) {
         Resultado r = new Resultado();
         if (c.algoritmo.equals("TABU")) {
-            BusquedaTabu.setSemilla(c.semilla);
-            r.solucion = BusquedaTabu.ejecutarDesdeCero(c.inst.pedidos, flota, TA_MS, MAX_EVALUACIONES,
+            BusquedaTabu tabu = new BusquedaTabu(c.semilla);
+            r.solucion = tabu.ejecutarDesdeCero(c.inst.pedidos, flota, TA_MS, MAX_EVALUACIONES,
                     TABU_DURACION, TABU_MAX_SIN_MEJORA);
-            r.iteraciones = BusquedaTabu.ultimasIteraciones;
-            r.evaluaciones = BusquedaTabu.ultimasEvaluaciones;
-            r.tiempoMejorMs = BusquedaTabu.ultimoTiempoMejorMs;
+            r.iteraciones = tabu.ultimasIteraciones;
+            r.evaluaciones = tabu.ultimasEvaluaciones;
+            r.tiempoMejorMs = tabu.ultimoTiempoMejorMs;
         } else {
-            AlgoritmoGenetico.setSemilla(c.semilla);
-            r.solucion = AlgoritmoGenetico.ejecutar(c.inst.pedidos, flota, TA_MS, MAX_EVALUACIONES, AG_POBLACION);
-            r.iteraciones = AlgoritmoGenetico.ultimasGeneraciones;
-            r.evaluaciones = AlgoritmoGenetico.ultimasEvaluaciones;
-            r.tiempoMejorMs = AlgoritmoGenetico.ultimoTiempoMejorMs;
-            r.tramosCambioTipo = AlgoritmoGenetico.ultimosTramosCambioTipo;
+            AlgoritmoGenetico ag = new AlgoritmoGenetico(c.semilla);
+            r.solucion = ag.ejecutar(c.inst.pedidos, flota, TA_MS, MAX_EVALUACIONES, AG_POBLACION);
+            r.iteraciones = ag.ultimasGeneraciones;
+            r.evaluaciones = ag.ultimasEvaluaciones;
+            r.tiempoMejorMs = ag.ultimoTiempoMejorMs;
+            r.tramosCambioTipo = ag.ultimosTramosCambioTipo;
         }
         return r;
     }

@@ -1,0 +1,17 @@
+# PaqRap como servicio de systemd (Linux, p. ej. AWS EC2). Arranca solo al encender la
+# instancia y se reinicia si se cae. Ver docs/despliegue_aws.md.
+#   sudo cp scripts/paqrap.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now paqrap
+#   journalctl -u paqrap -f        (ver la salida)
+[Unit]
+Description=PaqRap - Planificador y Visualizador web
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/PaqRap
+ExecStart=/home/ec2-user/PaqRap/scripts/iniciar_servidor.sh 8080
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

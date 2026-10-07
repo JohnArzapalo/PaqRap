@@ -1,0 +1,19 @@
+nivel,algoritmo,causa_colapso,corridas
+ALTA,AG,destino bloqueado,18
+ALTA,AG,llegada tardía (a bordo),18
+ALTA,AG,llegada tardía (planificada),35
+ALTA,TABU,destino bloqueado,19
+ALTA,TABU,llegada tardía (a bordo),18
+ALTA,TABU,llegada tardía (planificada),36
+BAJA,AG,destino bloqueado,25
+BAJA,AG,llegada tardía (a bordo),5
+BAJA,AG,llegada tardía (planificada),2
+BAJA,TABU,destino bloqueado,24
+BAJA,TABU,llegada tardía (a bordo),6
+BAJA,TABU,llegada tardía (planificada),3
+MEDIA,AG,destino bloqueado,15
+MEDIA,AG,llegada tardía (a bordo),7
+MEDIA,AG,llegada tardía (planificada),24
+MEDIA,TABU,destino bloqueado,17
+MEDIA,TABU,llegada tardía (a bordo),9
+MEDIA,TABU,llegada tardía (planificada),11

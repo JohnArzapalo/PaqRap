@@ -264,11 +264,19 @@ public class Visualizadorrutas extends JPanel {
             Graphics2D g = img.createGraphics();
             v.paint(g);
             g.dispose();
-            ImageIO.write(img, "png", new File(archivo));
+            ImageIO.write(img, "png", archivoConCarpeta(archivo));
             System.out.println("  Imagen guardada: " + new File(archivo).getAbsolutePath());
         } catch (Exception e) {
             System.err.println("  No se pudo guardar la imagen: " + e.getMessage());
         }
+    }
+
+    /** Archivo de salida con su carpeta ya creada (p. ej. salidas/figuras/). */
+    static File archivoConCarpeta(String archivo) {
+        File f = new File(archivo);
+        File carpeta = f.getAbsoluteFile().getParentFile();
+        if (carpeta != null) carpeta.mkdirs();
+        return f;
     }
 
     /** Tabla en consola con la hora de llegada de cada pedido frente a su plazo. */
@@ -323,7 +331,7 @@ public class Visualizadorrutas extends JPanel {
         }
         g.dispose();
         try {
-            ImageIO.write(img, "png", new File(archivo));
+            ImageIO.write(img, "png", archivoConCarpeta(archivo));
             System.out.println("  Imagen guardada: " + new File(archivo).getAbsolutePath());
         } catch (Exception e) {
             System.err.println("  No se pudo guardar la curva: " + e.getMessage());

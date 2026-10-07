@@ -21,6 +21,8 @@ import java.util.Set;
  *  - 2-opt y Cross-exchange: PROVISIONALES, verificar contra el ISA §4.2.
  *  - Recarga (Etapa 10.2, solo en la simulación con estado): inserta una
  *    parada RECARGA, cambia su almacén o la elimina (varios viajes por unidad).
+ *  - Reparto (Etapa 31, SI-28, solo Tabú): divide o une partes de un pedido
+ *    entre unidades, porque las unidades entregan productos y no pedidos.
  */
 final class OperadoresVecindario {
 
@@ -187,16 +189,118 @@ final class OperadoresVecindario {
     }
 
     /** Inserción: pone una entrega sin asignar (elegida al azar) en la mejor
-     *  posición factible de cualquier ruta, incluidas las vacías. */
+     *  posición factible de cualquier ruta, incluidas las vacías. La entrega va
+     *  entera (la usa la búsqueda local del AG, cuyo cromosoma no reparte). */
     static Movimiento insercion(Solucion base, Random azar) {
+        return insercion(base, azar, false);
+    }
+
+    /** Inserción; con conReparto (Búsqueda Tabú, SI-28), si la entrega no cabe
+     *  entera a tiempo, se inserta la pieza más grande que sí cabe y el resto de
+     *  sus productos queda sin asignar para la siguiente inserción (mejorPieza). */
+    static Movimiento insercion(Solucion base, Random azar, boolean conReparto) {
         if (base.pedidosSinAsignar.isEmpty()) return null;
         Solucion s = base.copiar();
         Pedido p = s.pedidosSinAsignar.get(azar.nextInt(s.pedidosSinAsignar.size()));
-        PosicionInsercion mejor = mejorInsercion(s, s.rutas, p);
-        if (mejor == null) return null;   // no cabe en ninguna unidad
-        mejor.aplicar();
+        Pieza pieza = conReparto ? mejorPieza(s, s.rutas, p) : Pieza.entera(mejorInsercion(s, s.rutas, p));
+        if (pieza == null) return null;   // no cabe en ninguna unidad
+        pieza.posicion.aplicar();
         s.pedidosSinAsignar.remove(p);
+        if (pieza.resto != null) s.pedidosSinAsignar.add(pieza.resto);
         return siFactible(s, Movimiento.insercion());
+    }
+
+    /** Una pieza de una entrega lista para insertar y los productos que quedan sin asignar. */
+    static final class Pieza {
+        PosicionInsercion posicion;   // dónde va la pieza
+        Pedido resto;                 // productos que no entraron (null si la entrega va entera)
+
+        static Pieza entera(PosicionInsercion pos) {
+            if (pos == null) return null;
+            Pieza p = new Pieza();
+            p.posicion = pos;
+            return p;
+        }
+    }
+
+    /**
+     * Reparto por productos (Etapa 31, SI-28; indicación del profesor): las
+     * unidades entregan productos, no pedidos. Si la entrega cabe entera y a
+     * tiempo en alguna unidad, va entera. Si no, una unidad lleva n productos
+     * (la pieza más grande que llega a tiempo, en su mejor posición) y el resto
+     * queda en una parte nueva para otra unidad. Si ninguna pieza llega a
+     * tiempo, va entera aunque sea tarde; si no cabe entera, la pieza más grande
+     * que quepa. Devuelve null si no cabe ni un producto.
+     * La pieza conserva el id de la entrega (estabilidad) y el resto recibe uno nuevo.
+     * Sin reparto (reparto.productos=no) o con los productos ya a bordo, solo la entrega entera.
+     */
+    static Pieza mejorPieza(Solucion s, List<RutaAlg> rutas, Pedido p) {
+        Contexto cx = Contexto.actual();
+        PosicionInsercion entera = mejorInsercion(s, rutas, p);
+        if (!cx.reparto || !p.enAlmacen() || p.cantidad < 2 || (entera != null && entera.deltaTarde == 0))
+            return Pieza.entera(entera);
+        PosicionInsercion cualquiera = null;
+        int nCualquiera = 0;
+        for (int n = p.cantidad - 1; n >= 1; n--) {
+            PosicionInsercion pos = mejorInsercion(s, rutas, p.conCantidad(n));
+            if (pos == null) continue;
+            if (pos.deltaTarde == 0) return conResto(pos, p, n, cx);
+            if (cualquiera == null) { cualquiera = pos; nCualquiera = n; }
+        }
+        if (entera != null) return Pieza.entera(entera);
+        return cualquiera == null ? null : conResto(cualquiera, p, nCualquiera, cx);
+    }
+
+    private static Pieza conResto(PosicionInsercion pos, Pedido p, int n, Contexto cx) {
+        Pieza pieza = Pieza.entera(pos);
+        pieza.resto = p.parte(cx.nuevoIdParte(p), p.cantidad - n);
+        return pieza;
+    }
+
+    /**
+     * Reparto (Etapa 31, SI-28; solo Búsqueda Tabú): mueve PRODUCTOS entre unidades.
+     *  - Dividir: k productos (al azar) de una entrega en almacén pasan a otra
+     *    unidad, en su mejor posición; en la original queda el resto.
+     *  - Unir: una parte se suma a otra parte del mismo pedido (en otra unidad o
+     *    en otra posición), lo que deshace repartos que ya no convienen.
+     * Solo con productos en almacén: los que ya van a bordo no cambian de unidad
+     * (salvo por trasvase). Atributo tabú: (pedido original, unidad).
+     */
+    static Movimiento reparto(Solucion base, Random azar) {
+        List<int[]> candidatas = new ArrayList<>();   // {ruta, posición} de entregas en almacén
+        for (int i = 0; i < base.rutas.size(); i++) {
+            List<ParadaAlg> ps = base.rutas.get(i).paradas;
+            for (int j = 0; j < ps.size(); j++)
+                if (ps.get(j).tipo == TipoParada.ENTREGA && ps.get(j).pedido.enAlmacen()) candidatas.add(new int[]{i, j});
+        }
+        if (candidatas.isEmpty()) return null;
+        Solucion s = base.copiar();
+        int[] c = candidatas.get(azar.nextInt(candidatas.size()));
+        RutaAlg ra = s.rutas.get(c[0]);
+        Pedido p = ra.paradas.get(c[1]).pedido;
+
+        List<int[]> hermanas = new ArrayList<>();   // otras partes del mismo pedido, también en almacén
+        for (int[] o : candidatas)
+            if ((o[0] != c[0] || o[1] != c[1]) && s.rutas.get(o[0]).paradas.get(o[1]).pedido.idOriginal.equals(p.idOriginal))
+                hermanas.add(o);
+
+        if (!hermanas.isEmpty() && (p.cantidad < 2 || azar.nextBoolean())) {   // unir
+            int[] h = hermanas.get(azar.nextInt(hermanas.size()));
+            RutaAlg rb = s.rutas.get(h[0]);
+            Pedido q = rb.paradas.get(h[1]).pedido;
+            rb.paradas.set(h[1], ParadaAlg.entrega(q.conCantidad(q.cantidad + p.cantidad)));
+            ra.paradas.remove(c[1]);   // después del set: si es la misma ruta, h[1] sigue siendo válido
+            return siFactible(s, Movimiento.reparto(p.idOriginal, ra.unidad.codigo, rb.unidad.codigo));
+        }
+        if (p.cantidad < 2) return null;
+        RutaAlg rb = s.rutas.get(azar.nextInt(s.rutas.size()));   // dividir
+        if (rb == ra) return null;
+        int k = 1 + azar.nextInt(p.cantidad - 1);
+        ra.paradas.set(c[1], ParadaAlg.entrega(p.conCantidad(p.cantidad - k)));
+        PosicionInsercion pos = mejorInsercion(s, List.of(rb), p.parte(Contexto.actual().nuevoIdParte(p), k));
+        if (pos == null) return null;
+        pos.aplicar();
+        return siFactible(s, Movimiento.reparto(p.idOriginal, ra.unidad.codigo, rb.unidad.codigo));
     }
 
     /** Resultado de buscar dónde insertar una entrega. */

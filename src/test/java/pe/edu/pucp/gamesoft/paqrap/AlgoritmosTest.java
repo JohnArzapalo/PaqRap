@@ -23,7 +23,7 @@ class AlgoritmosTest {
         for (Pedido p : perm) tipos.put(p.id, TipoUnidad.AUTO);
         tipos.put("P3", TipoUnidad.MOTO);
 
-        Solucion s = AlgoritmoGenetico.split(new Cromosoma(perm, tipos), flota);
+        Solucion s = new AlgoritmoGenetico().split(new Cromosoma(perm, tipos), flota);
         assertEquals(0, s.H);
         assertTrue(s.rutas.size() <= flota.size());
         assertEquals(672.0, s.S, 1e-9);
@@ -32,8 +32,7 @@ class AlgoritmosTest {
     @Test
     void agEnI1DeMainNoDejaPedidosFueraNiUsaMasVehiculosQueLaFlota() {
         List<UnidadTransporte> flota = Instancias.flotaMain();
-        AlgoritmoGenetico.setSemilla(11);
-        Solucion s = AlgoritmoGenetico.ejecutar(Instancias.mainI1(), flota, 0, 3000, 30);
+        Solucion s = new AlgoritmoGenetico(11).ejecutar(Instancias.mainI1(), flota, 0, 3000, 30);
         assertEquals(0, s.H);
         assertTrue(s.vehiculosUsados() <= flota.size());
     }
@@ -43,8 +42,7 @@ class AlgoritmosTest {
     void tabuLlegaAHCeroEnI2DeMain() {
         List<UnidadTransporte> flota = Instancias.flotaMain();
         Solucion inicial = Heuristicaconstructiva.construirSolucionInicial(Instancias.mainI2(), flota);
-        BusquedaTabu.setSemilla(7);
-        Solucion s = BusquedaTabu.ejecutar(inicial, flota, 0, 5000, 8, 300);
+        Solucion s = new BusquedaTabu(7).ejecutar(inicial, flota, 0, 5000, 8, 300);
         assertEquals(0, s.H);
     }
 
@@ -93,8 +91,7 @@ class AlgoritmosTest {
         Solucion inicial = new Solucion();
         inicial.pedidosSinAsignar.addAll(ped);   // ninguna ruta: todo sin asignar
         Compartido.evaluarSolucion(inicial);
-        BusquedaTabu.setSemilla(3);
-        Solucion s = BusquedaTabu.ejecutar(inicial, flota, 0, 5000, 8, 300);
+        Solucion s = new BusquedaTabu(3).ejecutar(inicial, flota, 0, 5000, 8, 300);
         assertEquals(0, s.pedidosSinAsignar.size());
         assertEquals(0, s.H);
     }

@@ -9,60 +9,63 @@ Guía para que cada integrante entienda y defienda el código. Todo está en el 
 ### 1.1 Modelo de datos
 | Clase | Responsabilidad |
 |---|---|
-| `TipoUnidad` | Tipos AUTO / MOTO / BICICLETA: capacidad (24/8/4), costo por km (8/6/3) y velocidad, configurable desde `parametros.properties`. |
+| `TipoUnidad` | Tipos AUTO / MOTO / BICICLETA: capacidad (24/8/4), costo por km (8/6/3) y velocidad configurada (`parametros.properties`, fija). Un cambio en caliente rige solo en su simulación (`Contexto.velocidad`, `Simulador.velocidad`; etapa 24). |
 | `UnidadTransporte` | Una unidad de la flota (código TA01…TB12 y tipo). |
 | `Almacen` | Almacén con código y coordenadas (central, Nor-Oeste, Este). |
-| `Pedido` | Una **entrega** (un pedido, o una parte de un pedido grande): posición, cantidad, plazo, registro y origen de los paquetes (en almacén, `aBordoDe` o `enAveriada`). |
+| `Pedido` | Una **entrega** (un pedido o una parte suya): posición, cantidad, plazo, registro y origen de los paquetes (en almacén, `aBordoDe` o `enAveriada`). Las unidades entregan **productos** (SI-28): `parte` y `conCantidad` reparten los productos de una entrega entre unidades; todas las partes comparten `idOriginal`. |
 | `ParadaAlg` | Parada de una ruta: ENTREGA, RECARGA (en un almacén) o TRASVASE (en una unidad averiada). |
 | `TipoParada` | Tipos de parada. |
 | `RutaAlg` | Ruta de una unidad: lista de paradas, km y costo. |
-| `Solucion` | Plan completo: rutas, entregas sin asignar, H (sin asignar + tarde) y S (costo). |
+| `Solucion` | Plan completo: rutas, entregas sin asignar, H (productos sin asignar + productos tarde, SI-28) y S (costo). |
 | `Parametros` | Lee `config/parametros.properties`, con los valores del enunciado por defecto. |
 
 ### 1.2 Evaluación y contexto (núcleo común a ambos algoritmos)
 | Clase | Responsabilidad |
 |---|---|
-| `Contexto` | "El mundo" en el instante de planificar: instante base, mapa vial, almacenes con stock, posición y hora de inicio de cada unidad, unidades averiadas, plan vigente, regla de destino bloqueado y penalidad de estabilidad. Es por hilo; el contexto por defecto reproduce el modelo simple de `Main`. |
-| `Compartido` | Función objetivo: `evaluarRuta` (una pasada: tiempos, km, costo, tardanzas y factibilidad), `evaluarSolucion` (H, S, violaciones), `mejorQue` (primero H, luego S) y métricas. |
+| `Contexto` | "El mundo" en el instante de planificar: instante base, mapa vial, almacenes con stock, posición y hora de inicio de cada unidad, unidades averiadas, plan vigente, regla de destino bloqueado, hora límite efectiva (`limiteEfectivo`) y penalidad de estabilidad. Es por hilo; el contexto por defecto reproduce el modelo simple de `Main`. |
+| `Compartido` | Función objetivo: `evaluarRuta` (una pasada: tiempos, km, costo, tardanzas y factibilidad; partes seguidas del mismo pedido son una sola visita, `mismaVisita`), `evaluarSolucion` (H en productos, S, violaciones), `mejorQue` (primero H, luego S) y métricas. |
 | `Hito` | Paso de la línea de tiempo de una ruta (TRAMO, ENTREGA, RECARGA, TRASVASE, FIN), producido por `evaluarRuta` para el simulador. |
 
 ### 1.3 Búsqueda Tabú (Arzapalo, Alcca)
 | Clase | Responsabilidad |
 |---|---|
-| `BusquedaTabu` | Ciclo tabú: lista de candidatos, aspiración y parada por tiempo o por evaluaciones. `ejecutarDesdeCero` parte del plan vigente o de C&W. |
+| `BusquedaTabu` | Ciclo tabú: lista de candidatos, aspiración y parada por tiempo o por evaluaciones. `ejecutarDesdeCero` parte del plan vigente o de C&W. Es un objeto por ejecución (`new BusquedaTabu(semilla)`), con su generador aleatorio y sus contadores (etapa 24). |
 | `ListaTabu`, `ParTabu` | Atributos prohibidos (pedido, unidad, posición) con su iteración de vencimiento. |
 | `Movimiento` | Un vecino evaluado con sus atributos tabú. |
-| `OperadoresVecindario` | Operadores compartidos: Reubicación, Intercambio, 2-opt, Cross-exchange (los dos últimos provisionales), Recarga e Inserción; `mejorInsercion` y `conUnidadesLibres`. |
+| `OperadoresVecindario` | Operadores compartidos: Reubicación, Intercambio, 2-opt, Cross-exchange (los dos últimos provisionales), Recarga, Inserción y **Reparto** (solo Tabú: divide o une partes de un pedido entre unidades, SI-28); `mejorInsercion`, `mejorPieza` (una unidad lleva los productos que le caben y el resto va a otra) y `conUnidadesLibres`. |
 | `Heuristicaconstructiva` | Clarke & Wright (ahorros, fusión por extremos) y paso de inserción: solución inicial del primer ciclo. |
 
 ### 1.4 Algoritmo Genético (Alvarado, Torres)
 | Clase | Responsabilidad |
 |---|---|
-| `AlgoritmoGenetico` | Población (sembrada con el plan vigente), torneo, cruce OX, mutación, búsqueda local memética y decodificadores `splitClasico` y `splitConEstado`. |
+| `AlgoritmoGenetico` | Población (sembrada con el plan vigente), torneo, cruce OX, mutación, búsqueda local memética y decodificadores `splitClasico` y `splitConEstado`. Es un objeto por ejecución (`new AlgoritmoGenetico(semilla)`), con su generador aleatorio, presupuesto y contadores (etapa 24). |
 | `Cromosoma`, `Poblacion` | Permutación de entregas + tipo de vehículo por entrega, con su aptitud (H, S). |
 
 ### 1.5 Simulador, mapa vial e integración
 | Clase | Responsabilidad |
 |---|---|
-| `Simulador` | Eventos discretos: reloj, llegada de pedidos, replanificación con estado cada Sa y por evento, movimiento nodo a nodo, averías, trasvase, stock, mantenimiento, colapso, registro de eventos e instantánea JSON. |
-| `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`. |
-| `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo` y `caminoTramo`. |
-| `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo. |
+| `Simulador` | Eventos discretos: reloj, llegada de pedidos, replanificación con estado cada Sa y por evento (también al llegar un pedido urgente, SI-29), movimiento nodo a nodo, averías, trasvase, stock, mantenimiento, colapso, registro de eventos, instantánea JSON, bitácora (`eventosJson`) y reporte (`reporteJson`). Adopta las partes que crea el planificador (`adoptarReparto`) y acepta pedidos registrados desde fuera (`inyectarPedido`). |
+| `Planificador` | Interfaz entre el simulador y los algoritmos (`EstadoPlanificacion` → `Plan`); adaptadores `tabu()` y `genetico()`, que crean un objeto del algoritmo por llamada con la semilla del ciclo. |
+| `MapaVial` | Retícula 71 × 51, lector de bloqueos, BFS con caché por intervalo, `distanciaTramo`, `caminoTramo`, `finBloqueo`/`inicioBloqueo` y `limiteEfectivo` (Etapa 23). |
+| `Averia`, `Mantenimiento` | Reglas y lectores de averías (tipos 1-3; formato provisional) y de mantenimiento preventivo (solo los registros del mes simulado, etapa 28). |
 | `Reloj` | Ritmo: sin espera, escalado (SIM_5D) o real (DIA_A_DIA); espera interrumpible. |
-| `ServicioSimulacion` | Fachada para un visualizador: corre el simulador en un hilo, da la instantánea y recibe averías y cambios de velocidad. |
+| `ServicioSimulacion` | Fachada para un visualizador: corre el simulador en un hilo, da la instantánea, la bitácora y el reporte, y recibe averías, cambios de velocidad y pedidos nuevos. |
+| `ServidorWeb` | **Solución integrada (etapa 32):** servidor HTTP de Java (sin dependencias) que sirve el visualizador (`web/`) y la API REST con una corrida por escenario. Ver `docs/diseno/diagrama_integracion.md` y `docs/despliegue_aws.md`. |
+| `CorridaWeb` | Una corrida lanzada desde el visualizador: arma la simulación con los datos oficiales desde la fecha elegida (Búsqueda Tabú) y da su estado en JSON. |
+| `DatosOficiales` | Carga pedidos, bloqueos y mantenimientos de los meses que cubre una corrida, con los tiempos contados desde el primer mes (permite cruzar el fin de mes). |
 | `EscritorJson` | Escritor JSON mínimo para la instantánea. |
 
 ### 1.6 Experimento, datos y herramientas
 | Clase | Responsabilidad |
 |---|---|
 | `Experimento` | Punto de entrada del experimento. Modo estático (ventanas) y lectura de argumentos. |
-| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. |
+| `ExperimentoSimulacion` | Modo simulación: C_max, niveles, matriz algoritmo × nivel × réplica, hashes, calibración y CSV. `--hilos N` corre N simulaciones a la vez (etapa 24). Situaciones por réplica (`--situaciones por_replica`, por defecto): la réplica r de cada nivel usa su propia muestra de pedidos, la misma para TABU y AG; `--cargas NOMBRE=fracción` define niveles a medida (etapa 25). Ventanas reales (`--situaciones ventanas --carpeta-ventas --carpeta-bloqueos --meses`): cada réplica es un tramo real de 5 días de un mes del profesor, con sus pedidos, bloqueos y mantenimientos; cada corrida recibe su propio `MapaVial` (etapa 28). |
 | `CapacidadFlota` | C_max = Σ n·q·⌊21/t⌋. |
 | `GeneradorCarga` | Pedidos por nivel (bootstrap del archivo base, semilla fija). |
 | `GeneradorDatosSinteticos` | Pedidos y bloqueos sintéticos del mes. |
 | `LectorPedidos` | Lee `ventas2026mm` (ventana o absoluto) y divide los pedidos de más de 24 paquetes. |
 | `ValidadorEntradas` | Valida ventas, bloqueos y mantenimiento antes de correr. |
-| `Main`, `Visualizadorrutas` | Demostración con instancias de juguete e imágenes PNG (Swing). |
+| `Main`, `Visualizadorrutas` | Demostración con instancias de juguete e imágenes PNG (Swing), guardadas en `salidas/figuras/` (la carpeta se crea si no existe). |
 | `PaqRap` | Clase principal de plantilla de NetBeans. |
 
 ---
@@ -108,7 +111,7 @@ Entrada: `Experimento.main` → `ExperimentoSimulacion.ejecutar` → `Simulador.
 
 ## 3. Flujo de una llamada al planificador con estado
 
-`Planificador.tabu(d)` o `Planificador.genetico(p)` reciben un `EstadoPlanificacion` (contexto, entregas, flota, Ta, tope de evaluaciones, semilla) y activan el contexto (`Contexto.usar`).
+`Planificador.tabu(d)` o `Planificador.genetico(p)` reciben un `EstadoPlanificacion` (contexto, entregas, flota, Ta, tope de evaluaciones, semilla) y activan el contexto (`Contexto.usar`). Cada llamada crea su propio objeto del algoritmo (`new BusquedaTabu(semilla)` o `new AlgoritmoGenetico(semilla)`), así que no hay estado compartido entre simulaciones (etapa 24).
 
 ### Búsqueda Tabú
 1. `BusquedaTabu.ejecutarDesdeCero`: la solución inicial es el **plan vigente reparado** (`Contexto.planBase`), o `Heuristicaconstructiva.construirSolucionInicial` (C&W) en el primer ciclo.
@@ -142,12 +145,14 @@ Una sola pasada por las paradas:
    - con `nodo_vecino`, `Contexto.puntoDeEntrega` puede mover la entrega al nodo vecino;
    - `Contexto.distanciaTramo` usa la distancia por la red, con los bloqueos de la ventana del tramo;
    - `Contexto.avanzar` suma el viaje y la hora de alimentación si la cruza.
-   - **ENTREGA:** `esperaDestino` espera si el destino está bloqueado; se compara la llegada con `horaLimite` (tarde +1); suma 1 h de acondicionamiento y baja la carga.
+   - **ENTREGA:** `esperaDestino` espera si el destino está bloqueado; se compara la llegada con `horaLimite` (tarde +1); si llega a tiempo, el margen para la holgura se mide hasta `Contexto.limiteEfectivo` (Etapa 23: el inicio del bloqueo del destino que cubre la hora límite, si lo hay); suma 1 h de acondicionamiento y baja la carga.
    - **RECARGA:** carga las entregas en almacén hasta la próxima RECARGA (uso del almacén) y verifica la capacidad.
    - **TRASVASE:** verifica que la averiada siga en el lugar al terminar (30 min), carga sus entregas y verifica la capacidad.
 5. **Regreso** al almacén más cercano (`almacenMasCercano`).
 6. **Fin:** si pasa del próximo mantenimiento, la ruta es infactible.
-7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad + (en el simulador) horas de margen faltante × penalidad de holgura (Etapa 22: una entrega a tiempo con menos de 60 min de margen es un plan frágil).
+7. **Costo** = km × costo/km + (con plan vigente) cambios de unidad × penalidad de estabilidad + (en el simulador) horas de margen faltante × penalidad de holgura (Etapa 22: una entrega a tiempo con menos de 60 min de margen es un plan frágil; Etapa 23: el margen se cuenta hasta la hora límite efectiva).
+
+**Hora límite efectiva (Etapa 23, SI-23).** `MapaVial.limiteEfectivo(x, y, límite)`: si el destino está bloqueado en la hora límite, devuelve el inicio de ese bloqueo (`inicioBloqueo`, que une bloqueos encadenados); si no, la hora límite. `Contexto.limiteEfectivo(pedido)` la da en horas relativas y respeta la regla de destino (con `nodo_vecino` rige la hora límite). Se usa en la holgura de `evaluarRuta` y como urgencia al ordenar pedidos (`Heuristicaconstructiva`, `Simulador.dividirUrgentes` y la inserción de faltantes en `armarReparado`). El colapso se sigue declarando en la hora límite real.
 
 `evaluarSolucion` suma las rutas y verifica el stock total por almacén. H = sin asignar + tarde (+ violaciones como resguardo); S = costo.
 

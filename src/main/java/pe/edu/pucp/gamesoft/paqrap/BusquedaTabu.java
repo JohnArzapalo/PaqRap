@@ -17,6 +17,10 @@ import java.util.Random;
  *    PROVISIONALES: verificar contra el ISA §4.2.
  *  - Inserción: si hay entregas sin asignar, el primer candidato de cada
  *    iteración es una Inserción en la mejor posición factible.
+ *  - Reparto (Etapa 31, SI-28): las unidades entregan productos, no pedidos.
+ *    Divide una entrega entre dos unidades o une dos partes del mismo pedido.
+ *    Con reparto, la Inserción también reparte: si el pedido no cabe entero a
+ *    tiempo, una unidad lleva n productos y el resto queda para otra.
  *
  * La solución de trabajo contiene TODAS las unidades de la flota: las que
  * no tienen pedidos aparecen como rutas vacías (0 km, S/ 0, no cuentan como
@@ -27,30 +31,43 @@ import java.util.Random;
  * maxEvaluaciones > 0, por número de evaluaciones (modo reproducible: con
  * la misma semilla da exactamente la misma solución). Una "evaluación" es
  * una llamada a Compartido.evaluarSolucion sobre una solución completa.
+ *
+ * Sin estado estático (Etapa 24): cada ejecución usa su propio objeto
+ * (new BusquedaTabu(semilla)), con su generador aleatorio y sus contadores.
+ * Así varias simulaciones pueden correr en paralelo sin pisarse. Los
+ * parámetros (candidatos y pesos) son constantes leídas una vez del archivo.
  */
 class BusquedaTabu {
 
-    private static Random AZAR = new Random(7);   // semilla por defecto (reproducible)
-
     /** Vecinos candidatos por iteración (tabu.candidatos). */
-    static int CANDIDATOS = (int) Parametros.entero("tabu.candidatos", 20);
+    static final int CANDIDATOS = (int) Parametros.entero("tabu.candidatos", 20);
     /** Pesos relativos de los operadores (no necesitan sumar 1). */
-    static double PESO_REUBICACION = Parametros.decimal("tabu.peso_reubicacion", 0.35);
-    static double PESO_INTERCAMBIO = Parametros.decimal("tabu.peso_intercambio", 0.35);
-    static double PESO_2OPT = Parametros.decimal("tabu.peso_2opt", 0.15);
-    static double PESO_CROSS = Parametros.decimal("tabu.peso_cross", 0.15);
+    static final double PESO_REUBICACION = Parametros.decimal("tabu.peso_reubicacion", 0.35);
+    static final double PESO_INTERCAMBIO = Parametros.decimal("tabu.peso_intercambio", 0.35);
+    static final double PESO_2OPT = Parametros.decimal("tabu.peso_2opt", 0.15);
+    static final double PESO_CROSS = Parametros.decimal("tabu.peso_cross", 0.15);
     /** Peso del operador Recarga (solo en la simulación con estado; Etapa 10.2). */
-    static double PESO_RECARGA = Parametros.decimal("tabu.peso_recarga", 0.10);
+    static final double PESO_RECARGA = Parametros.decimal("tabu.peso_recarga", 0.10);
+    /** Peso del operador Reparto (solo con reparto.productos=si; Etapa 31, SI-28). */
+    static final double PESO_REPARTO = Parametros.decimal("tabu.peso_reparto", 0.15);
 
-    // ===== Contadores de la última ejecución (R6) =====
-    static long ultimasIteraciones;
-    static long ultimasEvaluaciones;
+    /** Generador aleatorio de ESTA ejecución: la misma semilla da la misma búsqueda. */
+    private final Random azar;
+
+    // ===== Contadores de la última ejecución de este objeto (R6) =====
+    long ultimasIteraciones;
+    long ultimasEvaluaciones;
     /** Milisegundos desde el inicio hasta que se encontró la mejor solución. */
-    static long ultimoTiempoMejorMs;
+    long ultimoTiempoMejorMs;
 
-    /** Fija la semilla antes de ejecutar. Cada réplica del experimento usa una distinta. */
-    static void setSemilla(long semilla) {
-        AZAR = new Random(semilla);
+    /** Cada réplica del experimento (y cada ciclo de replanificación) usa su propia semilla. */
+    BusquedaTabu(long semilla) {
+        azar = new Random(semilla);
+    }
+
+    /** Semilla por defecto (reproducible), para la demostración de Main. */
+    BusquedaTabu() {
+        this(7);
     }
 
     /**
@@ -61,7 +78,7 @@ class BusquedaTabu {
      * el plan vigente reparado del contexto (con los pedidos nuevos ya
      * insertados) si existe; si no (primer ciclo o modo estático), Clarke & Wright.
      */
-    static Solucion ejecutarDesdeCero(List<Pedido> pedidos, List<UnidadTransporte> flota,
+    Solucion ejecutarDesdeCero(List<Pedido> pedidos, List<UnidadTransporte> flota,
                                       long presupuestoMs, long maxEvaluaciones,
                                       int duracionTabu, int maxSinMejora) {
         long inicio = System.currentTimeMillis();
@@ -72,14 +89,14 @@ class BusquedaTabu {
     }
 
     /** Busca a partir de una solución inicial ya construida (demo de Main). */
-    static Solucion ejecutar(Solucion solucionInicial, List<UnidadTransporte> flota,
+    Solucion ejecutar(Solucion solucionInicial, List<UnidadTransporte> flota,
                              long presupuestoMs, long maxEvaluaciones,
                              int duracionTabu, int maxSinMejora) {
         return buscar(solucionInicial, flota, System.currentTimeMillis(), presupuestoMs,
                       maxEvaluaciones, duracionTabu, maxSinMejora);
     }
 
-    private static Solucion buscar(Solucion solucionInicial, List<UnidadTransporte> flota, long inicio,
+    private Solucion buscar(Solucion solucionInicial, List<UnidadTransporte> flota, long inicio,
                                    long presupuestoMs, long maxEvaluaciones,
                                    int duracionTabu, int maxSinMejora) {
         Solucion actual = OperadoresVecindario.conUnidadesLibres(solucionInicial, flota);
@@ -146,18 +163,22 @@ class BusquedaTabu {
     /** Genera un vecino evaluado, o null si no hay uno factible. Si hay entregas
      *  sin asignar, el primer candidato de cada iteración es una Inserción; los
      *  demás, un operador elegido al azar según sus pesos. */
-    private static Movimiento generarVecino(Solucion base, boolean primerCandidato) {
-        if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, AZAR);
+    private Movimiento generarVecino(Solucion base, boolean primerCandidato) {
+        boolean reparto = Contexto.actual().reparto;
+        if (primerCandidato && !base.pedidosSinAsignar.isEmpty()) return OperadoresVecindario.insercion(base, azar, reparto);
         boolean conEstado = Contexto.actual().conEstado;
-        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS + (conEstado ? PESO_RECARGA : 0);
-        double r = AZAR.nextDouble() * total;
-        if (r < PESO_REUBICACION) return OperadoresVecindario.reubicacion(base, AZAR);
+        double total = PESO_REUBICACION + PESO_INTERCAMBIO + PESO_2OPT + PESO_CROSS + (conEstado ? PESO_RECARGA : 0)
+                + (reparto ? PESO_REPARTO : 0);
+        double r = azar.nextDouble() * total;
+        if (reparto && r < PESO_REPARTO) return OperadoresVecindario.reparto(base, azar);
+        if (reparto) r -= PESO_REPARTO;
+        if (r < PESO_REUBICACION) return OperadoresVecindario.reubicacion(base, azar);
         r -= PESO_REUBICACION;
-        if (r < PESO_INTERCAMBIO) return OperadoresVecindario.intercambio(base, AZAR);
+        if (r < PESO_INTERCAMBIO) return OperadoresVecindario.intercambio(base, azar);
         r -= PESO_INTERCAMBIO;
-        if (r < PESO_2OPT) return OperadoresVecindario.dosOpt(base, AZAR);
+        if (r < PESO_2OPT) return OperadoresVecindario.dosOpt(base, azar);
         r -= PESO_2OPT;
-        if (!conEstado || r < PESO_CROSS) return OperadoresVecindario.crossExchange(base, AZAR);
-        return OperadoresVecindario.recarga(base, AZAR);
+        if (!conEstado || r < PESO_CROSS) return OperadoresVecindario.crossExchange(base, azar);
+        return OperadoresVecindario.recarga(base, azar);
     }
 }

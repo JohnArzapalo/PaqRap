@@ -8,7 +8,7 @@ import java.util.List;
 class Solucion {
     List<RutaAlg> rutas = new ArrayList<>();
     List<Pedido> pedidosSinAsignar = new ArrayList<>();
-    int H;       // nivel 1: pedidos sin asignar + pedidos fuera de plazo (+ violaciones, como resguardo)
+    int H;       // nivel 1: productos sin asignar + productos fuera de plazo (SI-28; + violaciones, como resguardo)
     double S;    // nivel 2: costo total en soles
     int rutasInfactibles;   // calculado por Compartido.evaluarSolucion
     int excesoStock;        // paquetes cargados por encima del stock de algún almacén

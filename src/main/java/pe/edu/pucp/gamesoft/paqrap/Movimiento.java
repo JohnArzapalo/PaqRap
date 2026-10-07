@@ -77,6 +77,19 @@ class Movimiento {
         return new Movimiento();
     }
 
+    /** Reparto (SI-28): productos del pedido original pasan de uOrigen a uDestino
+     *  (al dividir o al unir partes). Es tabú si lleva productos de ese pedido a
+     *  una unidad de la que salieron hace poco; al aceptarlo se prohíbe que
+     *  vuelvan a uOrigen. El atributo es el pedido original, no la parte, porque
+     *  las partes cambian de id al dividirse y unirse. */
+    static Movimiento reparto(String idOriginal, String uOrigen, String uDestino) {
+        Movimiento m = new Movimiento();
+        if (uOrigen.equals(uDestino)) return m;   // unir dentro de la misma ruta: no cambia de unidad
+        m.atributos.add(new ParTabu("pedido:" + idOriginal, uDestino));
+        m.prohibir.add(new ParTabu("pedido:" + idOriginal, uOrigen));
+        return m;
+    }
+
     /** Recarga (insertar, cambiar de almacén o quitar una parada RECARGA): no
      *  lleva atributo tabú; el costo del viaje extra ya desalienta repetirla sin
      *  motivo. Decisión documentada, a revisar si se observan ciclos. */

@@ -32,7 +32,8 @@ class CompartidoTest {
         assertArrayEquals(new double[]{0.30, 2.175}, llegada, 1e-9);
         assertFalse(Compartido.llegaTarde(r.paradas.get(0), llegada[0]));
         assertTrue(Compartido.llegaTarde(r.paradas.get(1), llegada[1]));
-        assertEquals(1, Compartido.pedidosTarde(r));
+        // H en productos (SI-28): P2 llega tarde con sus 3 productos
+        assertEquals(Instancias.buscar(ped, "P2").cantidad, Compartido.pedidosTarde(r));
     }
 
     @Test
