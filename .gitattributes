@@ -1,3 +1,7 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 scripts/paqrap.service text eol=lf
+
+# Archivos internos del repositorio que no van en el ZIP del entregable (git archive)
+CLAUDE.md export-ignore
+.gitattributes export-ignore

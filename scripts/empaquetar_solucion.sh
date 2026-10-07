@@ -4,6 +4,7 @@
 #   por defecto: sol.integrada.sem08/PaqRap_sol_integrada_sem08.zip
 # Empaqueta EXACTAMENTE lo que está en el último commit (git archive): código, datos
 # oficiales, visualizador, scripts y documentación. Haga commit antes de empaquetar.
+# Los archivos marcados con export-ignore en .gitattributes no se incluyen.
 set -e
 cd "$(dirname "$0")/.."
 CARPETA="${1:-sol.integrada.sem08}"
