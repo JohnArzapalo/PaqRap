@@ -27,6 +27,3 @@ datos/generados/
 # Copias de archivos antiguos (el historial está en la rama "historial" de git)
 obsoleto_sem06/
 /resultados_*.txt
-
-# Configuración local de Claude Code (rutas de esta PC)
-.claude/

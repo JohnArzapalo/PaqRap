@@ -111,7 +111,7 @@ Total: **47 pruebas, todas pasan.**
 - Es normal que algunas corridas terminen en colapso logístico (un pedido no entregado dentro de su plazo).
 - El mejor algoritmo es el de **menor porcentaje de corridas con colapso**. El equipo decidió calcularlo sobre la **simulación de 5 días (SIM_5D)**: cada corrida colapsa o no dentro de las 120 h. Falta la confirmación del profesor (pregunta 13).
 - El tiempo hasta el colapso, el costo y la estabilidad quedan como criterios de desempate.
-- Detalle del diseño: `CLAUDE.md` §5.
+- Detalle del diseño: `docs/protocolo_experimento.md`.
 
 ## Etapa 23: hora límite efectiva (SI-23)
 
@@ -347,7 +347,7 @@ Por nivel, con las tres corridas combinadas: BAJA 27.5 % frente a 26.7 %, MEDIA 
 - **Documentación:**
   - SI-27 en `docs/propuesta_cambios_IEN.md`;
   - `docs/insumo_exposicion.md` §9 (conclusión y cómo exponerla);
-  - `Resultados/LEEME.md`, `docs/protocolo_experimento.md` y `CLAUDE.md`.
+  - `Resultados/LEEME.md` y `docs/protocolo_experimento.md`.
 - **Lo que se cede al elegir Tabú:** entre 1.4 y 4.5 % más de costo por pedido con carga baja y media, y de 0.7 a 5.8 % más km. No se cede nada en colapsos ni en tiempo hasta el colapso.
 
 ### Orden de carpetas
@@ -364,7 +364,7 @@ La raíz del repositorio queda solo con código, configuración, datos, document
 | `exposicion/` (diapositivas) sin versionar | sigue sin versionar, ahora en `.gitignore` |
 
 - `salidas/` y `exposicion/` están en `.gitignore`.
-- Se actualizaron las referencias en `README.md`, `CLAUDE.md`, `Resultados/LEEME.md`, `docs/protocolo_experimento.md`, `docs/guia_del_codigo.md`, `docs/modulos_por_integrante.md` y `docs/insumo_exposicion.md`. Los avances de etapas anteriores conservan las rutas de su momento.
+- Se actualizaron las referencias en `README.md`, `Resultados/LEEME.md`, `docs/protocolo_experimento.md`, `docs/guia_del_codigo.md`, `docs/modulos_por_integrante.md` y `docs/insumo_exposicion.md`. Los avances de etapas anteriores conservan las rutas de su momento.
 - **Pruebas:** se agregó una (`VisualizadorrutasTest`: la imagen se guarda aunque la carpeta no exista). **Total: 80 pruebas, todas pasan.**
 
 ## Etapa 31: las unidades entregan productos, no pedidos (SI-28)
