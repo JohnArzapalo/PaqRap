@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
  *   --salida res_pc1.csv --max-evaluaciones 0 --busqueda-local si|no
  *   Solo modo estático:   --instancias I1,I2 --ventanas 1d08h00m/1,1d09h30m/1
  *   Solo modo simulación: --niveles BAJA,MEDIA,ALTA --sa 60
+ *     --bloque 120 --adelanto 60 (Etapa 33: planificación por bloques con adelanto en vez de cada Sa)
  *     --escenario EXPERIMENTO|SIM_5D|COLAPSO|DIA_A_DIA (implica --modo simulacion)
  *     --bloqueos archivo.bloqueadas|no --averias si|no --archivo-averias f.txt
  *     --mantenimiento mant.preventivo --parciales ninguna|urgentes
@@ -85,6 +86,8 @@ public class Experimento {
     static boolean TA_EXPLICITO = false;
     static Set<String> FILTRO_NIVELES = null;      // null = todos (modo simulación)
     static Double SA_MIN = null;                   // null = simulacion.sa_min
+    /** Etapa 33 (SI-30): minutos simulados por bloque (null o 0 = replanificación periódica cada Sa) y adelanto. */
+    static Double BLOQUE_MIN = null, ADELANTO_MIN = null;
     /** true si se pasó --archivo (o el posicional); si no, la simulación usa el archivo sintético del mes. */
     static boolean ARCHIVO_EXPLICITO = false;
 
@@ -348,11 +351,13 @@ public class Experimento {
                     break;
                 case "--niveles": FILTRO_NIVELES = lista(valor); break;
                 case "--sa": SA_MIN = Double.parseDouble(valor); break;
+                case "--bloque": BLOQUE_MIN = Double.parseDouble(valor); break;
+                case "--adelanto": ADELANTO_MIN = Double.parseDouble(valor); break;
                 case "--busqueda-local": AlgoritmoGenetico.BUSQUEDA_LOCAL = !"no".equalsIgnoreCase(valor); break;
                 default:
                     throw new IllegalArgumentException("Argumento desconocido: " + clave + ". Válidos: --modo --archivo "
                             + "--replicas --ta --max-evaluaciones --ventanas --instancias --algoritmos --salida "
-                            + "--niveles --sa --busqueda-local --escenario --bloqueos --averias --archivo-averias "
+                            + "--niveles --sa --bloque --adelanto --busqueda-local --escenario --bloqueos --averias --archivo-averias "
                             + "--mantenimiento --parciales --acelerado --eventos --destino-bloqueado --excluir-destinos-bloqueados "
                             + "--penalidad-estabilidad --calibrar-evaluaciones --holgura-min --penalidad-holgura --dia-inicio");
             }

@@ -156,6 +156,8 @@ final class ExperimentoSimulacion {
         base.escenario = ESCENARIO;
         if (Experimento.TA_EXPLICITO) base.taMs = Experimento.TA_MS;
         if (Experimento.SA_MIN != null) base.saMin = Experimento.SA_MIN;
+        if (Experimento.BLOQUE_MIN != null) base.bloqueMin = Experimento.BLOQUE_MIN;
+        if (Experimento.ADELANTO_MIN != null) base.adelantoMin = Experimento.ADELANTO_MIN;
         base.maxEvaluaciones = Experimento.MAX_EVALUACIONES;
         base.detenerEnColapso = !"no".equalsIgnoreCase(Parametros.texto("sim5d.detener_en_colapso", "si"));
         if (PARCIALES != null) base.estrategiaParciales = PARCIALES;
@@ -183,6 +185,9 @@ final class ExperimentoSimulacion {
                 base.mapa == null ? 0 : base.mapa.bloqueos.size(), base.almacenesIntermedios ? "sí" : "no",
                 AVERIAS ? "sí" : "no", base.estrategiaParciales, base.alimentacion ? "sí" : "no",
                 AlgoritmoGenetico.BUSQUEDA_LOCAL ? "sí" : "no");
+        if (base.bloqueMin > 0)
+            System.out.printf(Locale.US, "Planificación por bloques (SI-30): bloques de %.0f min planificados %.0f min antes (Sa no se usa)%n",
+                    base.bloqueMin, base.adelantoMin);
 
         // 1. Capacidad teórica diaria (C_max) a partir del archivo base
         List<LectorPedidos.Registro> registros = LectorPedidos.leerRegistros(archivo);
@@ -432,7 +437,9 @@ final class ExperimentoSimulacion {
                                     + "replan=%d (+%d por evento)  bloqueos=%d  (%d s)", orden, corridas.size(), c.nivel.nombre,
                             c.algoritmo, c.replica, r.censurada ? "CENSURADA en" : "colapso", Simulador.formatear(r.colapsoMin),
                             (r.colapsoMin - cfg.inicioMin) / 60.0, r.censurada ? "-" : r.causaColapso, r.costoAcumulado, r.pctPedidosEnPlazo(),
-                            r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000);
+                            r.replanificaciones, r.replanPorEvento, r.bloqueosEncontrados, ms / 1000)
+                            + (cfg.bloqueMin > 0 ? String.format(Locale.US, "  bloques=%d (con adelanto %d, tardíos %d)  saltos=%d",
+                                    r.bloques, r.bloquesConAdelanto, r.bloquesTardios, r.saltos) : "");
                     r.registro.clear();   // Etapa 28: los eventos ya no se usan; no se guardan hasta el final
                     return fila;
                 }));
@@ -646,6 +653,8 @@ final class ExperimentoSimulacion {
         Simulador.Config c = new Simulador.Config();
         c.escenario = b.escenario;
         c.saMin = b.saMin;
+        c.bloqueMin = b.bloqueMin;
+        c.adelantoMin = b.adelantoMin;
         c.taMs = b.taMs;
         c.maxEvaluaciones = b.maxEvaluaciones;
         c.horizonteMin = b.horizonteMin;

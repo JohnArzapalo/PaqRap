@@ -282,8 +282,9 @@ final class MapaVial {
         return Arrays.copyOf(v, k);
     }
 
-    /** Nodos bloqueados en algún momento de los intervalos i1..i2. */
-    private BitSet union(int i1, int i2) {
+    /** Nodos bloqueados en algún momento de los intervalos i1..i2. Sincronizado (Etapa 33): en la
+     *  planificación por bloques, el planificador (otro hilo) y el simulador usan el mismo mapa. */
+    private synchronized BitSet union(int i1, int i2) {
         if (i1 == i2) return estados[i1];
         long clave = (long) i1 * 100_000L + i2;
         BitSet u = uniones.get(clave);
@@ -295,8 +296,9 @@ final class MapaVial {
         return u;
     }
 
-    /** Distancias BFS desde el origen con los bloqueos de los intervalos i1..i2 (en caché). -1 = inalcanzable. */
-    private short[] distancias(int origen, int i1, int i2) {
+    /** Distancias BFS desde el origen con los bloqueos de los intervalos i1..i2 (en caché). -1 = inalcanzable.
+     *  Sincronizado como union: la caché LRU cambia incluso al leerla. */
+    private synchronized short[] distancias(int origen, int i1, int i2) {
         long clave = ((long) i1 * 100_000L + i2) * NODOS + origen;
         short[] d = cache.get(clave);
         if (d == null) {
