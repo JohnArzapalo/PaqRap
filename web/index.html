@@ -4,133 +4,175 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PaqRap · Visualizador</title>
-<!-- Componente Visualizador (Etapa 32). Basado en el prototipo v03 del equipo.
+<!-- Componente Visualizador (Etapa 32; rediseño de la etapa 34). Basado en el prototipo v03 del equipo.
      Solo LEE el estado del componente Planificador (API REST de ServidorWeb) y le
      envía comandos; no simula nada por su cuenta. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
-/* ===== PALETA del prototipo v01-v03 ===== */
+/* ===== PALETA OSCURA (etapa 34): fondo oscuro y retícula clara para que resalten las rutas ===== */
 :root{
-  --bg:#FAF5EA; --panel:#FFFFFF; --panel-alt:#F6EEDD; --panel-raised:#EEE0C3;
-  --border:#E3D3AF; --border-soft:#ECE0C6; --text:#2B2013; --text-dim:#7C6B4E;
-  --text-faint:#93805E; --brand:#E6D2B7; --brand-deep:#C9A876; --brand-2:#5F84A0;
-  --brand-ink:#2b2013; --green:#1E9E5A; --green-dim:#E3F5EA; --amber:#C97F00;
-  --amber-dim:#FBEEDA; --red:#D63A4C; --red-dim:#FBE4E7;
+  color-scheme:dark;
+  --bg:#0B1220; --panel:#121B2B; --panel-alt:#18233A; --panel-raised:#22304A;
+  --border:#2A3A55; --border-soft:#1F2C44; --text:#E7EEF7; --text-dim:#A3B3C9; --text-faint:#71839B;
+  --brand:#38BDF8; --brand-deep:#0EA5E9; --brand-2:#818CF8; --brand-ink:#06111F;
+  --green:#34D399; --green-dim:rgba(52,211,153,.14); --amber:#FBBF24; --amber-dim:rgba(251,191,36,.14);
+  --red:#F87171; --red-dim:rgba(248,113,113,.14);
+  /* mapa */
+  --map-bg:#070C16; --grid:rgba(255,255,255,.13); --grid-strong:rgba(255,255,255,.38); --grid-border:rgba(255,255,255,.85);
+  --ruta:#38BDF8; --ruta-sel:#FDE047; --bloqueo:#FF4D6D;
+  --u-auto:#10B981; --u-moto:#6366F1; --u-bici:#F59E0B; --u-idle:#475569; --u-mant:#64748B;
+  --alm-central:#EAB308; --alm-inter:#3B82F6;
+  --ped-ok:#22C55E; --ped-warn:#F59E0B; --ped-bad:#EF4444;
   --font-display:'Space Grotesk', sans-serif; --font-body:'Inter', sans-serif; --font-mono:'JetBrains Mono', monospace;
-  --top:54px; --run:58px; --side:320px;
+  --side:340px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
 body{background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased;font-size:13px;overflow:hidden;}
 button,input,select,textarea{font:inherit;color:inherit;}
 button{cursor:pointer;}
+[hidden]{display:none !important;}
 .mono{font-family:var(--font-mono);}
 .help{font-size:11.5px;color:var(--text-faint);}
 .ok-t{color:var(--green);font-weight:600;} .bad-t{color:var(--red);font-weight:500;}
-
-/* ===== BARRA SUPERIOR ===== */
-header.topbar{display:flex;align-items:stretch;justify-content:space-between;height:var(--top);padding:0 18px;border-bottom:1px solid var(--border-soft);background:rgba(250,245,234,.95);position:relative;z-index:1100;}
-.brand{display:flex;align-items:center;gap:10px;padding-right:14px;border-right:1px solid var(--border-soft);margin-right:4px;}
-.brand-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(155deg,var(--brand),#cbaf87);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;color:var(--brand-ink);font-size:15px;}
-.brand-text .name{font-family:var(--font-display);font-weight:600;font-size:16px;}
-.brand-text .sub{font-size:10.5px;color:var(--text-dim);letter-spacing:.3px;text-transform:uppercase;}
-.tabs{display:flex;align-items:stretch;flex:1;overflow-x:auto;}
-.tab{background:none;border:0;padding:0 14px;font-size:13px;font-weight:500;font-family:var(--font-display);color:var(--text-dim);border-bottom:3px solid transparent;display:flex;align-items:center;gap:7px;white-space:nowrap;}
-.tab:hover{color:var(--text);}
-.tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--brand-deep);}
-.tab .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);}
-.tab .dot.run{background:var(--green);box-shadow:0 0 0 3px rgba(30,158,90,.2);}
-.tab .dot.col{background:var(--red);} .tab .dot.fin{background:var(--brand-2);}
-.top-right{display:flex;align-items:center;gap:12px;padding-left:12px;font-size:12px;color:var(--text-dim);}
-.conn{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel-alt);color:var(--text-dim);border:1px solid var(--border);white-space:nowrap;}
+.chip.run{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,.4);}
+.chip.fin{background:rgba(129,140,248,.14);color:var(--brand-2);border-color:rgba(129,140,248,.4);}
+.chip.col{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,.45);}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);display:inline-block;flex-shrink:0;}
+.dot.run{background:var(--green);box-shadow:0 0 0 3px rgba(52,211,153,.2);}
+.dot.col{background:var(--red);} .dot.fin{background:var(--brand-2);}
+.btn-play{background:var(--brand-deep);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-family:var(--font-display);font-weight:600;font-size:13.5px;box-shadow:0 6px 16px -6px rgba(14,165,233,.6);white-space:nowrap;}
+.btn-play:hover{background:#0284C7;}
+.btn-play.danger{background:#DC2626;box-shadow:0 6px 16px -6px rgba(220,38,38,.6);} .btn-play.danger:hover{background:#B91C1C;}
+.btn-play:disabled{opacity:.4;cursor:not-allowed;}
+.btn-secondary{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:8px 14px;font-family:var(--font-display);font-weight:600;font-size:13px;white-space:nowrap;color:var(--text);}
+.btn-secondary:hover{background:var(--panel-raised);} .btn-secondary:disabled{opacity:.45;cursor:not-allowed;}
+.link-btn{background:none;border:0;color:var(--brand);font-weight:600;text-decoration:underline;text-underline-offset:3px;}
+.conn{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:11.5px;color:var(--text-dim);}
 .conn i{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
 .conn.ok i{background:var(--green);} .conn.bad i{background:var(--red);}
-.role-btn{border:1px solid var(--border);border-radius:20px;padding:4px 10px;background:var(--panel);font-size:11.5px;white-space:nowrap;}
+.role-btn{border:1px solid var(--border);border-radius:20px;padding:4px 11px;background:var(--panel-alt);font-size:11.5px;white-space:nowrap;color:var(--text-dim);}
+.role-btn b{color:var(--text);}
 
-/* ===== BARRA DE LA CORRIDA ===== */
-.runbar{height:var(--run);display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid var(--border-soft);background:var(--panel);}
-.run-title{min-width:0;}
-.run-title .row{display:flex;align-items:center;gap:8px;}
-.run-title h1{font-family:var(--font-display);font-size:17px;font-weight:600;white-space:nowrap;}
-.run-title p{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel-alt);color:var(--text-dim);border:1px solid var(--border);white-space:nowrap;}
-.chip.run{background:var(--green-dim);color:var(--green);border-color:#B9E0C8;}
-.chip.fin{background:#E8F0F8;color:var(--brand-2);border-color:#C8D9EC;}
-.chip.col{background:var(--red-dim);color:var(--red);border-color:#F0B9BE;}
-.clock{display:flex;align-items:baseline;gap:8px;padding:0 14px;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft);white-space:nowrap;}
-.clock .d{font-family:var(--font-display);font-weight:600;font-size:13px;color:var(--text-dim);}
-.clock .hm{font-family:var(--font-mono);font-size:22px;font-weight:600;}
-.clock .sub{font-size:11px;color:var(--text-faint);}
-.progress{flex:1;min-width:120px;}
-.progress .bar{height:8px;background:var(--panel-raised);border-radius:4px;overflow:hidden;position:relative;}
-.progress .bar i{display:block;height:100%;background:var(--brand-deep);border-radius:4px;transition:width .4s ease;}
-.progress .bar.col i{background:var(--red);}
-.progress .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);margin-top:3px;font-family:var(--font-mono);}
-.run-actions{display:flex;gap:8px;align-items:center;}
-.btn-play{background:var(--brand-deep);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-family:var(--font-display);font-weight:600;font-size:13.5px;box-shadow:0 4px 10px rgba(201,168,118,.4);white-space:nowrap;}
-.btn-play:hover{background:#b89765;}
-.btn-play.danger{background:var(--red);box-shadow:0 4px 10px rgba(214,58,76,.35);}
-.btn-play:disabled{opacity:.4;cursor:not-allowed;}
-.btn-secondary{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:var(--font-display);font-weight:600;font-size:13px;white-space:nowrap;}
-.btn-secondary:hover{background:var(--panel-alt);} .btn-secondary:disabled{opacity:.45;cursor:not-allowed;}
+/* ===== PANTALLA DE INICIO: elegir el escenario (centrada en cualquier dispositivo) ===== */
+.landing{position:fixed;inset:0;z-index:1500;overflow:auto;display:none;
+  background:radial-gradient(1100px 560px at 15% -10%, rgba(56,189,248,.16), transparent 60%),
+             radial-gradient(900px 520px at 110% 115%, rgba(129,140,248,.14), transparent 60%), var(--bg);}
+.landing.on{display:block;}
+.landing::before{content:"";position:fixed;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:44px 44px;}
+.ln-wrap{position:relative;min-height:100%;display:grid;place-items:center;padding:clamp(24px,7vh,72px) clamp(18px,8vw,110px);}
+.ln-box{width:100%;max-width:1000px;display:grid;gap:clamp(18px,3.5vh,32px);}
+.ln-brand{display:flex;align-items:center;justify-content:center;gap:14px;}
+.brand-mark{width:50px;height:50px;border-radius:13px;background:linear-gradient(155deg,#38BDF8,#6366F1);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;color:var(--brand-ink);font-size:20px;box-shadow:0 10px 26px -10px rgba(56,189,248,.7);}
+.ln-brand h1{font-family:var(--font-display);font-size:clamp(24px,3.4vw,32px);font-weight:700;line-height:1.1;}
+.ln-brand p{color:var(--text-dim);font-size:13px;}
+.ln-q{text-align:center;font-family:var(--font-display);font-weight:600;font-size:clamp(16px,2.2vw,20px);color:var(--text);}
+.ln-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,2vw,22px);}
+.ln-card{text-align:left;background:linear-gradient(180deg,var(--panel),var(--panel-alt));border:1px solid var(--border);border-radius:18px;padding:clamp(18px,2.4vw,26px);display:grid;gap:9px;align-content:start;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;}
+.ln-card:hover,.ln-card:focus-visible{transform:translateY(-3px);border-color:var(--brand);box-shadow:0 16px 34px -14px rgba(56,189,248,.5);outline:none;}
+.ln-ico{line-height:1;}
+.ln-ico svg{width:34px;height:34px;fill:none;stroke:var(--brand);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.ln-t{font-family:var(--font-display);font-weight:600;font-size:18px;}
+.ln-d{color:var(--text-dim);font-size:12.5px;line-height:1.5;}
+.ln-st{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-faint);margin-top:4px;}
+.ln-foot{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:center;align-items:center;}
+.ln-form{width:100%;max-width:780px;margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:clamp(16px,2.6vw,26px);display:grid;gap:14px;box-shadow:0 24px 48px -24px rgba(0,0,0,.6);}
+.ln-form-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.ln-form-h h2{font-family:var(--font-display);font-size:19px;font-weight:600;}
+.ln-status{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--text-dim);}
+.ln-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;}
 
-/* ===== ESCENARIO: MAPA (protagonista) + COLUMNA LATERAL ===== */
-.stage{height:calc(100vh - var(--top) - var(--run));display:grid;grid-template-columns:minmax(0,1fr) var(--side);}
+/* ===== VISTA DEL ESCENARIO: mapa (todo lo disponible) + barra lateral ===== */
+.stage{height:100vh;height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) var(--side);}
 .stage.noside{grid-template-columns:minmax(0,1fr) 0;}
-.map-wrap{position:relative;min-width:0;overflow:hidden;}
-#map{position:absolute;inset:0;background:var(--panel-alt);}
-.leaflet-container{font-family:var(--font-body);background:var(--panel-alt);}
+.stage.noside .side{display:none;}
+.map-wrap{position:relative;min-width:0;overflow:hidden;background:var(--map-bg);}
+#map{position:absolute;inset:0;background:var(--map-bg);}
+.leaflet-container{font-family:var(--font-body);background:var(--map-bg);}
+.leaflet-tooltip{background:var(--panel);color:var(--text);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.45);font-size:11.5px;}
+.leaflet-tooltip-top:before{border-top-color:var(--border);} .leaflet-tooltip-bottom:before{border-bottom-color:var(--border);}
+.leaflet-tooltip-left:before{border-left-color:var(--border);} .leaflet-tooltip-right:before{border-right-color:var(--border);}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--panel);color:var(--text);border-bottom-color:var(--border);}
+.leaflet-bar{border:1px solid var(--border) !important;box-shadow:0 2px 8px rgba(0,0,0,.4) !important;}
 /* controles flotantes sobre el mapa */
 .ov{position:absolute;z-index:900;}
-.ov-tl{top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:60%;}
-.map-btn{background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11.5px;color:var(--text-dim);box-shadow:0 1px 4px rgba(0,0,0,.08);}
-.map-btn[aria-pressed="true"]{background:var(--panel-raised);border-color:var(--brand-deep);color:var(--text);}
+.ov-tl{top:10px;left:10px;display:flex;gap:6px;}
+.map-btn{background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11.5px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35);}
+.map-btn:hover{border-color:var(--brand);}
 .ov-tr{top:10px;right:10px;display:grid;grid-template-columns:repeat(4,auto);gap:6px;}
-.hud{background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:10px;padding:6px 11px;box-shadow:0 2px 8px rgba(120,95,50,.15);min-width:92px;border-left:4px solid var(--border);}
-.hud .l{font-size:10.5px;color:var(--text-dim);white-space:nowrap;} .hud .v{font-family:var(--font-display);font-weight:600;font-size:17px;white-space:nowrap;}
+.hud{background:rgba(18,27,43,.9);border:1px solid var(--border);border-radius:10px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.35);min-width:88px;border-left:4px solid var(--border);}
+.hud .l{font-size:10.5px;color:var(--text-dim);white-space:nowrap;} .hud .v{font-family:var(--font-display);font-weight:600;font-size:16px;white-space:nowrap;}
 .hud.ok{border-left-color:var(--green);} .hud.warn{border-left-color:var(--amber);} .hud.bad{border-left-color:var(--red);}
-.ov-bl{bottom:10px;left:10px;background:rgba(255,255,255,.93);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);max-width:70%;}
+.ov-bl{bottom:10px;left:10px;background:rgba(18,27,43,.9);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);max-width:70%;}
 .ov-bl span{display:flex;align-items:center;gap:5px;}
 .lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-.lg-ln{width:18px;height:0;border-top:3px dashed var(--red);display:inline-block;}
-.lg-rt{width:18px;height:0;border-top:2px solid #1D6FA3;display:inline-block;}
-.side-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);z-index:950;background:var(--panel);border:1px solid var(--border);border-right:0;border-radius:8px 0 0 8px;padding:10px 4px;font-size:12px;color:var(--text-dim);}
-.lf-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(43,32,19,.4);display:flex;align-items:center;justify-content:center;font-size:13px;}
-.ax-lbl{font-size:9px;color:var(--text-faint);font-family:var(--font-mono);white-space:nowrap;}
+.lg-alm{width:12px;height:12px;border-radius:3px;border:1.5px solid #fff;display:inline-block;}
+.lg-uni{width:16px;height:16px;border-radius:50%;border:1.5px solid #fff;display:inline-grid;place-items:center;font-style:normal;font-size:9px;font-weight:700;color:#fff;font-family:var(--font-mono);}
+.u-badge{width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;font-family:var(--font-mono);background:var(--u-auto);}
+.lg-ln{width:18px;height:0;border-top:3px dashed var(--bloqueo);display:inline-block;}
+.lg-rt{width:18px;height:0;border-top:2px solid var(--ruta);display:inline-block;}
+.side-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);z-index:950;background:var(--panel);border:1px solid var(--border);border-right:0;border-radius:8px 0 0 8px;padding:12px 5px;font-size:18px;line-height:1;color:var(--text-dim);}
+.side-toggle:hover{color:var(--text);}
+.lf-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;font-family:var(--font-mono);}
+.ax-lbl{font-size:9.5px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;}
 /* estado vacío */
-.map-empty{position:absolute;inset:0;display:none;place-items:center;z-index:950;background:rgba(250,245,234,.6);}
+.map-empty{position:absolute;inset:0;display:none;place-items:center;z-index:950;background:rgba(7,12,22,.6);padding:16px;}
 .map-empty.on{display:grid;}
-.map-empty .box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:min(380px, calc(100% - 24px));text-align:center;box-shadow:0 8px 24px -12px rgba(120,95,50,.3);}
+.map-empty .box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:min(380px,100%);text-align:center;box-shadow:0 18px 40px -16px rgba(0,0,0,.6);}
 .map-empty h3{font-family:var(--font-display);font-size:16px;margin-bottom:6px;}
 .map-empty p{color:var(--text-dim);font-size:12.5px;margin-bottom:14px;}
 /* cajón de detalle de unidad */
-.drawer{position:absolute;top:0;right:0;bottom:0;width:300px;background:var(--panel);border-left:1px solid var(--border);z-index:960;transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;box-shadow:-6px 0 18px -10px rgba(43,32,19,.3);}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:300px;max-width:100%;background:var(--panel);border-left:1px solid var(--border);z-index:960;transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;box-shadow:-10px 0 24px -12px rgba(0,0,0,.6);}
 .drawer.on{transform:none;}
 .dr-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border-soft);}
 .dr-h b{font-family:var(--font-mono);font-size:14px;}
 .dr-h .x{margin-left:auto;background:none;border:0;font-size:18px;color:var(--text-dim);width:28px;height:28px;border-radius:5px;}
 .dr-b{padding:10px 12px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
-.kv{display:grid;grid-template-columns:100px 1fr;gap:4px 8px;font-size:12px;} .kv dt{color:var(--text-dim);} .kv dd{font-weight:500;}
+.kv{display:grid;grid-template-columns:100px 1fr;gap:5px 8px;font-size:12px;} .kv dt{color:var(--text-dim);} .kv dd{font-weight:500;}
 .sec-t{font-size:11px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
 .stops{list-style:none;display:flex;flex-direction:column;gap:3px;}
 .stops li{display:grid;grid-template-columns:18px 1fr auto;gap:6px;align-items:start;font-size:11.5px;padding:5px 7px;background:var(--panel-alt);border-radius:7px;}
 .stops .k{width:18px;height:18px;border-radius:4px;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;background:var(--brand-2);}
-.stops .k.R{background:var(--brand-ink);} .stops .t{color:var(--text-dim);font-size:11px;}
+.stops .k.R{background:var(--brand-deep);} .stops .t{color:var(--text-dim);font-size:11px;}
 .tags{display:flex;flex-wrap:wrap;gap:4px;} .tags span{font-family:var(--font-mono);font-size:10.5px;background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:4px;padding:1px 5px;}
 
-/* columna lateral con pestañas */
-.side{border-left:1px solid var(--border-soft);background:var(--bg);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-.side-tabs{display:flex;border-bottom:1px solid var(--border-soft);background:var(--panel);}
-.side-tab{flex:1;background:none;border:0;padding:9px 6px;font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--text-dim);border-bottom:2px solid transparent;}
-.side-tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--brand-deep);}
-.side-body{flex:1;overflow:auto;padding:10px;display:none;flex-direction:column;gap:10px;}
-.side-body.on{display:flex;}
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 10px -4px rgba(120,95,50,.12);}
+/* ===== BARRA LATERAL: secciones desplegables ===== */
+.side{border-left:1px solid var(--border-soft);background:var(--bg);display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;padding:10px;}
+.acc{background:var(--panel);border:1px solid var(--border);border-radius:13px;flex-shrink:0;}
+.acc-h{width:100%;display:flex;align-items:center;gap:8px;padding:12px 14px;background:none;border:0;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text);text-align:left;}
+.acc-h small{font-family:var(--font-body);font-weight:500;font-size:11px;color:var(--text-faint);}
+.chev{width:8px;height:8px;border-right:2px solid var(--text-dim);border-bottom:2px solid var(--text-dim);transform:rotate(45deg);transition:transform .2s ease;flex-shrink:0;}
+.acc-h .chev{margin:0 4px 3px auto;}
+.acc:not(.open) .acc-h .chev{transform:rotate(-45deg);margin-bottom:0;}
+.vehicle-card .chev{margin-left:auto;margin-right:4px;}
+.vehicle-card:not(.open) .chev{transform:rotate(-45deg);}
+.acc-b{display:none;padding:0 12px 12px;flex-direction:column;gap:10px;}
+.acc.open .acc-b{display:flex;}
+.panel{border:1px solid var(--border-soft);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .panel-head h2{font-family:var(--font-display);font-size:13px;font-weight:600;}
 .panel-head small{font-size:11px;color:var(--text-faint);}
+/* sección Simulación */
+.sim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.sim-name{font-family:var(--font-display);font-weight:600;font-size:15px;}
+.sim-clock{background:linear-gradient(160deg,var(--panel-raised),var(--panel-alt));border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:grid;gap:3px;}
+.sim-clock .l{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
+.sim-clock .hm{font-family:var(--font-mono);font-size:40px;font-weight:600;line-height:1.05;color:var(--text);}
+.sim-clock .d{font-family:var(--font-display);font-weight:600;font-size:15px;}
+.sim-clock .sub{font-size:12px;color:var(--text-dim);}
+.tag-ali{display:inline-block;margin-left:6px;font-size:10.5px;padding:1px 7px;border-radius:10px;background:var(--amber-dim);color:var(--amber);font-weight:600;}
+.progress .pg-h{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:5px;}
+.progress .bar2{height:9px;background:var(--panel-raised);border-radius:5px;overflow:hidden;}
+.progress .bar2 i{display:block;height:100%;background:linear-gradient(90deg,var(--brand-deep),var(--brand));border-radius:5px;transition:width .4s ease;}
+.progress .bar2.col i{background:var(--red);}
+.progress .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);margin-top:4px;font-family:var(--font-mono);}
+.sim-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sim-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--border-soft);padding-top:10px;}
+/* sección Resumen */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .kpi{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:9px;padding:7px 9px;position:relative;overflow:hidden;}
 .kpi .l{font-size:10.5px;color:var(--text-dim);} .kpi .v{font-size:16px;font-weight:600;font-family:var(--font-display);white-space:nowrap;}
@@ -141,203 +183,310 @@ header.topbar{display:flex;align-items:stretch;justify-content:space-between;hei
 .wh-top{display:flex;justify-content:space-between;align-items:center;}
 .wh-name{font-size:11.5px;font-weight:600;} .wh-pct{font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
 .wh-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);font-family:var(--font-mono);}
-.bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:4px 0 2px;} .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
+.bar{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;margin:4px 0 2px;} .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
 .bar i.warn{background:var(--amber);} .bar i.bad{background:var(--red);}
 .risk-top{display:flex;align-items:baseline;gap:8px;} .risk-top .rv{font-size:24px;font-weight:700;font-family:var(--font-display);}
 .risk-row{display:grid;grid-template-columns:110px 1fr 40px;gap:6px;align-items:center;font-size:11.5px;color:var(--text-dim);}
 .risk-row b{text-align:right;color:var(--text);}
-.col-box{border:2px solid var(--red);background:var(--red-dim);border-radius:12px;padding:10px 12px;color:#7D1D24;display:grid;gap:4px;}
+.col-box{border:2px solid var(--red);background:var(--red-dim);border-radius:12px;padding:10px 12px;color:#FECACA;display:grid;gap:4px;}
 .col-box b{font-size:14px;font-family:var(--font-display);}
+/* sección Flota */
 .vehicle-card{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;}
-.vehicle-card:hover{border-color:var(--brand-deep);}
+.vehicle-card:hover{border-color:var(--brand);}
 .vehicle-top{display:flex;align-items:center;gap:9px;}
-.v-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--panel-raised);font-size:16px;}
+.v-icon{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;background:var(--panel-raised);font-size:13px;font-weight:700;color:#fff;font-family:var(--font-mono);}
 .v-id{font-family:var(--font-mono);font-size:12px;font-weight:600;} .v-type{font-size:10.5px;color:var(--text-dim);}
 .v-status{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
 .st-ruta{background:var(--green-dim);color:var(--green);} .st-warn{background:var(--amber-dim);color:var(--amber);}
-.st-bad{background:var(--red-dim);color:var(--red);} .st-dim{background:var(--panel-raised);color:var(--text-faint);}
+.st-bad{background:var(--red-dim);color:var(--red);} .st-dim{background:var(--panel-raised);color:var(--text-dim);}
 .v-occ{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);} .v-occ .bar{flex:1;margin:0;}
 .ulist{display:none;border-top:1px solid var(--border-soft);padding-top:6px;} .vehicle-card.open .ulist{display:block;}
 .urow{display:grid;grid-template-columns:48px 1fr 50px;gap:5px;align-items:center;padding:3px 2px;border-radius:5px;background:none;border:0;width:100%;text-align:left;font-size:11.5px;}
 .urow:hover,.urow.sel{background:var(--panel-raised);} .urow .uc{font-family:var(--font-mono);font-weight:600;font-size:11px;}
 .urow .ue{color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* formularios */
 .frm{display:grid;gap:8px;} .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .fl{font-size:11.5px;color:var(--text-dim);display:grid;gap:3px;}
-input,select,textarea{border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:var(--panel);font-size:12.5px;width:100%;}
+input,select,textarea{border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--panel-alt);font-size:12.5px;width:100%;color:var(--text);}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(56,189,248,.45);outline-offset:0;border-color:var(--brand);}
 textarea{font-family:var(--font-mono);font-size:11.5px;resize:vertical;}
-.ro{background:var(--panel-alt);color:var(--text-dim);}
-.act-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:9px;border:1.5px solid var(--red);border-radius:8px;background:none;color:var(--red);font-weight:600;font-size:13px;font-family:var(--font-display);}
+.ro{background:var(--panel);color:var(--text-dim);}
+.act-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:9px;border:1.5px solid var(--red);border-radius:9px;background:none;color:var(--red);font-weight:600;font-size:13px;font-family:var(--font-display);}
+.act-btn:hover{background:var(--red-dim);}
+/* sección Bitácora */
 .fchips{display:flex;gap:5px;flex-wrap:wrap;}
-.fchip{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:2px 9px;font-size:11px;color:var(--text-dim);}
+.fchip{border:1px solid var(--border);background:var(--panel-alt);border-radius:14px;padding:2px 9px;font-size:11px;color:var(--text-dim);}
 .fchip[aria-pressed="true"]{background:var(--brand-deep);color:#fff;border-color:var(--brand-deep);}
 .log-row{display:grid;grid-template-columns:84px 1fr;gap:3px 8px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:11.5px;}
 .log-row:first-child{border-top:0;}
 .log-time{font-family:var(--font-mono);color:var(--text-faint);font-size:11px;}
 .log-tag{font-family:var(--font-mono);font-size:10px;padding:1px 7px;border-radius:6px;text-transform:uppercase;width:fit-content;}
 .log-text{grid-column:1/-1;color:var(--text-dim);}
-.tag-info{background:rgba(95,132,160,.12);color:var(--brand-2);} .tag-warn{background:var(--amber-dim);color:var(--amber);}
-.tag-crit{background:var(--red-dim);color:var(--red);} .tag-ok{background:var(--green-dim);color:var(--green);} .tag-sys{background:var(--panel-raised);color:var(--text-faint);}
+.tag-info{background:rgba(56,189,248,.14);color:var(--brand);} .tag-warn{background:var(--amber-dim);color:var(--amber);}
+.tag-crit{background:var(--red-dim);color:var(--red);} .tag-ok{background:var(--green-dim);color:var(--green);} .tag-sys{background:var(--panel-raised);color:var(--text-dim);}
 
 /* ===== REGISTRO DE PEDIDOS ===== */
-.view-reg{display:none;height:calc(100vh - var(--top));overflow:auto;padding:16px 20px;}
+.view-reg{display:none;height:100vh;height:100dvh;overflow:auto;padding:16px clamp(14px,3vw,28px);}
 .view-reg.on{display:block;}
+.reg-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.reg-head h1{font-family:var(--font-display);font-size:20px;}
 .reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;max-width:1300px;}
-.minimap{border:1px solid var(--border);border-radius:8px;background:var(--panel-alt);cursor:crosshair;display:block;width:100%;}
+.view-reg .panel{background:var(--panel);border-color:var(--border);}
+.minimap{border:1px solid var(--border);border-radius:8px;background:var(--map-bg);cursor:crosshair;display:block;width:100%;}
 .plazos{display:flex;flex-wrap:wrap;gap:6px;}
-.plazos label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;cursor:pointer;}
-.plazos input{width:auto;} .plazos label:has(input:checked){background:var(--panel-raised);border-color:var(--brand-deep);}
+.plazos label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:12.5px;cursor:pointer;}
+.plazos input{width:auto;} .plazos label:has(input:checked){background:var(--panel-raised);border-color:var(--brand);}
 .lim-box{background:var(--panel-alt);border-radius:7px;padding:8px 10px;font-size:12.5px;border:1px solid var(--border-soft);}
 table.t{width:100%;border-collapse:collapse;font-size:12px;}
 table.t th{text-align:left;font-weight:600;color:var(--text-dim);font-size:11px;border-bottom:1px solid var(--border);padding:5px 6px;}
 table.t td{border-bottom:1px solid var(--border-soft);padding:5px 6px;} table.t .n{text-align:right;}
 
 /* ===== MODALES ===== */
-.modal{position:fixed;inset:0;background:rgba(43,32,19,.45);display:none;place-items:center;z-index:2000;padding:16px;}
+.modal{position:fixed;inset:0;background:rgba(3,7,15,.7);display:none;place-items:center;z-index:2000;padding:16px;}
 .modal.on{display:grid;}
-.mbox{background:var(--panel);border-radius:14px;width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 24px 48px -16px rgba(43,32,19,.4);}
+.mbox{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 24px 48px -16px rgba(0,0,0,.7);}
 .mbox.wide{width:min(860px,100%);}
 .mh{padding:13px 18px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:10px;}
 .mh h3{font-family:var(--font-display);font-size:16px;font-weight:600;}
 .mh .mx{margin-left:auto;background:none;border:0;font-size:20px;color:var(--text-dim);width:30px;height:30px;border-radius:6px;}
 .mb{padding:14px 18px;display:grid;gap:12px;}
 .mf{padding:12px 18px;border-top:1px solid var(--border-soft);display:flex;justify-content:flex-end;gap:10px;}
-fieldset{border:1px solid var(--border-soft);border-radius:9px;padding:10px 14px;display:grid;gap:8px;}
+fieldset{border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;display:grid;gap:8px;}
 legend{font-size:12px;font-weight:600;color:var(--text-dim);padding:0 4px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 .rep-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .rep-kpis div{background:var(--panel-alt);border-radius:8px;padding:9px 11px;border:1px solid var(--border-soft);}
 .rep-kpis .l{font-size:11px;color:var(--text-dim);} .rep-kpis .v{font-size:18px;font-weight:600;font-family:var(--font-display);}
-#toast{position:fixed;right:20px;bottom:20px;z-index:3000;max-width:420px;padding:11px 14px;border-radius:9px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s ease;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.18);}
+#toast{position:fixed;right:20px;bottom:20px;z-index:3000;max-width:min(420px,calc(100% - 40px));padding:11px 14px;border-radius:9px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s ease;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.45);}
 
-/* ===== PANTALLAS ANGOSTAS: el mapa arriba (60 % del alto) y los paneles debajo ===== */
-@media(max-width:1100px){ :root{--side:300px;} .clock .sub{display:none;} .progress{display:none;} }
+/* ===== PANTALLAS ANGOSTAS ===== */
+@media(max-width:1100px){ :root{--side:310px;} }
 @media(max-width:820px){
-  body{overflow:auto;} :root{--run:auto;}
-  header.topbar{flex-wrap:wrap;height:auto;padding:0 10px;}
-  .brand{border-right:0;padding:6px 0;} .top-right{margin-left:auto;padding:6px 0;}
-  .tabs{order:3;flex-basis:100%;border-top:1px solid var(--border-soft);} .tab{padding:9px 10px;font-size:12.5px;}
-  .view-reg{height:auto;padding:12px;}
+  body{overflow:auto;}
+  .ln-cards{grid-template-columns:1fr;}
+  .stage{height:auto;display:block;} .map-wrap{height:72vh;height:72dvh;}
+  .side{border-left:0;overflow:visible;} .side-toggle{display:none;}
+  .ov-tr{grid-template-columns:repeat(2,auto);} .ov-bl{display:none;}
   .hud{min-width:0;padding:3px 8px;} .hud .v{font-size:13px;} .hud .l{font-size:9.5px;}
-  .runbar{flex-wrap:wrap;padding:8px 12px;gap:8px;} .clock{border:0;padding:0;}
-  .stage{height:auto;display:block;} .map-wrap{height:62vh;} .side{border-left:0;min-height:60vh;}
-  .side-toggle{display:none;} .ov-tr{grid-template-columns:repeat(2,auto);} .ov-bl{display:none;}
-  .reg-grid,.g2,.g3,.rep-kpis{grid-template-columns:1fr 1fr;}
-  .brand-text .sub{display:none;}
+  .view-reg{height:auto;}
+  .reg-grid,.g3,.rep-kpis{grid-template-columns:1fr 1fr;}
 }
+@media(max-width:520px){ .reg-grid,.g2,.g3,.rep-kpis{grid-template-columns:1fr;} .sim-clock .hm{font-size:34px;} }
 body.observer .ctrl-only{display:none !important;}
 </style>
 </head>
 <body>
 
-<!-- ===== BARRA SUPERIOR: pestañas de los tres escenarios ===== -->
-<header class="topbar">
-  <div class="brand">
-    <div class="brand-mark">PR</div>
-    <div class="brand-text"><div class="name">PaqRap</div><div class="sub">Visualizador</div></div>
-  </div>
-  <nav class="tabs">
-    <button class="tab" data-tab="DIA_A_DIA" aria-selected="false"><span class="dot" id="dot-DIA_A_DIA"></span>Operación día a día</button>
-    <button class="tab" data-tab="SIM_5D" aria-selected="true"><span class="dot" id="dot-SIM_5D"></span>Simulación 5 días</button>
-    <button class="tab" data-tab="COLAPSO" aria-selected="false"><span class="dot" id="dot-COLAPSO"></span>Hasta el colapso</button>
-    <button class="tab" data-tab="REGISTRO" aria-selected="false">Registro de pedidos</button>
-  </nav>
-  <div class="top-right">
-    <div class="conn" id="conn"><i></i><span id="connTxt">Conectando…</span></div>
-    <button class="role-btn" id="roleBtn">Rol: <b id="roleTxt">Control</b></button>
-  </div>
-</header>
-
-<!-- ===== VISTA DE ESCENARIO (compartida por las tres pestañas) ===== -->
-<div id="viewMon">
-  <div class="runbar">
-    <div class="run-title">
-      <div class="row"><h1 id="rbTitle">Simulación 5 días</h1><span class="chip" id="rbState">Sin iniciar</span></div>
-      <p id="rbMeta">Algoritmo: Búsqueda Tabú</p>
-    </div>
-    <div class="clock"><span class="d" id="ckDay">Día —</span><span class="hm" id="ckHM">--:--</span><span class="sub" id="ckDate">sin reloj</span></div>
-    <div class="progress"><div class="bar" id="pgBar"><i id="pgFill" style="width:0"></i></div><div class="ticks" id="pgTicks"></div></div>
-    <div class="run-actions">
-      <button class="btn-play ctrl-only" id="btnIniciar">▶ Iniciar</button>
-      <button class="btn-play danger ctrl-only" id="btnFinalizar" disabled>■ Finalizar</button>
-      <button class="btn-secondary" id="btnReporte" disabled>Reporte</button>
-    </div>
-  </div>
-
-  <div class="stage" id="stage">
-    <!-- MAPA: ocupa casi toda la pantalla -->
-    <div class="map-wrap">
-      <div id="map"></div>
-      <div class="ov ov-tl">
-        <button class="map-btn" aria-pressed="true" data-layer="rutas">Rutas</button>
-        <button class="map-btn" aria-pressed="true" data-layer="pedidos">Pedidos</button>
-        <button class="map-btn" aria-pressed="true" data-layer="bloqueos">Bloqueos</button>
-        <button class="map-btn" id="tgFit">Encuadrar</button>
+<!-- ===== PANTALLA DE INICIO: elegir el escenario e iniciarlo ===== -->
+<div class="landing on" id="landing">
+  <div class="ln-wrap">
+    <div class="ln-box">
+      <div class="ln-brand">
+        <div class="brand-mark">PR</div>
+        <div><h1>PaqRap</h1><p>Planificación y visualización de rutas de reparto</p></div>
       </div>
+
+      <!-- Paso 1: los tres escenarios -->
+      <div id="lnEsc" style="display:grid;gap:clamp(18px,3.5vh,30px);">
+        <div class="ln-q">¿Qué escenario quieres ver?</div>
+        <div class="ln-cards">
+          <button class="ln-card" data-esc="DIA_A_DIA">
+            <span class="ln-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="ln-t">Operación día a día</span>
+            <span class="ln-d">Operación en tiempo real. Los pedidos se registran en vivo.</span>
+            <span class="ln-st"><i class="dot" id="dot-DIA_A_DIA"></i><span id="st-DIA_A_DIA">Sin corrida</span></span>
+          </button>
+          <button class="ln-card" data-esc="SIM_5D">
+            <span class="ln-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><span class="ln-t">Simulación de 5 días</span>
+            <span class="ln-d">Cinco días de operación con los datos oficiales, mostrados en 60 o 30 minutos.</span>
+            <span class="ln-st"><i class="dot" id="dot-SIM_5D"></i><span id="st-SIM_5D">Sin corrida</span></span>
+          </button>
+          <button class="ln-card" data-esc="COLAPSO">
+            <span class="ln-ico"><svg viewBox="0 0 24 24"><path d="M3 6l6.5 6.5 4-4L21 16"/><path d="M15 16h6v-6"/></svg></span><span class="ln-t">Hasta el colapso</span>
+            <span class="ln-d">Corre hasta el primer pedido que no llega en su plazo (tope de 30 días).</span>
+            <span class="ln-st"><i class="dot" id="dot-COLAPSO"></i><span id="st-COLAPSO">Sin corrida</span></span>
+          </button>
+        </div>
+        <div class="ln-foot">
+          <button class="role-btn">Rol: <b class="roleTxt">Control</b></button>
+          <div class="conn"><i></i><span class="connTxt">Conectando…</span></div>
+          <button class="link-btn" id="lnRegistro">Registro de pedidos</button>
+        </div>
+      </div>
+
+      <!-- Paso 2: iniciar (o ver) la corrida del escenario elegido -->
+      <div class="ln-form" id="lnIni" hidden>
+        <div class="ln-form-h">
+          <button class="btn-secondary" id="lnVolver">← Escenarios</button>
+          <h2 id="mdIniT">Simulación de 5 días</h2>
+          <span class="chip" id="lnChip">Sin corrida</span>
+        </div>
+        <div class="ln-status" id="lnStatus"></div>
+        <div id="lnCampos" class="ctrl-only" style="display:grid;gap:12px;">
+          <fieldset>
+            <legend>Periodo y ritmo</legend>
+            <div class="g2">
+              <label class="fl">Fecha y hora de inicio<input type="datetime-local" id="ciInicio" step="60"></label>
+              <label class="fl">Ritmo<select id="ciRitmo"></select></label>
+            </div>
+            <p class="help" id="ciAyuda"></p>
+          </fieldset>
+          <fieldset>
+            <legend>Datos de entrada (oficiales del profesor)</legend>
+            <div class="g3">
+              <label class="fl">Ventas<input id="ciVentas" class="ro" readonly></label>
+              <label class="fl">Bloqueos<input id="ciBloq" class="ro" readonly></label>
+              <label class="fl">Mantenimientos<input class="ro" readonly value="mant.preventivo.09.10"></label>
+            </div>
+            <p class="help" id="ciRango"></p>
+          </fieldset>
+          <fieldset>
+            <legend>Flota y algoritmo</legend>
+            <div class="g3">
+              <label class="fl">Autos (24 paq.)<input type="number" id="ciAutos" value="10" min="0" max="30"></label>
+              <label class="fl">Motos (8 paq.)<input type="number" id="ciMotos" value="15" min="0" max="30"></label>
+              <label class="fl">Bicicletas (4 paq.)<input type="number" id="ciBicis" value="12" min="0" max="30"></label>
+            </div>
+            <label class="fl">Algoritmo de planificación<input class="ro" readonly value="Búsqueda Tabú (elegido en el experimento)"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Umbrales del semáforo (solo en este dispositivo)</legend>
+            <div class="g3">
+              <label class="fl">Holgura verde (min)<input type="number" id="uHv" value="120"></label>
+              <label class="fl">Holgura ámbar (min)<input type="number" id="uHa" value="60"></label>
+              <label class="fl">Saturación ámbar (%)<input type="number" id="uSa" value="60"></label>
+            </div>
+          </fieldset>
+        </div>
+        <div id="ciMsg"></div>
+        <div class="ln-actions">
+          <button class="btn-secondary" id="lnVer" hidden>Ver la corrida</button>
+          <button class="btn-play ctrl-only" id="ciGo">Iniciar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VISTA DE ESCENARIO (compartida por los tres escenarios) ===== -->
+<div id="viewMon" style="display:none">
+  <div class="stage" id="stage">
+    <!-- MAPA: ocupa todo el espacio que deja la barra lateral -->
+    <div class="map-wrap" id="mapWrap">
+      <div id="map"></div>
+      <div class="ov ov-tl"><button class="map-btn" id="tgFit">Encuadrar</button></div>
       <div class="ov ov-tr" id="hud"></div>
       <div class="ov ov-bl">
-        <span>🏪 Central</span><span>🏬 Intermedio</span><span>🚗 Auto · 🛵 Moto · 🚲 Bici</span>
-        <span><i class="lg-dot" style="background:#1B8A4B"></i><i class="lg-dot" style="background:#C07A00"></i><i class="lg-dot" style="background:#C8363F"></i> Pedido según holgura</span>
+        <span><i class="lg-alm" style="background:var(--alm-central)"></i>Central</span><span><i class="lg-alm" style="background:var(--alm-inter)"></i>Intermedio</span><span><i class="lg-uni" style="background:var(--u-auto)">A</i>Auto</span><span><i class="lg-uni" style="background:var(--u-moto)">M</i>Moto</span><span><i class="lg-uni" style="background:var(--u-bici)">B</i>Bici</span><span><i class="lg-uni" style="background:var(--u-idle)"></i>Disponible</span>
+        <span><i class="lg-dot" style="background:var(--ped-ok)"></i><i class="lg-dot" style="background:var(--ped-warn)"></i><i class="lg-dot" style="background:var(--ped-bad)"></i> Pedido según holgura</span>
         <span><i class="lg-ln"></i> Bloqueo</span><span><i class="lg-rt"></i> Ruta</span>
       </div>
-      <button class="side-toggle" id="tgSide" title="Mostrar u ocultar el panel">▶</button>
+      <button class="side-toggle" id="tgSide" title="Mostrar u ocultar la barra lateral">›</button>
       <div class="map-empty" id="emptyState">
         <div class="box">
           <h3 id="emTitle">Sin corrida activa</h3>
           <p id="emText">Inicia la corrida para ver la operación.</p>
-          <button class="btn-play ctrl-only" id="emBtn">▶ Iniciar corrida</button>
+          <button class="btn-play" id="emBtn">← Ir a los escenarios</button>
         </div>
       </div>
       <div class="drawer" id="drawer">
-        <div class="dr-h"><span id="drIcon" style="font-size:18px;">🚗</span><b id="drCode">—</b><span class="chip" id="drState"></span><button class="x" id="drClose">×</button></div>
+        <div class="dr-h"><span id="drIcon" class="u-badge">A</span><b id="drCode">—</b><span class="chip" id="drState"></span><button class="x" id="drClose">×</button></div>
         <div class="dr-b" id="drBody"></div>
       </div>
     </div>
 
-    <!-- COLUMNA LATERAL -->
+    <!-- BARRA LATERAL: cuatro secciones desplegables -->
     <aside class="side" id="side">
-      <div class="side-tabs">
-        <button class="side-tab" data-side="res" aria-selected="true">Resumen</button>
-        <button class="side-tab" data-side="flota" aria-selected="false">Flota</button>
-        <button class="side-tab" data-side="log" aria-selected="false">Bitácora</button>
-      </div>
-      <div class="side-body on" id="side-res">
-        <div class="kpi-grid" id="kpis"></div>
-        <div class="panel"><div class="panel-head"><h2>Riesgo de colapso</h2><small>alerta temprana</small></div><div id="risk"></div></div>
-        <div class="panel"><div class="panel-head"><h2>Almacenes</h2><small>saturación = consumo / capacidad</small></div><div id="whs" style="display:grid;gap:6px;"></div></div>
-        <div class="panel"><div class="panel-head"><h2>Evolución</h2><small id="evoCap">entregas por día</small></div><svg id="evo" viewBox="0 0 300 100" style="width:100%;height:100px;"></svg></div>
-        <div class="panel ctrl-only">
-          <div class="panel-head"><h2>Acciones de operación</h2></div>
-          <button class="act-btn" id="btnAbrirAveria">🔧 Registrar avería</button>
-          <div class="row2">
-            <label class="fl">Tipo de unidad<select id="velTipo"><option value="AUTO">Auto</option><option value="MOTO">Moto</option><option value="BICICLETA">Bicicleta</option></select></label>
-            <label class="fl">Velocidad (km/h)<input type="number" id="velKmh" value="40" min="1" max="80"></label>
+      <section class="acc open" data-acc="sim">
+        <button class="acc-h" aria-expanded="true">Simulación<i class="chev"></i></button>
+        <div class="acc-b">
+          <div class="sim-top">
+            <div><div class="sim-name" id="rbTitle">Simulación de 5 días</div><div class="help" id="rbMeta">Búsqueda Tabú · datos oficiales del profesor</div></div>
+            <span class="chip" id="rbState">Sin iniciar</span>
           </div>
-          <button class="btn-secondary" id="btnVel">Aplicar en la próxima replanificación</button>
-          <div id="velMsg" class="help" role="status"></div>
+          <dl class="kv">
+            <dt>Fecha de inicio</dt><dd id="smInicio">—</dd>
+            <dt>Vehículos</dt><dd id="smFlota">—</dd>
+            <dt>Ritmo</dt><dd id="smRitmo">—</dd>
+            <dt>Tiempo real</dt><dd id="smReal" class="mono">—</dd>
+            <dt>Hora real</dt><dd id="smHoraReal" class="mono">—</dd>
+          </dl>
+          <div class="sim-clock">
+            <div class="l">Tiempo operativo</div>
+            <div class="hm" id="ckHM">--:--</div>
+            <div class="d" id="ckDay">Día —</div>
+            <div class="sub" id="ckDate">sin reloj</div>
+            <div class="sub" id="ckTrans"></div>
+          </div>
+          <div class="progress">
+            <div class="pg-h"><span id="pgLbl">Avance de los 5 días</span><span id="pgPct" class="mono">0 %</span></div>
+            <div class="bar2" id="pgBar"><i id="pgFill" style="width:0"></i></div>
+            <div class="ticks" id="pgTicks"></div>
+          </div>
+          <div class="sim-actions">
+            <button class="btn-play danger ctrl-only" id="btnFinalizar" disabled>Finalizar</button>
+            <button class="btn-secondary" id="btnReporte" disabled>Reporte</button>
+          </div>
+          <div class="sim-foot">
+            <button class="btn-secondary" id="btnEscenarios">← Escenarios</button>
+            <button class="btn-secondary" id="btnRegistroLnk" hidden>Registro de pedidos</button>
+            <button class="role-btn">Rol: <b class="roleTxt">Control</b></button>
+            <div class="conn"><i></i><span class="connTxt">Conectando…</span></div>
+          </div>
         </div>
-      </div>
-      <div class="side-body" id="side-flota"><div class="panel-head"><h2 style="font-family:var(--font-display);font-size:13px;">Flota</h2><small id="fleetTot" class="help">—</small></div><div id="fleet" style="display:grid;gap:8px;"></div></div>
-      <div class="side-body" id="side-log">
-        <div class="fchips" id="logFiltros">
-          <button class="fchip" aria-pressed="true" data-f="ALL">Todos</button>
-          <button class="fchip" aria-pressed="false" data-f="ENTREGA">Entregas</button>
-          <button class="fchip" aria-pressed="false" data-f="REPLANIFICACION">Replanificaciones</button>
-          <button class="fchip" aria-pressed="false" data-f="RECARGA">Recargas</button>
-          <button class="fchip" aria-pressed="false" data-f="AVERIA">Averías</button>
-          <button class="fchip" aria-pressed="false" data-f="BLOQUEO">Bloqueos</button>
-          <button class="fchip" aria-pressed="false" data-f="COLAPSO">Colapso</button>
+      </section>
+
+      <section class="acc" data-acc="res">
+        <button class="acc-h" aria-expanded="false">Resumen<i class="chev"></i></button>
+        <div class="acc-b">
+          <div class="kpi-grid" id="kpis"></div>
+          <div class="panel"><div class="panel-head"><h2>Riesgo de colapso</h2><small>alerta temprana</small></div><div id="risk"></div></div>
+          <div class="panel"><div class="panel-head"><h2>Almacenes</h2><small>saturación = consumo / capacidad</small></div><div id="whs" style="display:grid;gap:6px;"></div></div>
+          <div class="panel"><div class="panel-head"><h2>Evolución</h2><small id="evoCap">entregas por día</small></div><svg id="evo" viewBox="0 0 300 100" style="width:100%;height:100px;"></svg></div>
+          <div class="panel ctrl-only">
+            <div class="panel-head"><h2>Acciones de operación</h2></div>
+            <button class="act-btn" id="btnAbrirAveria">Registrar avería</button>
+            <div class="row2">
+              <label class="fl">Tipo de unidad<select id="velTipo"><option value="AUTO">Auto</option><option value="MOTO">Moto</option><option value="BICICLETA">Bicicleta</option></select></label>
+              <label class="fl">Velocidad (km/h)<input type="number" id="velKmh" value="40" min="1" max="80"></label>
+            </div>
+            <button class="btn-secondary" id="btnVel">Aplicar en la próxima planificación</button>
+            <div id="velMsg" class="help" role="status"></div>
+          </div>
         </div>
-        <div id="logList"></div>
-      </div>
+      </section>
+
+      <section class="acc" data-acc="flota">
+        <button class="acc-h" aria-expanded="false">Flota <small id="fleetTot">—</small><i class="chev"></i></button>
+        <div class="acc-b"><div id="fleet" style="display:grid;gap:8px;"></div></div>
+      </section>
+
+      <section class="acc" data-acc="log">
+        <button class="acc-h" aria-expanded="false">Bitácora<i class="chev"></i></button>
+        <div class="acc-b">
+          <div class="fchips" id="logFiltros">
+            <button class="fchip" aria-pressed="true" data-f="ALL">Todos</button>
+            <button class="fchip" aria-pressed="false" data-f="ENTREGA">Entregas</button>
+            <button class="fchip" aria-pressed="false" data-f="REPLANIFICACION">Replanificaciones</button>
+            <button class="fchip" aria-pressed="false" data-f="RECARGA">Recargas</button>
+            <button class="fchip" aria-pressed="false" data-f="AVERIA">Averías</button>
+            <button class="fchip" aria-pressed="false" data-f="BLOQUEO">Bloqueos</button>
+            <button class="fchip" aria-pressed="false" data-f="COLAPSO">Colapso</button>
+          </div>
+          <div id="logList"></div>
+        </div>
+      </section>
     </aside>
   </div>
 </div>
 
 <!-- ===== VISTA REGISTRO DE PEDIDOS (operación día a día) ===== -->
 <div class="view-reg" id="viewReg">
-  <div style="margin-bottom:12px;">
-    <h1 style="font-family:var(--font-display);font-size:20px;">Registro de pedidos</h1>
-    <p class="help" id="regTarget">Se agrega a la operación día a día en curso.</p>
+  <div class="reg-head">
+    <button class="btn-secondary" id="regVolver">← Volver</button>
+    <div>
+      <h1>Registro de pedidos</h1>
+      <p class="help" id="regTarget">Se agrega a la operación día a día en curso.</p>
+    </div>
   </div>
   <div class="reg-grid">
     <div class="panel">
@@ -384,61 +533,17 @@ body.observer .ctrl-only{display:none !important;}
 </div>
 
 <!-- ===== MODALES ===== -->
-<div class="modal" id="mdIniciar">
-  <div class="mbox">
-    <div class="mh"><h3 id="mdIniT">Iniciar corrida</h3><button class="mx" data-close>×</button></div>
-    <div class="mb">
-      <fieldset>
-        <legend>Periodo y ritmo</legend>
-        <div class="g2">
-          <label class="fl">Fecha y hora de inicio<input type="datetime-local" id="ciInicio" step="60"></label>
-          <label class="fl">Ritmo<select id="ciRitmo"></select></label>
-        </div>
-        <p class="help" id="ciAyuda"></p>
-      </fieldset>
-      <fieldset>
-        <legend>Datos de entrada (oficiales del profesor)</legend>
-        <div class="g3">
-          <label class="fl">Ventas<input id="ciVentas" class="ro" readonly></label>
-          <label class="fl">Bloqueos<input id="ciBloq" class="ro" readonly></label>
-          <label class="fl">Mantenimientos<input class="ro" readonly value="mant.preventivo.09.10"></label>
-        </div>
-        <p class="help" id="ciRango"></p>
-      </fieldset>
-      <fieldset>
-        <legend>Flota y algoritmo</legend>
-        <div class="g3">
-          <label class="fl">🚗 Autos (24 paq.)<input type="number" id="ciAutos" value="10" min="0" max="30"></label>
-          <label class="fl">🛵 Motos (8 paq.)<input type="number" id="ciMotos" value="15" min="0" max="30"></label>
-          <label class="fl">🚲 Bicicletas (4 paq.)<input type="number" id="ciBicis" value="12" min="0" max="30"></label>
-        </div>
-        <label class="fl">Algoritmo de planificación<input class="ro" readonly value="Búsqueda Tabú (elegido en el experimento)"></label>
-      </fieldset>
-      <fieldset>
-        <legend>Umbrales del semáforo (solo en este dispositivo)</legend>
-        <div class="g3">
-          <label class="fl">Holgura verde (min)<input type="number" id="uHv" value="120"></label>
-          <label class="fl">Holgura ámbar (min)<input type="number" id="uHa" value="60"></label>
-          <label class="fl">Saturación ámbar (%)<input type="number" id="uSa" value="60"></label>
-        </div>
-      </fieldset>
-      <div id="ciMsg"></div>
-    </div>
-    <div class="mf"><button class="btn-secondary" data-close>Cancelar</button><button class="btn-play" id="ciGo">▶ Iniciar</button></div>
-  </div>
-</div>
-
 <div class="modal" id="mdFin">
   <div class="mbox">
     <div class="mh"><h3>¿Finalizar la corrida?</h3><button class="mx" data-close>×</button></div>
     <div class="mb"><p>La corrida se detendrá para todos los dispositivos conectados.</p></div>
-    <div class="mf"><button class="btn-secondary" data-close>Volver</button><button class="btn-play danger" id="finGo">■ Finalizar</button></div>
+    <div class="mf"><button class="btn-secondary" data-close>Volver</button><button class="btn-play danger" id="finGo">Finalizar</button></div>
   </div>
 </div>
 
 <div class="modal" id="mdAveria">
   <div class="mbox">
-    <div class="mh"><h3>🔧 Registrar avería</h3><button class="mx" data-close>×</button></div>
+    <div class="mh"><h3>Registrar avería</h3><button class="mx" data-close>×</button></div>
     <div class="mb">
       <p class="help">Se aplica en el instante actual y dispara una replanificación.</p>
       <label class="fl">Unidad<select id="avUnidad"></select></label>
@@ -492,11 +597,11 @@ const ALMACENES = [
   { codigo: 'AL-ES',  nombre: 'Intermedio Este',      x: 57, y: 27, capacidad: 1000 }
 ];
 const HORAS_ALIMENTACION = [3, 11, 19];
-const EMOJI = { AUTO: '🚗', MOTO: '🛵', BICICLETA: '🚲' };
+const SIGLA = { AUTO: 'A', MOTO: 'M', BICICLETA: 'B' };   // letra del ícono de cada tipo de unidad
 const ESC_INFO = {
   DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']],
                ayuda: 'El reloj avanza desde este momento. Llegan los pedidos del archivo oficial y los que se registren en «Registro de pedidos».' },
-  SIM_5D:    { titulo: 'Simulación 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']],
+  SIM_5D:    { titulo: 'Simulación de 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']],
                ayuda: 'Cinco días simulados con los pedidos y bloqueos oficiales. Se planifica por bloques de 1 h simulada, cada uno calculado 30 min antes de que empiece (y ante averías o pedidos urgentes).' },
   COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']],
                ayuda: 'Corre hasta el primer pedido que no llega en su plazo (tope de 30 días).' }
@@ -504,10 +609,17 @@ const ESC_INFO = {
 /* Inicio sugerido: ventanas con los datos oficiales que terminaron sin colapso. */
 const INICIO_SUGERIDO = { SIM_5D: '2026-09-16T00:00', COLAPSO: '2027-01-01T00:00' };
 
+/* Colores del mapa: se leen de la paleta (variables CSS de :root) */
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL = {};
+['map-bg', 'grid', 'grid-strong', 'grid-border', 'ruta', 'ruta-sel', 'bloqueo', 'u-auto', 'u-moto', 'u-bici', 'u-idle', 'u-mant',
+ 'alm-central', 'alm-inter', 'ped-ok', 'ped-warn', 'ped-bad', 'red', 'amber', 'text', 'text-dim', 'text-faint', 'brand', 'border'].forEach(k => COL[k] = cssVar('--' + k));
+const COLOR_TIPO = { AUTO: COL['u-auto'], MOTO: COL['u-moto'], BICICLETA: COL['u-bici'] };
+
 /* ===== Estado del cliente ===== */
-const S = { tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {}, logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] },
-  serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null, filtro: 'ALL', side: 'res',
-  capas: { rutas: true, pedidos: true, bloqueos: true }, reportado: {}, registrados: [], datos: null };
+const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
+  logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
+  filtro: 'ALL', acc: { sim: true, res: false, flota: false, log: false }, reportado: {}, registrados: [], datos: null };
 const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, satA: 60, satR: 85, ocuA: 75, ocuR: 95, rP: 15, rF: 20, rC: 30, rI: 60 };
 const umb = () => S.umbrales[S.tab] || UMB_DEF;
 
@@ -522,13 +634,17 @@ const fmtFecha = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullY
 const fmtHM = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; };
 const fmtMin = m => { m = Math.round(m); const neg = m < 0; m = Math.abs(m); const h = Math.floor(m / 60), mi = m % 60; return (neg ? '−' : '') + (h ? h + ' h ' : '') + mi + ' min'; };
+const fmtDias = m => { m = Math.max(0, Math.floor(m)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return `${d} d ${pad(h)} h ${pad(mi)} min`; };
 const soles = v => 'S/ ' + Math.round(v).toLocaleString('es-PE');
 const num = v => Math.round(v).toLocaleString('es-PE');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function sem(v, a, r, invert){ if (invert) return v >= r ? 'bad' : v >= a ? 'warn' : 'ok'; return v >= a ? 'ok' : v >= r ? 'warn' : 'bad'; }
 function turnoDe(d){ const h = d.getHours(); return h >= 7 && h < 15 ? 'Turno 1 · 07–15 h' : h >= 15 && h < 23 ? 'Turno 2 · 15–23 h' : 'Turno 3 · 23–07 h'; }
-function toast(msg, malo){ const t = $('#toast'); t.textContent = msg; t.style.background = malo ? '#FDECEF' : '#EDF8F1'; t.style.color = malo ? '#A62232' : '#176B3A';
-  t.style.border = '1px solid ' + (malo ? '#E9A8B1' : '#A9D7BA'); t.style.opacity = '1'; clearTimeout(t._k); t._k = setTimeout(() => t.style.opacity = '0', 3500); }
+function estadoTxt(est){ return !est ? ['Sin corrida', ''] : est === 'EN_EJECUCION' ? ['En ejecución', 'run'] : est === 'COLAPSO' ? ['Colapso logístico', 'col']
+  : est === 'ERROR' ? ['Error', 'col'] : ['Finalizada', 'fin']; }
+function ritmoTxt(e, k){ const r = (ESC_INFO[e] || { ritmos: [] }).ritmos.find(([f]) => +f === +k); return r ? `${r[1]} (×${k})` : `×${k}`; }
+function toast(msg, malo){ const t = $('#toast'); t.textContent = msg; t.style.background = malo ? '#2A1218' : '#0F2A20'; t.style.color = malo ? '#FCA5A5' : '#6EE7B7';
+  t.style.border = '1px solid ' + (malo ? '#7F1D1D' : '#1F5C44'); t.style.opacity = '1'; clearTimeout(t._k); t._k = setTimeout(() => t.style.opacity = '0', 3500); }
 function estadoVisible(u, s){
   if (u.estado === 'AVERIADA') return { t: 'Averiada' + (u.averia_tipo ? ' (tipo ' + u.averia_tipo + ')' : ''), c: 'ave' };
   if (u.estado === 'MANTENIMIENTO') return { t: 'Mantenimiento', c: 'man' };
@@ -539,33 +655,39 @@ function estadoVisible(u, s){
 }
 
 /* =====================================================================
-   2. MAPA (Leaflet, CRS.Simple: [y, x] en km)
+   2. MAPA (Leaflet, CRS.Simple: [y, x] en km). La retícula ocupa todo el
+   espacio disponible y se vuelve a encuadrar cuando cambia el tamaño.
    ===================================================================== */
-const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 0.25, attributionControl: false, preferCanvas: true, zoomControl: false });
+const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 0, zoomDelta: 0.5, attributionControl: false, preferCanvas: true, zoomControl: false });
 L.control.zoom({ position: 'bottomright' }).addTo(map);
-const B = [[-1.5, -1.5], [H + 1.5, W + 1.5]];
-map.fitBounds(B); map.setMaxBounds([[-12, -12], [H + 12, W + 12]]);
+const B = [[-1.8, -3], [H + 0.8, W + 1.4]];   // retícula y etiquetas de los ejes
+function encuadrar(){ map.invalidateSize({ animate: false }); map.fitBounds(B, { padding: [6, 6], animate: false }); }
+map.setMaxBounds([[-15, -15], [H + 15, W + 15]]);
+encuadrar();
+new ResizeObserver(() => { if ($('#mapWrap').clientWidth) encuadrar(); }).observe($('#mapWrap'));
 const gGrid = L.layerGroup().addTo(map), gRutas = L.layerGroup().addTo(map), gBloq = L.layerGroup().addTo(map),
       gPed = L.layerGroup().addTo(map), gAlm = L.layerGroup().addTo(map), gUni = L.layerGroup().addTo(map);
 (function dibujarReticula(){
-  const fino = { color: '#EEE6D4', weight: 1, interactive: false }, grueso = { color: '#DCCDAA', weight: 1.2, interactive: false };
+  const fino = { color: COL.grid, weight: 1, interactive: false }, grueso = { color: COL['grid-strong'], weight: 1.3, interactive: false };
   for (let x = 0; x <= W; x++) L.polyline([[0, x], [H, x]], x % 10 ? fino : grueso).addTo(gGrid);
   for (let y = 0; y <= H; y++) L.polyline([[y, 0], [y, W]], y % 10 ? fino : grueso).addTo(gGrid);
-  L.rectangle([[0, 0], [H, W]], { color: '#B9A47A', weight: 1.5, fill: false, interactive: false }).addTo(gGrid);
+  L.rectangle([[0, 0], [H, W]], { color: COL['grid-border'], weight: 1.8, fill: false, interactive: false }).addTo(gGrid);
   for (let x = 0; x <= W; x += 10) L.marker([-0.9, x], { icon: L.divIcon({ className: 'ax-lbl', html: x, iconSize: [20, 10], iconAnchor: [10, 0] }), interactive: false }).addTo(gGrid);
   for (let y = 0; y <= H; y += 10) L.marker([y, -0.8], { icon: L.divIcon({ className: 'ax-lbl', html: y, iconSize: [20, 10], iconAnchor: [20, 6] }), interactive: false }).addTo(gGrid);
 })();
 const mAlm = {}, mUni = {}, mPed = {};
+/* Ícono de almacén (techo, muros y puerta), dibujado en SVG */
+const ICONO_ALMACEN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06111F" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5V20H3z"/><path d="M9 20v-6h6v6"/></svg>';
 function iconAlm(a, cls, n){
-  const col = a.codigo === 'AL-CEN' ? '#C9A876' : cls === 'bad' ? '#D63A4C' : cls === 'warn' ? '#C97F00' : '#5F84A0';
-  const badge = n ? `<span style="position:absolute;top:-9px;right:-11px;min-width:16px;height:16px;border-radius:8px;background:#fff;color:#2B2013;border:1.5px solid #2B2013;font-size:9px;display:grid;place-items:center;padding:0 3px;font-weight:700;">${n}</span>` : '';
-  return L.divIcon({ className: '', html: `<div style="position:relative;width:34px;height:34px;border-radius:8px;background:${col};border:2px solid white;box-shadow:0 2px 6px rgba(43,32,19,.35);display:flex;align-items:center;justify-content:center;font-size:18px;">${a.codigo === 'AL-CEN' ? '🏪' : '🏬'}${badge}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+  const col = a.codigo === 'AL-CEN' ? COL['alm-central'] : cls === 'bad' ? COL.red : cls === 'warn' ? COL.amber : COL['alm-inter'];
+  const badge = n ? `<span style="position:absolute;top:-9px;right:-11px;min-width:16px;height:16px;border-radius:8px;background:#fff;color:#0B1220;border:1.5px solid #0B1220;font-size:9px;display:grid;place-items:center;padding:0 3px;font-weight:700;">${n}</span>` : '';
+  return L.divIcon({ className: '', html: `<div style="position:relative;width:34px;height:34px;border-radius:8px;background:${col};border:2px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;">${ICONO_ALMACEN}${badge}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 }
 function iconUni(u, cls){
-  const col = u.estado === 'AVERIADA' ? '#D63A4C' : u.estado === 'MANTENIMIENTO' ? '#AAB5C0' : cls.startsWith('bad') ? '#D63A4C' : cls.startsWith('warn') ? '#C97F00'
-            : cls.startsWith('idle') ? '#93805E' : u.tipo === 'AUTO' ? '#1E9E5A' : u.tipo === 'MOTO' ? '#5F84A0' : '#C97F00';
-  const outline = cls.endsWith('sel') ? ';outline:3px solid #2B2013;outline-offset:1px' : '';
-  return L.divIcon({ className: '', html: `<div class="lf-dot" style="background:${col};width:26px;height:26px${outline};">${EMOJI[u.tipo]}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+  const col = u.estado === 'AVERIADA' ? COL.red : u.estado === 'MANTENIMIENTO' ? COL['u-mant'] : cls.startsWith('bad') ? COL.red : cls.startsWith('warn') ? COL.amber
+            : cls.startsWith('idle') ? COL['u-idle'] : u.tipo === 'AUTO' ? COL['u-auto'] : u.tipo === 'MOTO' ? COL['u-moto'] : COL['u-bici'];
+  const outline = cls.endsWith('sel') ? `;outline:3px solid ${COL['ruta-sel']};outline-offset:1px` : '';
+  return L.divIcon({ className: '', html: `<div class="lf-dot" style="background:${col};width:26px;height:26px${outline};">${SIGLA[u.tipo]}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
 }
 function dibujarAlmacenes(s){
   const U = umb();
@@ -605,27 +727,27 @@ function dibujarMapa(s){
   for (const k of Object.keys(mUni)) if (!vistos.has(k)){ gUni.removeLayer(mUni[k]); delete mUni[k]; }
   // rutas vigentes: camino restante de cada unidad (lo que el planificador comprometió)
   gRutas.clearLayers();
-  if (S.capas.rutas) for (const u of s.unidades){
+  for (const u of s.unidades){
     if (u.estado !== 'OPERATIVA' || !u.camino.length) continue; const selc = S.sel === u.codigo;
     if (S.sel && !selc) continue;   // con una unidad elegida, solo su ruta
-    L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: selc ? '#0F4C75' : '#1D6FA3', weight: selc ? 4 : 2, opacity: selc ? .95 : .45, interactive: false }).addTo(gRutas);
+    L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: selc ? COL['ruta-sel'] : COL.ruta, weight: selc ? 4 : 2.2, opacity: selc ? 1 : .75, interactive: false }).addTo(gRutas);
   }
   // bloqueos activos
   gBloq.clearLayers();
-  if (S.capas.bloqueos) for (const b of s.bloqueos_activos){
+  for (const b of s.bloqueos_activos){
     const ll = b.nodos.map(n => [n[1], n[0]]);
-    L.polyline(ll, { color: '#fff', weight: 9, opacity: .6, interactive: false }).addTo(gBloq);
-    L.polyline(ll, { color: '#D63A4C', weight: 5, opacity: 1, dashArray: '8 6', lineCap: 'butt' }).addTo(gBloq)
-      .bindTooltip(`<b>🚧 Bloqueo</b><br>${fmtFecha(aFecha(s, b.inicio_min))} → ${fmtFecha(aFecha(s, b.fin_min))}`);
+    L.polyline(ll, { color: COL['map-bg'], weight: 10, opacity: .85, interactive: false }).addTo(gBloq);
+    L.polyline(ll, { color: COL.bloqueo, weight: 5, opacity: 1, dashArray: '8 6', lineCap: 'butt' }).addTo(gBloq)
+      .bindTooltip(`<b>Bloqueo</b><br>${fmtFecha(aFecha(s, b.inicio_min))} → ${fmtFecha(aFecha(s, b.fin_min))}`);
   }
   // pedidos vigentes: color según la holgura hasta su hora límite
   const U = umb(); const ped = new Set();
-  if (S.capas.pedidos) for (const p of s.pedidos){
+  for (const p of s.pedidos){
     ped.add(p.id);
     const h = p.limite_min - s.reloj.simulado_min; const c = sem(h, U.holgV, U.holgA);
-    const col = c === 'ok' ? '#1B8A4B' : c === 'warn' ? '#C07A00' : '#C8363F';
+    const col = c === 'ok' ? COL['ped-ok'] : c === 'warn' ? COL['ped-warn'] : COL['ped-bad'];
     const tip = `<b>${esc(p.pedido)}</b>${p.id !== p.pedido ? ' (parte ' + esc(p.id) + ')' : ''}<br>${p.cantidad} paq. · plazo ${p.plazo_h} h · límite ${fmtFecha(aFecha(s, p.limite_min))}<br>Holgura ${fmtMin(h)} · ${p.estado.replace('_', ' ')}${p.unidad ? ' · ' + p.unidad : ''}`;
-    const est = { radius: 3 + Math.min(5, p.cantidad / 3), color: '#fff', weight: 1, fillColor: col, fillOpacity: p.estado === 'pendiente' ? .55 : .95 };
+    const est = { radius: 3 + Math.min(5, p.cantidad / 3), color: COL['map-bg'], weight: 1.2, fillColor: col, fillOpacity: p.estado === 'pendiente' ? .6 : .95 };
     if (!mPed[p.id]) mPed[p.id] = L.circleMarker([p.y, p.x], est).addTo(gPed).bindTooltip(tip);
     else { mPed[p.id].setStyle(est); mPed[p.id].setTooltipContent(tip); }
   }
@@ -636,7 +758,7 @@ function limpiarMapa(){ gUni.clearLayers(); gRutas.clearLayers(); gBloq.clearLay
 
 /* Entre dos instantáneas (1 s) se mueven las unidades a lo largo de su camino para que se vea fluido. */
 function interpolar(){
-  const s = S.snap[S.tab];
+  const s = S.vista === 'mon' ? S.snap[S.tab] : null;
   if (s && s.estado_corrida === 'EN_EJECUCION'){
     const K = S.K[S.tab] || (S.corrida[S.tab] || {}).factor || 1;
     const dtMin = Math.min(1.5, (performance.now() - S.recv[S.tab]) / 1000) * K / 60; const simNow = s.reloj.simulado_min + dtMin;
@@ -651,31 +773,41 @@ function interpolar(){
 requestAnimationFrame(interpolar);
 
 /* =====================================================================
-   3. PANELES
+   3. BARRA LATERAL
    ===================================================================== */
-function pintarCabecera(){
+/* Sección Simulación: datos de la corrida, reloj operativo, avance y acciones. */
+function pintarSimulacion(){
   const info = ESC_INFO[S.tab]; const s = S.snap[S.tab]; const c = S.corrida[S.tab];
   $('#rbTitle').textContent = info.titulo;
-  const st = !s ? ['Sin iniciar', ''] : s.estado_corrida === 'EN_EJECUCION' ? ['En ejecución', 'run'] : s.estado_corrida === 'COLAPSO' ? ['Colapso logístico', 'col']
-           : s.estado_corrida === 'ERROR' ? ['Error', 'col'] : ['Finalizada', 'fin'];
+  const st = estadoTxt(s && s.estado_corrida); if (!s) st[0] = 'Sin iniciar';
   $('#rbState').textContent = st[0]; $('#rbState').className = 'chip ' + st[1];
   const obs = S.rol !== 'control', corre = !!(s && s.estado_corrida === 'EN_EJECUCION');
-  $('#btnIniciar').disabled = corre || obs; $('#btnFinalizar').disabled = !corre || obs; $('#btnReporte').disabled = !s || corre;
+  $('#btnFinalizar').disabled = !corre || obs; $('#btnReporte').disabled = !s || corre;
+  $('#btnRegistroLnk').hidden = S.tab !== 'DIA_A_DIA';
   $('#emptyState').classList.toggle('on', !s);
   $('#emTitle').textContent = obs ? 'Esperando el inicio de la corrida' : 'Esta corrida no se ha iniciado';
   $('#emText').textContent = obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
-                                 : 'Elige la fecha de inicio y la flota. Todos los dispositivos conectados verán la misma corrida.';
-  if (!s){ $('#rbMeta').textContent = 'Algoritmo: Búsqueda Tabú · datos oficiales del profesor'; $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--:--'; $('#ckDate').textContent = 'sin reloj';
-    $('#pgFill').style.width = '0'; $('#pgTicks').innerHTML = ''; return; }
+                                 : 'Vuelve a los escenarios para elegir la fecha de inicio y la flota.';
+  $('#pgLbl').textContent = S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día';
+  if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal']) $(id).textContent = '—';
+    $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckTrans').textContent = '';
+    $('#pgFill').style.width = '0'; $('#pgPct').textContent = '0 %'; $('#pgTicks').innerHTML = ''; return; }
   const d = aFecha(s, s.reloj.simulado_min); const tc = minCorrida(s); const fin = c.fin_real_ms || s.reloj.real_ms;
-  $('#rbMeta').textContent = `Búsqueda Tabú · inicio ${fmtFecha(new Date(c.inicio_ms))} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis · real ${fmtDur(fin - c.inicio_real_ms)}`;
-  $('#ckDay').textContent = S.tab === 'DIA_A_DIA' ? d.toLocaleDateString('es-PE', { weekday: 'long' }) : 'Día ' + (Math.floor(tc / 1440) + 1);
+  $('#smInicio').textContent = fmtFecha(new Date(c.inicio_ms));
+  $('#smFlota').textContent = `${c.autos + c.motos + c.bicicletas} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis`;
+  $('#smRitmo').textContent = ritmoTxt(S.tab, c.factor);
+  $('#smReal').textContent = fmtDur(fin - c.inicio_real_ms);
+  $('#smHoraReal').textContent = new Date().toLocaleTimeString('es-PE', { hour12: false });
   $('#ckHM').textContent = fmtHM(d);
-  $('#ckDate').textContent = fmtFecha(d).slice(0, 10) + ' · ' + turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? ' · alimentación' : '');
-  // progreso dentro del horizonte
+  const fechaLarga = d.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+  $('#ckDay').textContent = (S.tab === 'DIA_A_DIA' ? '' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' · ') + fechaLarga;
+  $('#ckDate').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
+  $('#ckTrans').textContent = 'Transcurrido: ' + fmtDias(tc);
+  // avance dentro del horizonte
   const span = S.tab === 'SIM_5D' ? 5 * 1440 : S.tab === 'COLAPSO' ? Math.max(5, Math.ceil(tc / 1440) + 1) * 1440 : 1440;
   const t0 = S.tab === 'DIA_A_DIA' ? Math.floor(tc / 1440) * 1440 : 0;
-  $('#pgFill').style.width = Math.min(100, 100 * (tc - t0) / span) + '%';
+  const pct = Math.min(100, 100 * (tc - t0) / span);
+  $('#pgFill').style.width = pct + '%'; $('#pgPct').textContent = pct.toFixed(1) + ' %';
   $('#pgBar').classList.toggle('col', s.estado_corrida === 'COLAPSO');
   const n = S.tab === 'DIA_A_DIA' ? 4 : span / 1440;
   $('#pgTicks').innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${S.tab === 'DIA_A_DIA' ? pad(i * 6) + ' h' : (i < n ? 'D' + (i + 1) : 'fin')}</span>`).join('');
@@ -693,7 +825,7 @@ function pintarHud(s){
 }
 function pintarKpis(s){
   const el = $('#kpis'); const U = umb();
-  if (!s){ el.innerHTML = ['Entregas en plazo', 'Entregas realizadas', 'Pedidos vigentes', 'Pedidos en riesgo', 'Costo acumulado', 'Distancia', 'Replanificaciones', 'Averías · trasvases']
+  if (!s){ el.innerHTML = ['Entregas en plazo', 'Entregas realizadas', 'Pedidos vigentes', 'Pedidos en riesgo', 'Costo acumulado', 'Distancia', 'Planificaciones', 'Averías · trasvases']
     .map(l => `<div class="kpi"><div class="l">${l}</div><div class="v">—</div><div class="s">&nbsp;</div></div>`).join(''); return; }
   const I = s.indicadores, cnt = { pendiente: 0, asignado: 0, en_curso: 0, en_averiada: 0 }; s.pedidos.forEach(p => cnt[p.estado] = (cnt[p.estado] || 0) + 1);
   const riesgo = s.pedidos.filter(p => p.limite_min - s.reloj.simulado_min < U.holgA).length;
@@ -707,7 +839,7 @@ function pintarKpis(s){
     ['Pedidos en riesgo', num(riesgo), `holgura < ${U.holgA} min`, riesgo ? (riesgo > 3 ? 'bad' : 'warn') : 'ok'],
     ['Costo acumulado', soles(I.costo_acumulado), cpe ? `S/ ${cpe.toFixed(1)} por entrega` : '—'],
     ['Distancia', num(I.km_acumulados) + ' km', `uso A ${ut.AUTO}% · M ${ut.MOTO}% · B ${ut.BICICLETA}%`],
-    ['Replanificaciones', num(I.replanificaciones), 'cada 60 min y ante eventos'],
+    ['Planificaciones', num(I.replanificaciones), 'por bloques y ante eventos'],
     ['Averías · trasvases', `${I.averias} · ${I.trasvases}`, I.pedidos_inentregables_bloqueo ? `${I.pedidos_inentregables_bloqueo} no evaluables por bloqueo` : 'sin pedidos no evaluables']
   ].map(([l, v, sub, c]) => `<div class="kpi ${c ? 'sem ' + c : ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s" title="${sub}">${sub}</div></div>`).join('');
 }
@@ -723,7 +855,7 @@ function pintarFlota(s){
     const filas = us.map(u => { const ocu = 100 * u.carga / u.capacidad;
       return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span><span class="bar" style="margin:0"><i class="${sem(ocu, U.ocuA, U.ocuR, true)}" style="width:${ocu.toFixed(0)}%"></i></span></button>`; }).join('');
     return `<div class="vehicle-card ${abiertos.has(tp) ? 'open' : ''}" data-tp="${tp}">
-      <div class="vehicle-top"><div class="v-icon">${EMOJI[tp]}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${us.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><span style="margin-left:auto;color:var(--text-faint)">▾</span></div>
+      <div class="vehicle-top"><div class="v-icon" style="background:${COLOR_TIPO[tp]}">${SIGLA[tp]}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${us.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">${badges}</div>
       <div class="v-occ">Ocupación media<div class="bar"><i class="${sem(occ, U.ocuA, U.ocuR, true)}" style="width:${occ.toFixed(0)}%"></i></div>${occ.toFixed(0)} %</div>
       <div class="ulist">${filas}</div></div>`;
@@ -740,7 +872,7 @@ function abrirDetalle(codigo, centrar){
 $('#drClose').onclick = () => { S.sel = null; $('#drawer').classList.remove('on'); const s = S.snap[S.tab]; if (s){ dibujarMapa(s); pintarFlota(s); } };
 function pintarDetalle(s){
   if (!S.sel) return; const u = s.unidades.find(v => v.codigo === S.sel); if (!u) return; const U = umb();
-  const e = estadoVisible(u, s); $('#drIcon').textContent = EMOJI[u.tipo]; $('#drCode').textContent = u.codigo; $('#drState').textContent = e.t;
+  const e = estadoVisible(u, s); $('#drIcon').textContent = SIGLA[u.tipo]; $('#drIcon').style.background = COLOR_TIPO[u.tipo]; $('#drCode').textContent = u.codigo; $('#drState').textContent = e.t;
   $('#drState').className = 'chip ' + (e.c === 'ave' ? 'col' : e.c === 'ruta' ? 'run' : '');
   let pos = { x: u.x, y: u.y }, t = Math.max(s.reloj.simulado_min, u.ocupado_hasta_min); const v = u.velocidad;
   // paradas consecutivas iguales (dos recargas seguidas en el mismo almacén) se muestran una vez
@@ -759,7 +891,7 @@ function pintarDetalle(s){
       <dt>Recorrido</dt><dd>${num(u.km)} km</dd></dl>
     <div><div class="sec-t">Productos a bordo</div><div class="tags">${u.a_bordo.length ? u.a_bordo.map(a => `<span>${esc(a)}</span>`).join('') : '<span class="help">Ninguno</span>'}</div></div>
     <div><div class="sec-t">Paradas del plan (${lista.length})</div><ul class="stops">${paradas || '<li style="display:block" class="t">Sin paradas asignadas</li>'}</ul></div>
-    <p class="help">Hora estimada con la velocidad del tipo y 1 h por entrega; el camino exacto (con bloqueos) es el de la línea azul.</p>`;
+    <p class="help">Hora estimada con la velocidad del tipo y 1 h por entrega; el camino exacto (con bloqueos) es el de la línea de la ruta.</p>`;
 }
 function pintarAlmacenes(s){
   const U = umb(); const al = s ? s.almacenes : ALMACENES.map(a => ({ ...a, stock: a.capacidad }));
@@ -791,15 +923,15 @@ function acumularSerie(e, s){
 function pintarEvolucion(s){
   const svg = $('#evo'); const ser = S.serie[S.tab]; const dia = S.tab === 'DIA_A_DIA';
   $('#evoCap').textContent = dia ? 'entregas por hora' : 'entregas por día';
-  if (!s){ svg.innerHTML = '<text x="6" y="40" font-size="11" fill="#93805E">Sin datos todavía.</text>'; return; }
+  if (!s){ svg.innerHTML = `<text x="6" y="40" font-size="11" style="fill:${COL['text-faint']}">Sin datos todavía.</text>`; return; }
   let keys = Object.keys(ser).map(Number).sort((a, b) => a - b); if (dia) keys = keys.slice(-12);
   const n = S.tab === 'SIM_5D' ? 5 : Math.max(keys.length, dia ? 12 : 5); const base = S.tab === 'SIM_5D' ? 0 : (keys[0] || 0);
   const maxE = Math.max(1, ...keys.map(k => ser[k].entregas)); const bw = 300 / n; let h = '';
   for (let i = 0; i < n; i++){ const v = ser[base + i]; const x = i * bw;
-    h += `<text x="${x + bw / 2}" y="97" text-anchor="middle" font-size="9" fill="#93805E">${dia ? pad(new Date(S.corrida[S.tab].inicio_ms + (base + i) * 3600000).getHours()) + 'h' : 'D' + (base + i + 1)}</text>`;
+    h += `<text x="${x + bw / 2}" y="97" text-anchor="middle" font-size="9" style="fill:${COL['text-faint']}">${dia ? pad(new Date(S.corrida[S.tab].inicio_ms + (base + i) * 3600000).getHours()) + 'h' : 'D' + (base + i + 1)}</text>`;
     if (!v || !v.entregas) continue; const he = Math.max(3, 66 * v.entregas / maxE), bwb = Math.max(5, bw * .6), bx = x + (bw - bwb) / 2;
-    h += `<rect x="${bx}" y="${84 - he}" width="${bwb}" height="${he}" rx="2" fill="#C9A876"/><text x="${bx + bwb / 2}" y="${81 - he}" text-anchor="middle" font-size="9" font-weight="600" fill="#2B2013">${v.entregas}</text>`; }
-  svg.innerHTML = h + '<line x1="0" x2="300" y1="84" y2="84" stroke="#E3D3AF"/>';
+    h += `<rect x="${bx}" y="${84 - he}" width="${bwb}" height="${he}" rx="2" style="fill:${COL.brand}"/><text x="${bx + bwb / 2}" y="${81 - he}" text-anchor="middle" font-size="9" font-weight="600" style="fill:${COL.text}">${v.entregas}</text>`; }
+  svg.innerHTML = h + `<line x1="0" x2="300" y1="84" y2="84" style="stroke:${COL.border}"/>`;
 }
 function llenarSelectUnidades(s){
   const sel = $('#avUnidad'); if (!s){ sel.innerHTML = ''; return; } const ops = s.unidades.filter(u => u.estado === 'OPERATIVA').map(u => u.codigo);
@@ -808,29 +940,35 @@ function llenarSelectUnidades(s){
 
 /* ===== Bitácora ===== */
 const GRUPO = { AVERIA: 'AVERIA', FIN: 'RECARGA', BLOQUEO: 'BLOQUEO', REPLANIFICACION: 'REPLANIFICACION', ENTREGA: 'ENTREGA', RECARGA: 'RECARGA', TRASVASE: 'RECARGA', COLAPSO: 'COLAPSO', SISTEMA: 'SISTEMA' };
-const ETQ = { AVERIA: 'Avería', FIN: 'Regreso', BLOQUEO: 'Bloqueo', REPLANIFICACION: 'Replanificación', ENTREGA: 'Entrega', RECARGA: 'Recarga', TRASVASE: 'Trasvase', COLAPSO: 'Colapso', SISTEMA: 'Sistema' };
+const ETQ = { AVERIA: 'Avería', FIN: 'Regreso', BLOQUEO: 'Bloqueo', REPLANIFICACION: 'Planificación', ENTREGA: 'Entrega', RECARGA: 'Recarga', TRASVASE: 'Trasvase', COLAPSO: 'Colapso', SISTEMA: 'Sistema' };
 const TAGC = { AVERIA: 'tag-crit', FIN: 'tag-sys', BLOQUEO: 'tag-warn', REPLANIFICACION: 'tag-info', ENTREGA: 'tag-ok', RECARGA: 'tag-ok', TRASVASE: 'tag-ok', COLAPSO: 'tag-crit', SISTEMA: 'tag-sys' };
 function agregarLog(e, ev){ const L2 = S.logs[e]; L2.unshift(ev); if (L2.length > 400) L2.pop(); }
 function pintarLog(){
-  const f = S.filtro; const rows = S.logs[S.tab].filter(e => f === 'ALL' || GRUPO[e.t] === f).slice(0, 200);
+  const logs = S.logs[S.tab]; if (!logs) return;
+  const f = S.filtro; const rows = logs.filter(e => f === 'ALL' || GRUPO[e.t] === f).slice(0, 200);
   $('#logList').innerHTML = rows.length ? rows.map(e => `<div class="log-row"><span class="log-time">${e.simulado || '—'}</span><span class="log-tag ${TAGC[e.t] || 'tag-sys'}">${ETQ[e.t] || e.t}</span><span class="log-text">${esc(e.detalle)}</span></div>`).join('')
     : '<p class="help" style="padding:6px 2px;">Sin eventos para este filtro.</p>';
 }
 $$('#logFiltros .fchip').forEach(b => b.onclick = () => { $$('#logFiltros .fchip').forEach(x => x.setAttribute('aria-pressed', x === b)); S.filtro = b.dataset.f; pintarLog(); });
 
+/* Secciones desplegables: cada nombre abre o cierra su sección. */
+function pintarSecciones(){ $$('.acc').forEach(a => { const on = !!S.acc[a.dataset.acc]; a.classList.toggle('open', on); a.querySelector('.acc-h').setAttribute('aria-expanded', on); }); }
+$$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').dataset.acc; S.acc[k] = !S.acc[k]; pintarSecciones(); if (k === 'log' && S.acc.log) pintarLog(); });
+
 function render(){
-  const s = S.snap[S.tab]; pintarCabecera(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
-  if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.side === 'log') pintarLog();
+  if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
+  const s = S.snap[S.tab]; pintarSimulacion(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
+  if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog();
 }
 
 /* =====================================================================
    4. ACTUALIZACIÓN: el visualizador consulta al planificador cada segundo
    ===================================================================== */
-function conexion(ok, txt){ $('#conn').className = 'conn ' + (ok ? 'ok' : 'bad'); $('#connTxt').textContent = txt; }
+function conexion(ok, txt){ $$('.conn').forEach(c => c.className = 'conn ' + (ok ? 'ok' : 'bad')); $$('.connTxt').forEach(t => t.textContent = txt); }
 async function actualizar(e){
   let r;
   try { r = await api('GET', `/api/corridas/${e}/estado`); }
-  catch (err){ if (err.status === 404){ conexion(true, 'Conectado al planificador'); if (S.snap[e]){ delete S.snap[e]; if (e === S.tab){ limpiarMapa(); render(); } } return; }
+  catch (err){ if (err.status === 404){ conexion(true, 'Conectado al planificador'); if (S.snap[e]){ delete S.snap[e]; if (e === S.tab && S.vista === 'mon'){ limpiarMapa(); render(); } } return; }
     conexion(false, 'Sin conexión con el planificador'); return; }
   conexion(true, 'Conectado al planificador');
   const s = r.estado; s.estado_corrida = r.corrida.estado; s.reloj.inicio_corrida_ms = r.corrida.inicio_ms;
@@ -840,67 +978,85 @@ async function actualizar(e){
     if (dr > 0 && s.reloj.simulado_min > prev.reloj.simulado_min) S.K[e] = (s.reloj.simulado_min - prev.reloj.simulado_min) * 60000 / dr; }
   S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s);
   try { const ev = await api('GET', `/api/corridas/${e}/eventos?desde=${S.desde[e] || 0}`); ev.eventos.forEach(x => agregarLog(e, x)); S.desde[e] = ev.total; } catch (err){ /* se reintenta */ }
-  if (e === S.tab && S.tab !== 'REGISTRO') render();
-  if (s.estado_corrida !== 'EN_EJECUCION' && !S.reportado[e]){ S.reportado[e] = true; if (e === S.tab) setTimeout(() => abrirReporte(e), 600); }
+  if (e === S.tab && S.vista === 'mon') render();
+  if (s.estado_corrida !== 'EN_EJECUCION' && !S.reportado[e]){ S.reportado[e] = true; if (e === S.tab && S.vista === 'mon') setTimeout(() => abrirReporte(e), 600); }
 }
-async function actualizarPestanas(){
-  try { const lista = await api('GET', '/api/corridas');
-    for (const c of lista){ const d = $('#dot-' + c.escenario); if (d) d.className = 'dot ' + (!c.estado ? '' : c.estado === 'EN_EJECUCION' ? 'run' : c.estado === 'COLAPSO' ? 'col' : 'fin'); }
+/* Estado de los tres escenarios (para la pantalla de inicio). */
+async function actualizarEscenarios(){
+  try { const lista = await api('GET', '/api/corridas'); conexion(true, 'Conectado al planificador');
+    for (const c of lista){ S.lista[c.escenario] = c.estado; const [txt, cls] = estadoTxt(c.estado);
+      const d = $('#dot-' + c.escenario); if (d) d.className = 'dot ' + cls; const t = $('#st-' + c.escenario); if (t) t.textContent = txt; }
+    if (S.vista === 'inicio' && S.esc) pintarPaso2();
   } catch (err){ conexion(false, 'Sin conexión con el planificador'); }
 }
 let ocupado = false;
-setInterval(async () => { if (ocupado) return; ocupado = true;
-  try { await actualizar(S.tab === 'REGISTRO' ? 'DIA_A_DIA' : S.tab); if (S.tab === 'REGISTRO') pintarRegistro(); } finally { ocupado = false; } }, 1000);
-setInterval(actualizarPestanas, 3000);
+setInterval(async () => { if (ocupado || S.vista === 'inicio') return; ocupado = true;
+  try { await actualizar(S.vista === 'reg' ? 'DIA_A_DIA' : S.tab); if (S.vista === 'reg') pintarRegistro(); } finally { ocupado = false; } }, 1000);
+setInterval(actualizarEscenarios, 3000);
 
 /* =====================================================================
-   5. PESTAÑAS, PANELES Y ROLES
+   5. NAVEGACIÓN: inicio (escenarios) → escenario (mapa + barra lateral) · registro
    ===================================================================== */
-$$('.tab').forEach(t => t.onclick = () => cambiarPestana(t.dataset.tab));
-function cambiarPestana(tab){
-  S.tab = tab; $$('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === tab));
-  $('#viewMon').style.display = tab === 'REGISTRO' ? 'none' : ''; $('#viewReg').classList.toggle('on', tab === 'REGISTRO');
-  if (tab === 'REGISTRO'){ pintarRegistro(); return; }
-  S.sel = null; $('#drawer').classList.remove('on'); limpiarMapa(); render(); pintarLog(); setTimeout(() => map.invalidateSize(), 50); actualizar(tab);
+function mostrarVista(v){ S.vista = v; $('#landing').classList.toggle('on', v === 'inicio'); $('#viewMon').style.display = v === 'mon' ? '' : 'none'; $('#viewReg').classList.toggle('on', v === 'reg'); }
+function mostrarInicio(){ mostrarVista('inicio'); S.esc = null; $('#lnEsc').hidden = false; $('#lnIni').hidden = true; actualizarEscenarios(); }
+function elegirEscenario(e){
+  S.esc = e; mostrarVista('inicio'); $('#lnEsc').hidden = true; $('#lnIni').hidden = false;
+  const info = ESC_INFO[e]; $('#mdIniT').textContent = info.titulo; $('#ciAyuda').textContent = info.ayuda; $('#ciMsg').innerHTML = '';
+  $('#ciRitmo').innerHTML = info.ritmos.map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+  const dia = e === 'DIA_A_DIA'; const ini = dia ? localISO(new Date()) : INICIO_SUGERIDO[e];
+  $('#ciInicio').value = ini; $('#ciInicio').readOnly = dia; $('#ciInicio').classList.toggle('ro', dia); archivosDe(ini);
+  if (S.datos && S.datos.desde) $('#ciRango').textContent = `Hay datos oficiales de ${S.datos.desde} a ${S.datos.hasta}.`;
+  pintarPaso2(); actualizarEscenarios();
 }
-$$('.side-tab').forEach(b => b.onclick = () => { S.side = b.dataset.side; $$('.side-tab').forEach(x => x.setAttribute('aria-selected', x === b));
-  $$('.side-body').forEach(x => x.classList.toggle('on', x.id === 'side-' + S.side)); if (S.side === 'log') pintarLog(); });
-$('#tgSide').onclick = () => { const st = $('#stage'); st.classList.toggle('noside'); $('#tgSide').textContent = st.classList.contains('noside') ? '◀' : '▶'; setTimeout(() => map.invalidateSize(), 60); };
-$('#tgFit').onclick = () => map.fitBounds(B);
-$$('[data-layer]').forEach(b => b.onclick = () => { const k = b.dataset.layer; S.capas[k] = !S.capas[k]; b.setAttribute('aria-pressed', S.capas[k]);
-  if (!S.capas.pedidos){ gPed.clearLayers(); for (const i of Object.keys(mPed)) delete mPed[i]; } const s = S.snap[S.tab]; if (s) dibujarMapa(s); });
-$('#roleBtn').onclick = () => { S.rol = S.rol === 'control' ? 'observador' : 'control'; document.body.classList.toggle('observer', S.rol !== 'control');
-  $('#roleTxt').textContent = S.rol === 'control' ? 'Control' : 'Observador'; render(); };
+/* Paso 2: según haya o no una corrida del escenario, se ofrece iniciarla o verla. */
+function pintarPaso2(){
+  const e = S.esc; const est = S.lista[e]; const corre = est === 'EN_EJECUCION'; const obs = S.rol !== 'control';
+  const [txt, cls] = estadoTxt(est); $('#lnChip').textContent = txt; $('#lnChip').className = 'chip ' + cls;
+  $('#lnStatus').innerHTML = corre ? 'Hay una corrida <b>en ejecución</b>. Puedes verla; para iniciar otra, primero hay que finalizarla desde la barra lateral.'
+    : est ? 'La última corrida ya terminó. Puedes ver su resultado o iniciar una nueva.'
+    : obs ? 'Todavía no hay una corrida. El dispositivo con el control debe iniciarla; puedes entrar y esperar.'
+    : 'Elige la fecha de inicio, el ritmo y la flota. Todos los dispositivos conectados verán la misma corrida.';
+  $('#lnCampos').hidden = corre; $('#ciGo').hidden = corre;
+  $('#lnVer').hidden = !est && !obs; $('#lnVer').textContent = corre ? 'Ver la corrida en curso' : est ? 'Ver la última corrida' : 'Entrar y esperar';
+  $('#lnVer').className = corre || obs ? 'btn-play' : 'btn-secondary';
+}
+function mostrarEscenario(e){
+  S.tab = e; mostrarVista('mon'); S.acc = { sim: true, res: false, flota: false, log: false }; pintarSecciones();
+  S.sel = null; $('#drawer').classList.remove('on'); limpiarMapa(); render(); pintarLog(); setTimeout(encuadrar, 60); actualizar(e);
+}
+function mostrarRegistro(){ S.tab = 'REGISTRO'; mostrarVista('reg'); pintarRegistro(); actualizar('DIA_A_DIA'); }
+$$('.ln-card').forEach(c => c.onclick = () => elegirEscenario(c.dataset.esc));
+$('#lnVolver').onclick = mostrarInicio;
+$('#lnVer').onclick = () => mostrarEscenario(S.esc);
+$('#lnRegistro').onclick = mostrarRegistro;
+$('#btnEscenarios').onclick = mostrarInicio;
+$('#btnRegistroLnk').onclick = mostrarRegistro;
+$('#regVolver').onclick = () => S.lista.DIA_A_DIA ? mostrarEscenario('DIA_A_DIA') : mostrarInicio();
+$('#emBtn').onclick = () => elegirEscenario(S.tab);
+$('#tgSide').onclick = () => { const st = $('#stage'); st.classList.toggle('noside'); $('#tgSide').textContent = st.classList.contains('noside') ? '‹' : '›'; };
+$('#tgFit').onclick = encuadrar;
+$$('.role-btn').forEach(b => b.onclick = () => { S.rol = S.rol === 'control' ? 'observador' : 'control'; document.body.classList.toggle('observer', S.rol !== 'control');
+  $$('.roleTxt').forEach(t => t.textContent = S.rol === 'control' ? 'Control' : 'Observador'); if (S.esc) pintarPaso2(); render(); });
 function abrirModal(id){ $('#' + id).classList.add('on'); } function cerrarModales(){ $$('.modal.on').forEach(m => m.classList.remove('on')); }
 $$('[data-close]').forEach(b => b.onclick = cerrarModales);
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) cerrarModales(); }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
-window.addEventListener('resize', () => map.invalidateSize());
 
 /* =====================================================================
    6. COMANDOS AL PLANIFICADOR
    ===================================================================== */
 function localISO(d){ return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function archivosDe(iso){ const y = iso.slice(0, 4), m = iso.slice(5, 7); $('#ciVentas').value = `ventas.${y}${m}.txt`; $('#ciBloq').value = `bloqueo.${y.slice(2)}${m}.txt`; }
-function abrirIniciar(){
-  const info = ESC_INFO[S.tab]; $('#mdIniT').textContent = 'Iniciar · ' + info.titulo; $('#ciAyuda').textContent = info.ayuda; $('#ciMsg').innerHTML = '';
-  $('#ciRitmo').innerHTML = info.ritmos.map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
-  const dia = S.tab === 'DIA_A_DIA'; const ini = dia ? localISO(new Date()) : INICIO_SUGERIDO[S.tab];
-  $('#ciInicio').value = ini; $('#ciInicio').readOnly = dia; $('#ciInicio').classList.toggle('ro', dia); archivosDe(ini);
-  if (S.datos && S.datos.desde) $('#ciRango').textContent = `Hay datos oficiales de ${S.datos.desde} a ${S.datos.hasta}.`;
-  abrirModal('mdIniciar');
-}
 $('#ciInicio').addEventListener('input', () => archivosDe($('#ciInicio').value));
-$('#btnIniciar').onclick = abrirIniciar; $('#emBtn').onclick = abrirIniciar;
 $('#ciGo').onclick = async () => {
-  const e = S.tab; const iso = $('#ciInicio').value; if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica la fecha de inicio.</span>'; return; }
+  const e = S.esc; const iso = $('#ciInicio').value; if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica la fecha de inicio.</span>'; return; }
   S.umbrales[e] = { ...UMB_DEF, holgV: +$('#uHv').value, holgA: +$('#uHa').value, satA: +$('#uSa').value };
   $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Cargando datos oficiales y armando el primer plan…</span>';
   try {
     await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime(), factor: $('#ciRitmo').value,
       autos: $('#ciAutos').value, motos: $('#ciMotos').value, bicicletas: $('#ciBicis').value });
-    S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e];
-    cerrarModales(); limpiarMapa(); await actualizar(e); toast('Corrida iniciada. Todos los dispositivos la verán.');
+    S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e]; S.lista[e] = 'EN_EJECUCION';
+    mostrarEscenario(e); toast('Corrida iniciada. Todos los dispositivos la verán.');
   } catch (err){ $('#ciMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
   finally { $('#ciGo').disabled = false; }
 };
@@ -912,7 +1068,7 @@ $('#btnAveria').onclick = async () => { const u = $('#avUnidad').value; if (!u) 
 $('#velTipo').onchange = () => $('#velKmh').value = TIPOS[$('#velTipo').value].vel;
 $('#btnVel').onclick = async () => { const tp = $('#velTipo').value, v = +$('#velKmh').value;
   if (!(v >= 1 && v <= 80)){ $('#velMsg').innerHTML = '<span class="bad-t">Entre 1 y 80 km/h.</span>'; return; }
-  try { await api('POST', `/api/corridas/${S.tab}/velocidades`, { tipo: tp, kmh: v }); $('#velMsg').innerHTML = `<span class="ok-t">${tp.toLowerCase()} a ${v} km/h desde la próxima replanificación.</span>`; }
+  try { await api('POST', `/api/corridas/${S.tab}/velocidades`, { tipo: tp, kmh: v }); $('#velMsg').innerHTML = `<span class="ok-t">${tp.toLowerCase()} a ${v} km/h desde la próxima planificación.</span>`; }
   catch (err){ $('#velMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; } };
 
 /* Reporte de cierre: resumen del planificador + última instantánea. */
@@ -931,7 +1087,7 @@ async function abrirReporte(e){
       <div><div class="l">Distancia total</div><div class="v">${num(I.km_acumulados)} km</div></div>
       <div><div class="l">Entregas realizadas</div><div class="v">${num(I.entregas_realizadas)}</div></div>
       <div><div class="l">Entregas pendientes</div><div class="v">${num(r.pedidos_vigentes)}</div></div>
-      <div><div class="l">Replanificaciones</div><div class="v">${num(I.replanificaciones)}</div></div>
+      <div><div class="l">Planificaciones</div><div class="v">${num(I.replanificaciones)}</div></div>
       <div><div class="l">Averías · trasvases</div><div class="v">${I.averias} · ${I.trasvases}</div></div>
     </div>
     <div class="g2">
@@ -951,11 +1107,11 @@ $('#repCsv').onclick = () => { const r = ultimoReporte; if (!r) return;
    7. REGISTRO DE PEDIDOS (operación día a día)
    ===================================================================== */
 function dibujarMinimapa(){
-  const x = +$('#rgX').value, y = +$('#rgY').value; let h = `<rect x="0" y="0" width="70" height="50" fill="#fff" stroke="#B9A47A" stroke-width=".3"/>`;
-  for (let i = 0; i <= 70; i += 5) h += `<line x1="${i}" x2="${i}" y1="0" y2="50" stroke="${i % 10 ? '#F2EBDD' : '#E3D3AF'}" stroke-width=".2"/>`;
-  for (let j = 0; j <= 50; j += 5) h += `<line x1="0" x2="70" y1="${50 - j}" y2="${50 - j}" stroke="${j % 10 ? '#F2EBDD' : '#E3D3AF'}" stroke-width=".2"/>`;
-  ALMACENES.forEach(a => h += `<rect x="${a.x - 1}" y="${50 - a.y - 1}" width="2" height="2" fill="#2B2013"/>`);
-  if (!isNaN(x) && !isNaN(y)) h += `<circle cx="${x}" cy="${50 - y}" r="1.3" fill="#D63A4C"/>`;
+  const x = +$('#rgX').value, y = +$('#rgY').value; let h = `<rect x="0" y="0" width="70" height="50" style="fill:${COL['map-bg']};stroke:${COL['grid-border']}" stroke-width=".3"/>`;
+  for (let i = 0; i <= 70; i += 5) h += `<line x1="${i}" x2="${i}" y1="0" y2="50" style="stroke:${i % 10 ? COL.grid : COL['grid-strong']}" stroke-width=".2"/>`;
+  for (let j = 0; j <= 50; j += 5) h += `<line x1="0" x2="70" y1="${50 - j}" y2="${50 - j}" style="stroke:${j % 10 ? COL.grid : COL['grid-strong']}" stroke-width=".2"/>`;
+  ALMACENES.forEach(a => h += `<rect x="${a.x - 1}" y="${50 - a.y - 1}" width="2" height="2" style="fill:${a.capacidad ? COL['alm-inter'] : COL['alm-central']}"/>`);
+  if (!isNaN(x) && !isNaN(y)) h += `<circle cx="${x}" cy="${50 - y}" r="1.3" style="fill:${COL.bloqueo}"/>`;
   $('#minimap').innerHTML = h;
 }
 $('#minimap').addEventListener('click', e => { const svg = e.currentTarget, p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse());
@@ -1002,8 +1158,8 @@ $('#btnValidar').onclick = async () => {
   pintarRegistro();
 };
 
-/* ===== Arranque ===== */
-render(); pintarRegistro(); actualizarPestanas(); actualizar(S.tab);
+/* ===== Arranque: primero se elige el escenario ===== */
+render(); pintarRegistro(); mostrarInicio();
 api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
 </script>
 </body>

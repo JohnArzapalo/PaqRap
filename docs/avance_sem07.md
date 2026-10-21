@@ -490,3 +490,29 @@ Además, el visualizador ya no ofrece el ritmo «1 s = 20 min» en el escenario 
   - cada hora simulada, el bloque llegó planificado con adelanto, con Tabú usando 7 500 ms;
   - la inserción de los pedidos llegados después del corte tardó de 17 a 27 ms;
   - el reloj simulado siguió al real sin retraso: 256.5 min simulados frente a 256.7 esperados tras 128 s.
+
+## Etapa 34: rediseño del visualizador
+
+Pedido del equipo para aprovechar el espacio que piden los profesores. Solo cambia `web/index.html`; el planificador y la API no cambian.
+
+- **Pantalla de inicio:**
+  - al entrar se elige uno de los tres escenarios, en tarjetas centradas y con márgenes a los lados en cualquier tamaño de pantalla;
+  - al elegir uno aparece su formulario de inicio (fecha, ritmo, flota y umbrales) con el botón **Iniciar**. Si ya hay una corrida en curso, ofrece verla;
+  - el rol, el estado de la conexión y el enlace al registro de pedidos también están aquí.
+- **Barras superiores eliminadas:** se quitaron la barra de PaqRap con las pestañas y la barra de datos de la corrida. El mapa ocupa todo el alto y todo el ancho que deja la barra lateral, y se vuelve a encuadrar solo al cambiar el tamaño de la ventana o al ocultar la barra lateral.
+- **Barra lateral con cuatro secciones desplegables** (Simulación, Resumen, Flota y Bitácora). Cada nombre abre o cierra su sección, y al entrar a un escenario se abre Simulación. La sección **Simulación** reúne lo que antes iba arriba:
+  - fecha de inicio, vehículos, ritmo, tiempo real transcurrido y hora real;
+  - en grande, el tiempo operativo, con el día, la fecha, el turno, la alimentación y el tiempo transcurrido;
+  - la barra de avance de los 5 días;
+  - los botones Finalizar y Reporte, y el regreso a los escenarios.
+- **Mapa:**
+  - se quitaron los botones Rutas, Pedidos y Bloqueos, y queda Encuadrar;
+  - paleta oscura, con retícula blanca semitransparente (líneas más marcadas cada 10 km) y rutas celestes.
+- **Sin emojis:**
+  - los vehículos son círculos de color con su letra (A, M, B) y los almacenes llevan un ícono dibujado en SVG;
+  - las tarjetas de inicio usan íconos de línea en SVG;
+  - las flechas desplegables están dibujadas con CSS.
+- **Verificado en el navegador** con una SIM_5D en curso:
+  - con 1440 × 860, el mapa mide 1100 × 860 px con la barra lateral y 1440 × 860 sin ella, y la retícula ocupa el 93-94 % del lado que la limita;
+  - en pantalla angosta (700 px), las tarjetas se apilan y el mapa queda arriba, con las secciones debajo.
+- **Ojo con la Guía del software en vivo:** el criterio 33 pide un mecanismo para mostrar u ocultar la línea de la ruta. Al quitar el botón Rutas, la ruta solo se aísla al elegir una unidad (se muestra solo la suya).
