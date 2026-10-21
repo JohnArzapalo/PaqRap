@@ -48,7 +48,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 30)
+## 3. Estado del código (etapa 34)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -91,6 +91,14 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - las cachés de `MapaVial` están sincronizadas. Falta la parte del visualizador (API `/bloques` y reproducción de trayectorias). Hay 99 pruebas.
   - **Datos oficiales (MEDIA, 12 ventanas, Ta = 500 ms):** el periódico colapsa en 4 de 12; bloques de 2 h con inserción, en 11 de 12; bloques de 1 h (adelanto de 30 min) con inserción, en 3 de 12. Lo que decide es cuánto espera un pedido nuevo para entrar al plan (hasta un bloque). **Decisión del equipo: bloques de 1 h** (`docs/avance_sem07.md`, etapa 33). Para volver a 2 h: `bloque.min=120`, `bloque.adelanto_min=60` y reiniciar el servidor.
 - **Etapa 34, rediseño del visualizador** (`web/index.html`): pantalla de inicio para elegir el escenario e iniciarlo; sin barras superiores, el mapa ocupa todo el espacio que deja la barra lateral; barra lateral con cuatro secciones desplegables (Simulación, Resumen, Flota y Bitácora); paleta oscura con retícula blanca; sin emojis. Detalle en `docs/avance_sem07.md`.
+- **Despliegue vigente: máquina virtual del curso** (21-oct-2026; pasos en `docs/despliegue_aws.md`, §2):
+  - **http://1inf54-982-5e.inf.pucp.edu.pe/** (200.16.7.154). Usuario SSH `1inf54.982.5e`; la contraseña la tiene el equipo y **nunca se escribe en el repositorio**.
+  - Ubuntu 24.04, 2 núcleos, 3.8 GB y OpenJDK 21. Solo están abiertos los puertos 22, 80 y 443, y Tomcat ocupa el 8080.
+  - PaqRap corre como servicio `paqrap` en el **puerto 8090**, y nginx (puerto 80) le pasa las peticiones. La memoria del servidor se bajó a `-Xmx1500m`, editando `scripts/iniciar_servidor.sh` en la máquina.
+  - Se copió como carpeta (no con `git clone`), con el paquete `salidas/despliegue_vm/PaqRap_vm.tar.gz` del commit `7bdde4f`, **sin `CLAUDE.md` ni menciones a Claude**.
+  - Para actualizar: regenerar el paquete desde el último commit, copiarlo con `scp`, descomprimirlo encima, volver a bajar la memoria con `sed`, compilar con `scripts/compilar.sh` y reiniciar con `sudo systemctl restart paqrap`.
+  - La instancia de AWS (EC2) queda solo de respaldo.
+- **Entregable de la semana 10:** `sol.integrada.sem10/PaqRap_sol_integrada_sem10.zip` (commit `7bdde4f`, sin `CLAUDE.md` ni menciones a Claude). Se generó pero **no está en git**.
 - **Supuestos** SI-01 a SI-30 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
@@ -106,6 +114,8 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 ```
 
 - **Solución integrada (etapa 32):** `scripts/iniciar_servidor.sh` en Linux o `scripts\iniciar_servidor.bat` en Windows. Compila si hace falta y abre `http://localhost:8080/`. Sin Maven: `scripts/compilar.sh`. El ZIP del entregable sale con `scripts/empaquetar_solucion.sh`, desde el último commit.
+- **Entregables y paquetes para terceros (ZIP del curso, copia a la máquina virtual):** siempre desde el último commit con `git archive`, **excluyendo `CLAUDE.md`, `.gitattributes` y los ZIP de entregas anteriores** (`sol.integrada.semNN`). Después hay que descomprimir y comprobar que ningún archivo mencione «claude» ni «anthropic» (pedido del equipo).
+- **En la PC del equipo:** el `java` del PATH es Java 8. Fuera de Maven se usa `C:\Program Files\Java\jdk-22\bin\java`. No hay Python, y Maven funciona con `mvn -o`.
 - Los parámetros están comentados en `config/parametros.properties`.
 - **Carpetas de la raíz:**
   - `scripts/`: los `.bat` del experimento y los scripts del servidor y del empaquetado (trabajan desde la raíz).
@@ -153,8 +163,15 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 5. **Experimento comparativo completo** (hecho en las etapas 28 y 29; **algoritmo elegido: Búsqueda Tabú**, etapa 30) con réplicas suficientes, CSV unidos, análisis estadístico y una **conclusión sobre qué algoritmo elegir**: gana el de **menor % de colapsos**. Si no hay diferencia significativa, desempatan el tiempo hasta el colapso, el costo y la estabilidad.
 6. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 7. ~~`inyectarPedido` para el escenario DIA_A_DIA~~ (hecho en la etapa 32: `Simulador.inyectarPedido` y `POST /api/corridas/DIA_A_DIA/pedidos`).
-8. **Solución integrada (etapa 32, entregable de la semana 8):** desplegarla en AWS (`docs/despliegue_aws.md`), generar el ZIP en `sol.integrada.sem08/` y preparar la exposición de la GUI con el diagrama `docs/diseno/diagrama_integracion.md`. Fuera del alcance de esta entrega: averías y bloqueos registrados en vivo durante la simulación del periodo.
-9. **Próximo entregable: planificación por bloques con adelanto** (SI-30, indicación del profesor; diseño en `docs/diseno/propuesta_bloques.md`). Planificador hecho en la etapa 33: bloques de 1 h simulada, planificados 30 min antes sobre el estado proyectado, en paralelo. **Falta el visualizador:** `GET /api/corridas/{ESC}/bloques` con la línea de tiempo del bloque en curso y del siguiente, y reproducir las trayectorias en cola con una transición exacta. También falta la respuesta a la pregunta 18 (si lo urgente y las averías rompen el bloque).
+8. ~~Solución integrada (etapa 32, entregable de la semana 8)~~ (hecha; ZIP en `sol.integrada.sem08/`). **Desplegada en la máquina virtual del curso** el 21-oct-2026 (§3).
+9. **Planificación por bloques con adelanto** (SI-30; diseño en `docs/diseno/propuesta_bloques.md`). El planificador está hecho (etapa 33). **Falta el visualizador:** `GET /api/corridas/{ESC}/bloques` con la línea de tiempo del bloque en curso y del siguiente, y reproducir las trayectorias en cola con una transición exacta. Hoy el visualizador sigue leyendo la instantánea cada segundo e interpola.
+10. **Decisiones abiertas del equipo** (pendientes al 21-oct-2026):
+    - **Vehículos sin tareas:** hoy se quedan detenidos donde terminan, porque al empezar un bloque nuevo se cancela su regreso al almacén. Falta decidir si deben volver al almacén más cercano con stock (cambio en `Simulador`).
+    - **Criterio 33 de la Guía:** pide mostrar u ocultar las rutas, y en la etapa 34 se quitó el botón Rutas. Falta decidir si se agrega un interruptor junto a Encuadrar.
+    - **Alimentación:** hoy es fija a las 03, 11 y 19 h para toda la flota (SI-06). Falta decidir si cada unidad elige su hora dentro de la ventana del turno; sería un cambio en el evaluador común.
+    - **Pedido de la JP de no replanificar los vehículos en ruta:** choca con P16 del Sheet («todo vehículo en el almacén o en ruta es vuelto a planificar»). La solución ya lo cubre en la práctica (Tabú parte del plan vigente y penaliza cada cambio de unidad con S/ 16; solo 20 a 27 cambios en 5 días). Si la JP insiste, conviene preguntárselo por escrito al profesor.
+    - **Operación día a día:** en espera; por ahora el pedido que registra el operador se planifica al registrarse.
+11. **Preguntas al profesor que siguen abiertas:** 11 (destino bloqueado), 13 (escenario del experimento), 18 (si lo urgente y las averías cortan el bloque; hoy sí lo cortan) y las de `docs/preguntas_para_el_profesor.md`. Contexto completo del curso (Sheet de P&R, hoja «Guía» con 108 criterios del software en vivo, sesiones): `C:\Users\MARIA GRACIA\Downloads\JL\DP1\1INF54_hallazgos_maestro_v11.md`, fuera del repositorio.
 
 ## 7. Convenciones de trabajo
 
