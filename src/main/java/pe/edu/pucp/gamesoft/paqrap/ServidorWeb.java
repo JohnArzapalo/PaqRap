@@ -140,7 +140,7 @@ public final class ServidorWeb {
     private static CorridaWeb iniciar(Simulador.Escenario esc, Map<String, String> d) throws IOException {
         LocalDateTime inicio = LocalDateTime.parse(requerido(d, "inicio"));   // aaaa-mm-ddThh:mm
         long inicioMs = Long.parseLong(d.getOrDefault("inicio_ms", "0"));
-        double porDefecto = esc == Simulador.Escenario.SIM_5D ? 5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 30)
+        double porDefecto = esc == Simulador.Escenario.SIM_5D ? 5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 60)
                 : esc == Simulador.Escenario.COLAPSO ? Parametros.decimal("web.factor_colapso", 600) : 1;
         double factor = d.containsKey("factor") ? Double.parseDouble(d.get("factor")) : porDefecto;
         return CorridaWeb.iniciar(esc, inicio, inicioMs, factor, entero(d, "autos", 10), entero(d, "motos", 15),

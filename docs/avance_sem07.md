@@ -420,3 +420,73 @@ Entregable de la semana 8: la solución integrada y desplegada, con la GUI de lo
 - Los colapsos que quedan son de carga media y alta. La mitad son por «destino bloqueado» (pedidos de 4 h cuyo destino se bloquea poco después del registro; pregunta 17) y la otra mitad por llegada tardía con la flota saturada (ALTA = 115 % de C_max).
 
 **Demostración (visualizador, SIM_5D desde el 16/09/2026, ritmo de 30 min):** terminó sin colapso. Hubo 796 entregas, 100 % en plazo y un costo de S/ 126 031, en 30.0 min reales. Uso de la flota: autos 17 %, motos 16 % y bicicletas 36 %; con el reparto, las bicicletas llevan partes de pedidos que antes no les cabían.
+
+## Etapa 33: planificación por bloques con adelanto, lado del planificador (SI-30)
+
+Indicación del profesor (semana 8): toda la simulación va en bloques, y el bloque siguiente se planifica antes de que empiece, para que el visualizador no se detenga ni salte. Diseño completo en `docs/diseno/propuesta_bloques.md`.
+
+- **Cómo funciona** (`Simulador.planificarPorBloques`):
+  - el tiempo se divide en bloques de `bloque.min` minutos **simulados** (por defecto 60; ver la decisión al final);
+  - en el **corte** (`bloque.adelanto_min` = 30 antes del inicio del bloque) el simulador copia su estado, avanza la copia hasta el inicio del bloque con el plan vigente y planifica sobre ella. En el visualizador lo hace en otro hilo, así que el reloj no se detiene;
+  - al empezar el bloque compara el estado real con el de la copia (`firma`). Si coinciden, aplica el plan tal cual, y cada unidad sigue desde donde estaba (`Resultado.saltos` cuenta los pasos a un nodo no vecino; da 0);
+  - los pedidos que llegaron después del corte se **insertan** en ese momento (inserción del plan vigente reparado, sin correr Tabú) y el bloque siguiente los optimiza;
+  - **vía de excepción** (pregunta 18): un pedido urgente (urgencia medida al inicio del bloque siguiente), una avería o un bloqueo en el camino replanifican en el instante y descartan el plan adelantado. En la operación día a día, el pedido que registra el operador también.
+- **Código:**
+  - la replanificación se dividió en `preparar` / `calcular` / `aplicarPlan`, que usan el modo periódico y los bloques por igual;
+  - las transiciones programadas (averías, mantenimiento, reposición) pasaron a `aplicarTransiciones`;
+  - las cachés de `MapaVial` están sincronizadas, porque con bloques el planificador y el simulador usan el mismo mapa desde hilos distintos;
+  - `CorridaWeb` usa bloques siempre y rechaza un ritmo con el que el adelanto real quede por debajo de Ta;
+  - el experimento acepta `--bloque N --adelanto M`. Sin esas opciones replanifica cada Sa, igual que en las etapas 28 a 31: el modo periódico no cambió (las 89 pruebas anteriores pasan y `Main` da 708/672/672 y 816/816/816).
+- **Pruebas:** 8 nuevas en `BloquesTest`:
+  - cada bloque usa el plan adelantado;
+  - no hay saltos;
+  - un pedido llegado después del corte entra al empezar el bloque;
+  - un pedido urgente rompe el bloque;
+  - en la operación día a día, el pedido registrado se planifica al registrarse;
+  - en otro hilo da lo mismo;
+  - con reloj real, el plan está listo antes del inicio del bloque;
+  - el adelanto no puede superar al bloque.
+  - **Total: 97 pruebas, todas pasan.**
+
+**Verificación con los datos oficiales** (solo Tabú, MEDIA = 2026-11/12, 12 ventanas de 5 días, `--semilla-base 3000`, **Ta = 500 ms** para que corra rápido; salidas locales en `salidas/verificacion_bloques/`):
+
+| Configuración | Colapsos | Bloques con plan adelantado | Saltos |
+|---|---|---|---|
+| Periódico, Sa = 60 min (como en el experimento) | 4/12 | — | 0 |
+| Bloques de 2 h, adelanto 1 h, sin inserción | 7/12 | todos menos el primero | 0 |
+| Bloques de 2 h, adelanto 1 h, con inserción | 11/12 | todos menos el primero | 0 |
+| Bloques de 1 h, adelanto 30 min, sin inserción | 11/12 | todos menos el primero | 0 |
+| Bloques de 1 h, adelanto 1 min (control) | 4/12 | todos menos el primero | 0 |
+| **Bloques de 1 h, adelanto 30 min, con inserción** | **3/12** | todos menos el primero | 0 |
+
+- **La mecánica es exacta:** en las 72 corridas con bloques, el estado proyectado coincidió siempre con el real, ningún bloque esperó al planificador y no hubo saltos.
+- **El % de colapsos depende de cuánto espera un pedido nuevo para entrar al plan:**
+  - sin inserción, un pedido espera hasta un bloque más el adelanto;
+  - con inserción, hasta un bloque;
+  - en el modo periódico, hasta Sa = 60 min.
+  - Con la flota al 99 % de su capacidad, 30 min extra de espera bastan para colapsar. El control lo confirma: con adelanto de 1 min, los bloques de 1 h colapsan igual que el periódico.
+- Con bloques de 2 h sin inserción, las ~90 replanificaciones por urgencia en 5 días compensaban en parte (7/12). Con la inserción, un pedido de 4 h normal ya no es urgente (le quedan al menos 2 h al empezar el bloque), pero 2 h de espera es demasiado.
+- **Conclusión:** para no perder en el criterio principal, el bloque debe durar en tiempo simulado lo mismo que Sa, **1 h**, con 30 min de adelanto y la inserción. A ×60 son bloques de 1 min real; con 5 días en 30 min (×240), de 15 s. **Decisión del equipo: bloques de 1 h con 30 min de adelanto** (valor por defecto desde esta etapa). Volver a 2 h es cambiar `bloque.min=120` y `bloque.adelanto_min=60` y reiniciar el servidor. Con 30 min de adelanto, el ritmo «1 s = 20 min» del escenario hasta el colapso deja 1.5 s reales para planificar, menos que Ta, así que se quitó del visualizador. Con 12 ventanas y Ta = 500 ms es una comprobación, no el experimento: la diferencia entre 4/12 y 3/12 está dentro del azar.
+
+**Decisiones del equipo sobre la etapa 33:**
+
+| Tema | Decisión |
+|---|---|
+| Tamaño del bloque | 1 h simulada, planificada 30 min antes (`bloque.min=60`, `bloque.adelanto_min=30`) |
+| Avería o pedido urgente durante un bloque (pregunta 18) | Se corta el bloque y se replanifica en el instante; se acepta la pausa breve (unos 2 s), porque son imprevistos raros. Falta que el profesor lo confirme |
+| Ritmo de SIM_5D | 60 min por defecto (`sim5d.minutos_reales=60`); también 30 min. Se quitó «5 días en 15 min», fuera del rango que fijó el profesor |
+| Tiempo de Tabú en los planes adelantados | La mitad del adelanto real, entre Ta y 10 s (`bloque.fraccion_ta=0.5`, `bloque.ta_max_ms=10000`): 7.5 s con 5 días en 60 min. Las excepciones siguen con 2 s |
+| Repetir el experimento con bloques | No: los bloques cambian cuándo se calcula el plan, no el algoritmo |
+| Pedidos «por planificar» en el visualizador | No se muestran: esperan como mucho 1 h simulada (30 s reales) |
+| Operación día a día | En espera; por ahora el pedido que registra el operador se planifica al registrarse |
+
+Además, el visualizador ya no ofrece el ritmo «1 s = 20 min» en el escenario hasta el colapso, porque con 30 min de adelanto quedaban 1.5 s reales para planificar, menos que Ta.
+
+- **Pruebas:** se agregaron 2 más:
+  - el plan adelantado usa su propio presupuesto;
+  - el cálculo del presupuesto en la web.
+  - **Total: 99 pruebas, todas pasan.**
+- **Verificación en la solución integrada** (servidor web, SIM_5D desde el 10/11/2026 con los datos oficiales, 5 días en 60 min):
+  - cada hora simulada, el bloque llegó planificado con adelanto, con Tabú usando 7 500 ms;
+  - la inserción de los pedidos llegados después del corte tardó de 17 a 27 ms;
+  - el reloj simulado siguió al real sin retraso: 256.5 min simulados frente a 256.7 esperados tras 128 s.

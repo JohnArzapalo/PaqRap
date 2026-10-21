@@ -13,7 +13,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -44,6 +49,17 @@ import java.util.concurrent.locks.ReentrantLock;
  *  - Mantenimiento preventivo: la unidad no se planifica en su ventana.
  *  - Alimentación: 1 h por turno (03, 11 y 19 h), dondequiera que esté.
  *  - Entregas parciales flexibles (10.3): estrategia "urgentes" (ver dividirUrgentes).
+ *  - Planificación POR BLOQUES con adelanto (Etapa 33, SI-30; activa si bloqueMin > 0):
+ *    en vez de replanificar cada Sa, el tiempo se divide en bloques de bloqueMin
+ *    minutos simulados. Cada bloque se planifica adelantoMin minutos ANTES de que
+ *    empiece, sobre el estado PROYECTADO a su inicio: una copia del simulador
+ *    sigue el plan vigente hasta ese instante (es exacto, porque el plan
+ *    comprometido es determinista). Así el reloj no se detiene a esperar al
+ *    planificador y cada unidad empieza el bloque donde terminó el anterior.
+ *    Los pedidos que llegan después del corte se insertan en el plan al empezar
+ *    el bloque (sin correr el algoritmo) y el bloque siguiente los optimiza.
+ *    Vía de excepción (pregunta 18): un pedido urgente, una avería o un bloqueo
+ *    en el camino replanifican en el instante.
  *
  * COLAPSO (P3 del profesor): el primer instante en que una unidad de producto
  * de cualquier pedido supera su hora límite sin haberse entregado (a bordo,
@@ -81,6 +97,17 @@ class Simulador {
          *  registro es urgente y su llegada dispara una replanificación (evento), sin esperar a Sa.
          *  0 = desactivado (así se corrió el experimento de las etapas 28 y 29). */
         double urgenteMin = Parametros.decimal("simulacion.urgente_min", 120);
+        /** Etapa 33 (SI-30): minutos simulados de cada bloque; 0 = replanificación periódica cada Sa
+         *  (así se corrió el experimento de las etapas 28 y 29). */
+        double bloqueMin = 0;
+        /** Minutos simulados antes del inicio de cada bloque en que se empieza a planificarlo. */
+        double adelantoMin = Parametros.decimal("bloque.adelanto_min", 30);
+        /** true: el bloque se planifica en otro hilo mientras la simulación sigue (visualizador);
+         *  false: en el mismo hilo, en el instante del corte (experimento: mismo resultado, sin hilos). */
+        boolean adelantoEnParalelo = false;
+        /** Presupuesto (ms) de los planes calculados con adelanto, que no detienen el reloj; 0 = taMs.
+         *  Las replanificaciones en el instante (excepciones) usan siempre taMs. */
+        long taBloqueMs = 0;
         /** Reparto por productos (Etapa 31, SI-28): una entrega puede repartirse entre varias unidades. */
         boolean reparto = !"no".equalsIgnoreCase(Parametros.texto("reparto.productos", "si"));
         String estrategiaParciales = Parametros.texto("parciales.estrategia", "ninguna");
@@ -120,6 +147,11 @@ class Simulador {
         int averiasAplicadas, trasvases, bloqueosEncontrados, parcialesCreadas, entregasTarde;
         /** Pedidos originales inentregables por bloqueo (regla NO_EVALUABLE): excluidos del colapso. */
         int pedidosInentregablesBloqueo;
+        /** Planificación por bloques (SI-30): bloques iniciados, los que usaron el plan hecho con
+         *  adelanto y los que tuvieron que esperar al planificador (su plan no estaba listo a tiempo). */
+        int bloques, bloquesConAdelanto, bloquesTardios;
+        /** Pasos de una unidad a un nodo que no es vecino del anterior (debe ser 0: sin saltos). */
+        int saltos;
         final List<Evt> registro = new ArrayList<>();   // eventos principales (para pruebas)
 
         double pctPedidosEnPlazo() {
@@ -172,6 +204,51 @@ class Simulador {
         Unidad(UnidadTransporte u) {
             this.u = u;
         }
+
+        /** Copia para la proyección de un bloque (comparte los eventos y paradas, que no se modifican). */
+        Unidad copia() {
+            Unidad c = new Unidad(u);
+            c.estado = estado;
+            c.x = x;
+            c.y = y;
+            c.ocupadoHasta = ocupadoHasta;
+            c.eventos.addAll(eventos);
+            c.rutaVigente = new ArrayList<>(rutaVigente);
+            c.aBordo.addAll(aBordo);
+            c.encuentroMin = encuentroMin;
+            c.vioBloqueo = vioBloqueo;
+            c.averia = averia;
+            c.averiaDejoLugar = averiaDejoLugar;
+            c.viajes = viajes;
+            c.km = km;
+            return c;
+        }
+    }
+
+    /** Lo que recibe el planificador en un instante (Etapa 33: se arma igual en la copia proyectada y en el real). */
+    private static final class Preparacion {
+        Contexto cx;
+        List<Unidad> operativas;
+        Map<Unidad, Evt> compromiso;
+        List<UnidadTransporte> disponibles;
+        List<Pedido> aPlanificar;
+        long semilla;
+        /** Resumen del estado de partida: si el de la copia y el del real coinciden, el plan adelantado vale. */
+        String firma;
+    }
+
+    /** Plan de un bloque calculado con adelanto sobre la copia proyectada (SI-30). */
+    private static final class Adelanto {
+        final double inicioBloque, corte;
+        String firma;
+        Contexto cx;
+        Planificador.Plan plan;   // null: la copia no llegó al inicio del bloque o no había nada que planificar
+        double ms;
+
+        Adelanto(double inicioBloque, double corte) {
+            this.inicioBloque = inicioBloque;
+            this.corte = corte;
+        }
     }
 
     // ============================ Estado de la corrida ============================
@@ -207,6 +284,24 @@ class Simulador {
     private double sumaMs = 0;
     private double ultimaReplanEvento = -1;
     private int repeticionesEnInstante = 0;
+    /** Averías del archivo, ordenadas, y la siguiente por aplicar. */
+    private final List<Averia> averiasArchivo = new ArrayList<>();
+    private int iAveria = 0;
+    /** Próxima reposición de los intermedios (23:59:59). */
+    private double proximaReposicion;
+
+    // ===== Planificación por bloques con adelanto (Etapa 33, SI-30) =====
+    /** Inicio del próximo bloque (minuto absoluto). */
+    private double proximoBloque;
+    /** true si ya se lanzó (o se descartó) la planificación adelantada del próximo bloque. */
+    private boolean adelantoLanzado;
+    /** Plan del próximo bloque en preparación (otro hilo) o ya listo. */
+    private Future<Adelanto> pendiente;
+    /** Último instante en que una excepción replanificó: los pedidos hasta ahí ya están en el plan. */
+    private double ultimaExcepcion = Double.NEGATIVE_INFINITY;
+    private ExecutorService ejecutor;
+    /** true en la copia que proyecta el estado al inicio de un bloque: no registra eventos. */
+    private boolean proyeccion = false;
 
     // ===== Integración con el visualizador (Etapa 21) =====
     /** Protege el estado mientras otro hilo arma una instantánea; se libera durante la
@@ -233,17 +328,77 @@ class Simulador {
             unidades.add(un);
             unidadPorCodigo.put(u.codigo, un);
         }
+        if (cfg.bloqueMin > 0 && (cfg.adelantoMin <= 0 || cfg.adelantoMin > cfg.bloqueMin))
+            throw new IllegalArgumentException("El adelanto (" + cfg.adelantoMin + " min) debe ser positivo y no mayor que el bloque ("
+                    + cfg.bloqueMin + " min)");
         porLlegar = new ArrayList<>(pedidos);
         porLlegar.sort(Comparator.comparingDouble(p -> p.horaRegistro));
-        // Etapa 32: llegadas urgentes (hora límite efectiva a menos de urgenteMin del registro)
+        // Etapa 32: llegadas urgentes, que replanifican al llegar (ver esUrgente)
         for (Pedido p : porLlegar)
-            if (cfg.urgenteMin > 0 && (Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0) - p.horaRegistro) * 60 < cfg.urgenteMin)
-                llegadasUrgentes.add(p.horaRegistro * 60);
+            if (esUrgente(p, p.horaRegistro * 60)) llegadasUrgentes.add(p.horaRegistro * 60);
         Set<String> originales = new LinkedHashSet<>();
         for (Pedido p : porLlegar) originales.add(p.idOriginal);
         res.pedidosOriginalesTotal = originales.size();
         stock[0] = Double.POSITIVE_INFINITY;
         stock[1] = stock[2] = Compartido.STOCK_INTERMEDIO;
+    }
+
+    /**
+     * Copia del estado para proyectar el inicio de un bloque (Etapa 33, SI-30). Copia
+     * todo lo que cambia al avanzar la línea de tiempo; los pedidos, las paradas y los
+     * eventos se comparten porque nadie los modifica. No registra eventos ni espera al reloj.
+     */
+    private Simulador(Simulador o) {
+        cfg = o.cfg;
+        flota = o.flota;
+        planificador = o.planificador;
+        for (Unidad un : o.unidades) {
+            Unidad c = un.copia();
+            unidades.add(c);
+            unidadPorCodigo.put(c.u.codigo, c);
+        }
+        porLlegar = new ArrayList<>(o.porLlegar);
+        siguiente = o.siguiente;
+        entregas.putAll(o.entregas);
+        estado.putAll(o.estado);
+        entregadaEn.putAll(o.entregadaEn);
+        for (Map.Entry<String, List<String>> e : o.partesDe.entrySet()) partesDe.put(e.getKey(), new ArrayList<>(e.getValue()));
+        vencidas.addAll(o.vencidas);
+        inentregables.addAll(o.inentregables);
+        plazos.addAll(o.plazos);
+        System.arraycopy(o.stock, 0, stock, 0, stock.length);
+        asignacionAnterior = o.asignacionAnterior;   // se reemplaza (no se modifica) al comprometer un plan
+        primerPlan = o.primerPlan;
+        colapsoRegistrado = o.colapsoRegistrado;
+        ciclo = o.ciclo;
+        partesCreadas = o.partesCreadas;
+        llegadasUrgentes.addAll(o.llegadasUrgentes);
+        siguienteUrgente = o.siguienteUrgente;
+        averiasArchivo.addAll(o.averiasArchivo);
+        iAveria = o.iAveria;
+        proximaReposicion = o.proximaReposicion;
+        velocidades.putAll(o.velocidades);
+        tActual = o.tActual;
+        proyeccion = true;
+    }
+
+    /**
+     * Etapa 32 (SI-29): un pedido es urgente si, cuando entre al plan, le quedarían menos de
+     * urgenteMin minutos hasta su hora límite efectiva (SI-23); su llegada replanifica en el
+     * instante. Sin bloques entra al plan al llegar; con bloques (SI-30), al inicio del bloque
+     * siguiente (planificado con adelanto o, si llegó después del corte, por inserción), así
+     * que la espera se descuenta del margen.
+     */
+    private boolean esUrgente(Pedido p, double llegadaMin) {
+        if (cfg.urgenteMin <= 0) return false;
+        double entraMin = cfg.bloqueMin > 0 ? inicioBloqueSiguiente(llegadaMin) : llegadaMin;
+        return Contexto.limiteEfectivo(cfg.mapa, cfg.reglaDestino, p, 0) * 60 - entraMin < cfg.urgenteMin;
+    }
+
+    /** Inicio del primer bloque que empieza en la llegada o después (el primero, al empezar la simulación). */
+    private double inicioBloqueSiguiente(double llegadaMin) {
+        if (llegadaMin <= cfg.inicioMin) return cfg.inicioMin;
+        return cfg.inicioMin + Math.ceil((llegadaMin - cfg.inicioMin) / cfg.bloqueMin) * cfg.bloqueMin;
     }
 
     /**
@@ -319,18 +474,18 @@ class Simulador {
         double t = cfg.inicioMin;
         tActual = t;
         double proximaReplan = t;
-        int iAveria = 0;
-        List<Averia> averias = new ArrayList<>(cfg.averias);
-        averias.sort(Comparator.comparingDouble(a -> a.tiempoMin));
-        while (iAveria < averias.size() && averias.get(iAveria).tiempoMin < t) iAveria++;   // anteriores al inicio
-        double proximaReposicion = Math.floor(t / 1440) * 1440 + 1440 - 1.0 / 60;   // 23:59:59 del día de inicio
+        proximoBloque = t;   // con bloques, el primero se planifica al empezar
+        averiasArchivo.addAll(cfg.averias);
+        averiasArchivo.sort(Comparator.comparingDouble(a -> a.tiempoMin));
+        while (iAveria < averiasArchivo.size() && averiasArchivo.get(iAveria).tiempoMin < t) iAveria++;   // anteriores al inicio
+        proximaReposicion = Math.floor(t / 1440) * 1440 + 1440 - 1.0 / 60;   // 23:59:59 del día de inicio
         boolean terminar = false;
 
         cerrojo.lock();
         try {
         while (!terminar) {
             // 1. Próximo instante
-            double T = Math.min(proximaReplan, fin);
+            double T = Math.min(cfg.bloqueMin > 0 ? proximoInstanteDeBloque() : proximaReplan, fin);
             for (Unidad un : unidades) {
                 if (!un.eventos.isEmpty()) T = Math.min(T, un.eventos.peek().min);
                 T = Math.min(T, un.encuentroMin);
@@ -339,7 +494,7 @@ class Simulador {
                     T = Math.min(T, un.averia.disponibleDesdeMin());
                 }
             }
-            if (iAveria < averias.size()) T = Math.min(T, averias.get(iAveria).tiempoMin);
+            if (iAveria < averiasArchivo.size()) T = Math.min(T, averiasArchivo.get(iAveria).tiempoMin);
             while (siguienteUrgente < llegadasUrgentes.size() && llegadasUrgentes.get(siguienteUrgente) < t) siguienteUrgente++;
             if (siguienteUrgente < llegadasUrgentes.size()) T = Math.min(T, llegadasUrgentes.get(siguienteUrgente));
             for (Mantenimiento m : cfg.mantenimientos) {
@@ -401,8 +556,8 @@ class Simulador {
                     replanEvento = true;
                 }
             }
-            while (iAveria < averias.size() && averias.get(iAveria).tiempoMin <= t) {
-                replanEvento |= aplicarAveria(averias.get(iAveria++), t);
+            while (iAveria < averiasArchivo.size() && averiasArchivo.get(iAveria).tiempoMin <= t) {
+                replanEvento |= aplicarAveria(averiasArchivo.get(iAveria++), t);
             }
             Object[] externa;
             while ((externa = averiasExternas.poll()) != null) {   // registradas desde el visualizador
@@ -415,58 +570,23 @@ class Simulador {
             Pedido nuevo;
             while ((nuevo = pedidosExternos.poll()) != null) {   // registrados desde el visualizador
                 nuevo.horaRegistro = t / 60.0;
-                registrarLlegada(nuevo, t);
+                // Se suma a los pedidos por llegar con su hora de registro y se planifica ahora mismo.
+                // Con bloques, solo si es urgente o si lo registró el operador en la operación día a
+                // día (a ritmo real, esperar al bloque siguiente serían hasta 3 h); si no, entra al
+                // bloque siguiente
+                int i = porLlegar.size();
+                while (i > siguiente && porLlegar.get(i - 1).horaRegistro > nuevo.horaRegistro) i--;
+                porLlegar.add(i, nuevo);
                 registrar(new Evt(Evt.T.REPLANIFICACION, t, nuevo.x, nuevo.y, List.of(nuevo.id), null, t, nuevo.cantidad), "",
                         "pedido " + nuevo.idOriginal + " registrado: " + nuevo.cantidad + " paq. a (" + nuevo.x + ","
                                 + nuevo.y + "), plazo " + nuevo.plazoMaximoHoras + " h");
-                replanEvento = true;
+                replanEvento |= cfg.bloqueMin <= 0 || cfg.escenario == Escenario.DIA_A_DIA || esUrgente(nuevo, t);
             }
-            for (Unidad un : unidades) {
-                if (un.estado != EstadoUnidad.AVERIADA) continue;
-                if (!un.averiaDejoLugar && un.averia.enLugarHastaMin() <= t) {
-                    un.averiaDejoLugar = true;
-                    replanEvento = true;
-                    if (un.averia.tipo == 1) {
-                        reactivar(un, t, true);
-                    } else {
-                        // pasa "instantáneamente" al central; lo no trasvasado vuelve al stock del central
-                        for (String id : new ArrayList<>(un.aBordo)) estado.put(id, "P");
-                        un.aBordo.clear();
-                        un.x = Compartido.ALMACEN_CENTRAL.x;
-                        un.y = Compartido.ALMACEN_CENTRAL.y;
-                        registrar(new Evt(Evt.T.AVERIA, t, un.x, un.y, List.of(), null, t, 0), un.u.codigo,
-                                "deja el lugar y pasa al central");
-                    }
-                } else if (un.averiaDejoLugar && un.averia.disponibleDesdeMin() <= t) {
-                    reactivar(un, t, false);
-                    replanEvento = true;
-                }
-            }
-            for (Mantenimiento m : cfg.mantenimientos) {
-                Unidad un = unidadPorCodigo.get(m.unidad);
-                if (un == null) continue;
-                if (m.inicioMin <= t && t < m.finMin && un.estado == EstadoUnidad.OPERATIVA) {
-                    un.estado = EstadoUnidad.MANTENIMIENTO;
-                    un.eventos.clear();
-                    un.rutaVigente.clear();
-                    for (String id : un.aBordo) estado.put(id, "P");   // no debería ocurrir: el plan lo evita
-                    un.aBordo.clear();
-                    un.x = Compartido.ALMACEN_CENTRAL.x;
-                    un.y = Compartido.ALMACEN_CENTRAL.y;
-                } else if (m.finMin <= t && un.estado == EstadoUnidad.MANTENIMIENTO) {
-                    un.estado = EstadoUnidad.OPERATIVA;
-                    un.ocupadoHasta = t;
-                    replanEvento = true;
-                }
-            }
-            if (cfg.almacenesIntermedios && t >= proximaReposicion) {
-                stock[1] = stock[2] = Compartido.STOCK_INTERMEDIO;
-                proximaReposicion += 1440;
-            }
+            replanEvento |= aplicarTransiciones(t);
 
-            // 5. Replanificación periódica (cada Sa) o por evento. Resguardo: si los eventos
-            //    piden replanificar una y otra vez en el mismo instante, se omite y se registra.
-            boolean periodica = t >= proximaReplan;
+            // 5. Replanificación periódica (cada Sa, o al empezar cada bloque) o por evento. Resguardo:
+            //    si los eventos piden replanificar una y otra vez en el mismo instante, se omite y se registra.
+            boolean periodica = cfg.bloqueMin > 0 ? t >= proximoBloque : t >= proximaReplan;
             if (replanEvento && !periodica) {
                 repeticionesEnInstante = (t == ultimaReplanEvento) ? repeticionesEnInstante + 1 : 0;
                 ultimaReplanEvento = t;
@@ -476,15 +596,255 @@ class Simulador {
                             "omitida: replanificación repetida en el mismo instante");
                 }
             }
-            if (periodica || replanEvento) {
+            if (cfg.bloqueMin > 0) {
+                planificarPorBloques(t, replanEvento);
+            } else if (periodica || replanEvento) {
                 if (!periodica) res.replanPorEvento++;
-                replanificar(t);
+                replanificar(t, t);
                 while (proximaReplan <= t) proximaReplan += cfg.saMin;
             }
         }
         } finally {
             cerrarMetricas();
+            if (ejecutor != null) ejecutor.shutdownNow();
             cerrojo.unlock();
+        }
+    }
+
+    /**
+     * Cambios de estado programados en t: una averiada deja el lugar o vuelve a estar
+     * disponible, empieza o termina un mantenimiento, se reponen los intermedios.
+     * Devuelve true si hay que replanificar ya: siempre tras una avería; tras un
+     * mantenimiento, solo sin bloques (con bloques, la unidad entra en el bloque siguiente).
+     */
+    private boolean aplicarTransiciones(double t) {
+        boolean replan = false;
+        for (Unidad un : unidades) {
+            if (un.estado != EstadoUnidad.AVERIADA) continue;
+            if (!un.averiaDejoLugar && un.averia.enLugarHastaMin() <= t) {
+                un.averiaDejoLugar = true;
+                replan = true;
+                if (un.averia.tipo == 1) {
+                    reactivar(un, t, true);
+                } else {
+                    // pasa "instantáneamente" al central; lo no trasvasado vuelve al stock del central
+                    for (String id : new ArrayList<>(un.aBordo)) estado.put(id, "P");
+                    un.aBordo.clear();
+                    un.x = Compartido.ALMACEN_CENTRAL.x;
+                    un.y = Compartido.ALMACEN_CENTRAL.y;
+                    registrar(new Evt(Evt.T.AVERIA, t, un.x, un.y, List.of(), null, t, 0), un.u.codigo,
+                            "deja el lugar y pasa al central");
+                }
+            } else if (un.averiaDejoLugar && un.averia.disponibleDesdeMin() <= t) {
+                reactivar(un, t, false);
+                replan = true;
+            }
+        }
+        for (Mantenimiento m : cfg.mantenimientos) {
+            Unidad un = unidadPorCodigo.get(m.unidad);
+            if (un == null) continue;
+            if (m.inicioMin <= t && t < m.finMin && un.estado == EstadoUnidad.OPERATIVA) {
+                un.estado = EstadoUnidad.MANTENIMIENTO;
+                un.eventos.clear();
+                un.rutaVigente.clear();
+                for (String id : un.aBordo) estado.put(id, "P");   // no debería ocurrir: el plan lo evita
+                un.aBordo.clear();
+                un.x = Compartido.ALMACEN_CENTRAL.x;
+                un.y = Compartido.ALMACEN_CENTRAL.y;
+            } else if (m.finMin <= t && un.estado == EstadoUnidad.MANTENIMIENTO) {
+                un.estado = EstadoUnidad.OPERATIVA;
+                un.ocupadoHasta = t;
+                replan |= cfg.bloqueMin <= 0;
+            }
+        }
+        if (cfg.almacenesIntermedios && t >= proximaReposicion) {
+            stock[1] = stock[2] = Compartido.STOCK_INTERMEDIO;
+            proximaReposicion += 1440;
+        }
+        return replan;
+    }
+
+    // ============================ Planificación por bloques (Etapa 33, SI-30) ============================
+
+    /** Próximo instante de la planificación por bloques: el corte del próximo bloque (si aún
+     *  no se planificó con adelanto) o su inicio. */
+    private double proximoInstanteDeBloque() {
+        return adelantoLanzado ? proximoBloque : proximoBloque - cfg.adelantoMin;
+    }
+
+    /**
+     * Paso 5 con bloques. Al llegar el corte (inicio del bloque menos el adelanto) se lanza
+     * la planificación del bloque sobre la copia proyectada; al llegar su inicio, se aplica.
+     * Una excepción replanifica en el instante y descarta el plan adelantado, que se vuelve
+     * a lanzar desde ese estado si ya pasó el corte.
+     */
+    private void planificarPorBloques(double t, boolean excepcion) {
+        boolean inicio = t >= proximoBloque;
+        if (excepcion) {
+            recogerAdelanto();   // ya no sirve: el estado cambió
+            adelantoLanzado = false;
+            if (!inicio) res.replanPorEvento++;
+            ultimaExcepcion = t;
+            replanificar(t, t);
+        } else if (inicio) {
+            aplicarBloque(t);
+        }
+        if (inicio) {
+            res.bloques++;
+            while (proximoBloque <= t) proximoBloque += cfg.bloqueMin;
+            adelantoLanzado = false;
+        }
+        if (!adelantoLanzado && t >= proximoBloque - cfg.adelantoMin) lanzarAdelanto(t);
+    }
+
+    /**
+     * Corte del próximo bloque: se proyecta el estado a su inicio en una copia y se lo
+     * planifica con lo que llegó hasta ahora (en otro hilo si adelantoEnParalelo). Los
+     * cambios de velocidad pendientes rigen desde este bloque (P16).
+     */
+    private void lanzarAdelanto(double t) {
+        adelantoLanzado = true;
+        aplicarVelocidadesPendientes(t);
+        Simulador copia = new Simulador(this);
+        double inicioBloque = proximoBloque;
+        if (cfg.adelantoEnParalelo) {
+            if (ejecutor == null) ejecutor = Executors.newSingleThreadExecutor(r -> {
+                Thread h = new Thread(r, "planificador-bloques");
+                h.setDaemon(true);
+                return h;
+            });
+            pendiente = ejecutor.submit(() -> copia.planificarProyectado(inicioBloque, t));
+        } else {
+            pendiente = CompletableFuture.completedFuture(copia.planificarProyectado(inicioBloque, t));
+        }
+    }
+
+    /**
+     * En la COPIA: sigue el plan vigente hasta el inicio del bloque y planifica desde ese
+     * estado proyectado, con los pedidos que llegaron hasta el corte.
+     */
+    private Adelanto planificarProyectado(double inicioBloque, double corte) {
+        Adelanto a = new Adelanto(inicioBloque, corte);
+        if (!avanzarProyeccion(inicioBloque)) return a;
+        Preparacion pr = preparar(inicioBloque, corte);
+        if (pr == null) return a;
+        try {
+            a.firma = pr.firma;
+            a.cx = pr.cx;
+            long t0 = System.nanoTime();
+            a.plan = calcular(pr, cfg.taBloqueMs > 0 ? cfg.taBloqueMs : cfg.taMs);
+            a.ms = (System.nanoTime() - t0) / 1e6;
+        } finally {
+            Contexto.restablecer();
+        }
+        return a;
+    }
+
+    /**
+     * En la COPIA: aplica la línea de tiempo comprometida (entregas, cargas, nodos,
+     * mantenimientos, reposición) hasta tk. Devuelve false si antes de tk ocurrirá una
+     * excepción (avería, bloqueo en el camino, pedido urgente), porque replanificará igual
+     * y el bloque se volverá a planificar desde ese estado.
+     */
+    private boolean avanzarProyeccion(double tk) {
+        for (Unidad un : unidades) {
+            if (un.encuentroMin <= tk) return false;
+            if (un.estado == EstadoUnidad.AVERIADA
+                    && (un.averiaDejoLugar ? un.averia.disponibleDesdeMin() : un.averia.enLugarHastaMin()) <= tk) return false;
+        }
+        if (iAveria < averiasArchivo.size() && averiasArchivo.get(iAveria).tiempoMin <= tk) return false;
+        while (siguienteUrgente < llegadasUrgentes.size() && llegadasUrgentes.get(siguienteUrgente) <= tActual) siguienteUrgente++;
+        if (siguienteUrgente < llegadasUrgentes.size() && llegadasUrgentes.get(siguienteUrgente) <= tk) return false;
+        double t = tActual;
+        while (t < tk) {
+            double T = tk;
+            for (Unidad un : unidades) if (!un.eventos.isEmpty()) T = Math.min(T, un.eventos.peek().min);
+            for (Mantenimiento m : cfg.mantenimientos) {
+                if (m.inicioMin > t) T = Math.min(T, m.inicioMin);
+                if (m.finMin > t) T = Math.min(T, m.finMin);
+            }
+            if (cfg.almacenesIntermedios) T = Math.min(T, proximaReposicion);
+            t = Math.max(T, t);
+            aplicarEventosHasta(t);
+            aplicarTransiciones(t);
+        }
+        tActual = tk;
+        return true;
+    }
+
+    /**
+     * Inicio de un bloque: si el plan adelantado partió de un estado igual al real (misma
+     * firma), se aplica tal cual; si no (o no hubo adelanto), se planifica en el instante
+     * con los pedidos que llegaron hasta el corte.
+     */
+    private void aplicarBloque(double t) {
+        Adelanto a = recogerAdelanto();
+        if (a != null && a.plan != null && a.inicioBloque == t) {
+            Preparacion pr = preparar(t, a.corte);
+            boolean aplicado = false;
+            try {
+                if (pr != null && pr.firma.equals(a.firma)) {
+                    res.bloquesConAdelanto++;
+                    aplicarPlan(t, pr, a.plan, a.cx, a.ms, ", planificado con adelanto desde " + formatear(a.corte));
+                    aplicado = true;
+                } else {
+                    registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
+                            "el estado proyectado no coincidió con el real: se planifica en el instante");
+                }
+            } finally {
+                Contexto.restablecer();
+            }
+            if (aplicado) {
+                insertarLlegadasTardias(t);
+                return;
+            }
+        }
+        replanificar(t, t);   // sin plan adelantado: se planifica en el instante con todo lo llegado
+    }
+
+    /**
+     * Pedidos que llegaron entre el corte y el inicio del bloque: se insertan en el plan recién
+     * aplicado con la misma inserción que repara el plan vigente (milisegundos, sin correr el
+     * algoritmo), y el bloque siguiente los optimiza con el resto. Así un pedido espera a lo sumo
+     * un bloque para tener unidad; sin esto esperaba un bloque más el adelanto, y con la flota
+     * cerca de su capacidad eso basta para colapsar (etapa 33, datos oficiales).
+     */
+    private void insertarLlegadasTardias(double t) {
+        if (siguiente >= porLlegar.size() || porLlegar.get(siguiente).horaRegistro * 60 > t) return;
+        long t0 = System.nanoTime();
+        Preparacion pr = preparar(t, t);
+        if (pr == null) return;
+        try {
+            if (pr.cx.planBase == null) return;   // sin plan vigente que completar (solo antes del primer plan)
+            aplicarPlan(t, pr, Planificador.Plan.de(pr.cx.planBase, 0, 0), pr.cx, (System.nanoTime() - t0) / 1e6,
+                    ", inserción de los pedidos llegados después del corte");
+        } finally {
+            Contexto.restablecer();
+        }
+    }
+
+    /** Espera (sin retener el estado) el plan adelantado pendiente y lo devuelve; null si no hay. */
+    private Adelanto recogerAdelanto() {
+        if (pendiente == null) return null;
+        Future<Adelanto> f = pendiente;
+        pendiente = null;
+        if (!f.isDone()) res.bloquesTardios++;   // el planificador tardó más que el adelanto
+        boolean interrumpido = false;
+        try {
+            while (true) {
+                cerrojo.unlock();   // la instantánea puede leerse mientras se espera
+                try {
+                    return f.get();
+                } catch (InterruptedException e) {
+                    interrumpido = true;   // evento externo: se atiende en la siguiente vuelta
+                } finally {
+                    cerrojo.lock();
+                }
+            }
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Falló la planificación con adelanto", e.getCause());
+        } finally {
+            if (interrumpido) Thread.currentThread().interrupt();
         }
     }
 
@@ -505,6 +865,7 @@ class Simulador {
     private void aplicar(Unidad un, Evt e) {
         switch (e.tipo) {
             case NODO:
+                if (Math.abs(e.x - un.x) + Math.abs(e.y - un.y) != 1) res.saltos++;   // debe avanzar a un vecino
                 un.x = e.x;
                 un.y = e.y;
                 un.km += 1;
@@ -684,16 +1045,44 @@ class Simulador {
         plazos.add(p);
     }
 
-    private void replanificar(double t) {
-        // Cambios de velocidad en caliente: rigen desde esta planificación (P16)
+    /** Planifica en el instante t con los pedidos que llegaron hasta "corte" y aplica el plan. */
+    private void replanificar(double t, double corte) {
+        aplicarVelocidadesPendientes(t);
+        Preparacion pr = preparar(t, corte);
+        if (pr == null) return;   // nada que cambiar: sigue el plan vigente
+        try {
+            long t0 = System.nanoTime();
+            Planificador.Plan plan;
+            cerrojo.unlock();   // la instantánea puede leerse mientras el planificador trabaja
+            try {
+                plan = calcular(pr, cfg.taMs);
+            } finally {
+                cerrojo.lock();
+            }
+            aplicarPlan(t, pr, plan, pr.cx, (System.nanoTime() - t0) / 1e6, "");
+        } finally {
+            Contexto.restablecer();
+        }
+    }
+
+    /** Cambios de velocidad en caliente: rigen desde la planificación que empieza ahora (P16). */
+    private void aplicarVelocidadesPendientes(double t) {
         Object[] v;
         while ((v = velocidadesPendientes.poll()) != null) {
             velocidades.put((TipoUnidad) v[0], (Double) v[1]);
             registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
                     "velocidad de " + v[0] + " = " + v[1] + " km/h");
         }
+    }
+
+    /**
+     * Arma lo que recibe el planificador en t: registra los pedidos que llegaron hasta
+     * "corte", toma el estado de cada unidad operativa y repara el plan vigente. Deja
+     * activo su Contexto (quien llama lo restablece). null si no hay nada que planificar.
+     */
+    private Preparacion preparar(double t, double corte) {
         // Llegada de pedidos
-        while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= t)
+        while (siguiente < porLlegar.size() && porLlegar.get(siguiente).horaRegistro * 60 <= corte)
             registrarLlegada(porLlegar.get(siguiente++), t);
         List<Unidad> operativas = new ArrayList<>();
         for (Unidad un : unidades) {
@@ -756,57 +1145,88 @@ class Simulador {
             aPlanificar.add(rel);
         }
         aPlanificar.sort(Comparator.comparing(p -> p.id));   // orden estable (reproducible)
-        if (aPlanificar.isEmpty() || disponibles.isEmpty()) return;   // nada que cambiar: sigue el plan vigente
+        if (aPlanificar.isEmpty() || disponibles.isEmpty()) return null;
 
         cx.partesCreadas = partesCreadas;   // ids de partes únicos en toda la simulación (SI-28)
         Contexto.usar(cx);
-        try {
-            // Estabilidad (Etapa 18): el costo de cambiar entregas de unidad se mide contra el plan vigente
-            if (!primerPlan) cx.asignacionVigente = asignacionAnterior;
-            cx.planBase = primerPlan ? null : planVigenteReparado(operativas, aPlanificar, disponibles);
-            primerPlan = false;
-            if (cx.planBase != null) {
-                // La reparación pudo repartir pedidos nuevos (SI-28): ambos algoritmos
-                // parten de esas mismas partes
-                adoptarReparto(cx.planBase.todasLasEntregas(), t);
-                aPlanificar = cx.planBase.todasLasEntregas();
-                aPlanificar.sort(Comparator.comparing(p -> p.id));
-            }
-            long semillaCiclo = cfg.semilla * 1_000_003L + ciclo++;
-            long t0 = System.nanoTime();
-            Planificador.Plan plan;
-            cerrojo.unlock();   // la instantánea puede leerse mientras el planificador trabaja
-            try {
-                plan = planificador.planificar(new Planificador.EstadoPlanificacion(
-                        cx, aPlanificar, disponibles, cfg.taMs, cfg.maxEvaluaciones, semillaCiclo));
-            } finally {
-                cerrojo.lock();
-            }
-            double ms = (System.nanoTime() - t0) / 1e6;
-            Contexto.usar(cx);   // el planificador pudo cambiarlo
-            partesCreadas = cx.partesCreadas;
-            List<Pedido> entregasPlan = new ArrayList<>(plan.sinAsignar);
-            for (RutaAlg r : plan.rutas)
-                for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) entregasPlan.add(pa.pedido);
-            adoptarReparto(entregasPlan, t);   // partes que creó o unió el planificador (SI-28)
-            res.replanificaciones++;
-            sumaMs += ms;
-            res.planificadorMsMax = Math.max(res.planificadorMsMax, ms);
-            res.iteracionesTotales += plan.iteraciones;
-            res.evaluacionesTotales += plan.evaluaciones;
-            res.aplazamientos += plan.sinAsignar.size();
-            for (Unidad un : operativas) {   // se reemplazan las líneas de tiempo por las del plan nuevo
-                un.eventos.clear();
-                if (compromiso.containsKey(un)) un.eventos.add(compromiso.get(un));
-                un.encuentroMin = Double.POSITIVE_INFINITY;
-            }
-            comprometer(t, cx, plan, operativas);
-            registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
-                    aPlanificar.size() + " entregas, " + disponibles.size() + " unidades, "
-                            + plan.sinAsignar.size() + " sin asignar, " + String.format(Locale.US, "%.0f ms", ms));
-        } finally {
-            Contexto.restablecer();
+        // Estabilidad (Etapa 18): el costo de cambiar entregas de unidad se mide contra el plan vigente
+        if (!primerPlan) cx.asignacionVigente = asignacionAnterior;
+        cx.planBase = primerPlan ? null : planVigenteReparado(operativas, aPlanificar, disponibles);
+        primerPlan = false;
+        if (cx.planBase != null) {
+            // La reparación pudo repartir pedidos nuevos (SI-28): ambos algoritmos
+            // parten de esas mismas partes
+            adoptarReparto(cx.planBase.todasLasEntregas(), t);
+            aPlanificar = cx.planBase.todasLasEntregas();
+            aPlanificar.sort(Comparator.comparing(p -> p.id));
         }
+        Preparacion pr = new Preparacion();
+        pr.cx = cx;
+        pr.operativas = operativas;
+        pr.compromiso = compromiso;
+        pr.disponibles = disponibles;
+        pr.aPlanificar = aPlanificar;
+        pr.semilla = cfg.semilla * 1_000_003L + ciclo++;
+        pr.firma = firma(t, pr);
+        return pr;
+    }
+
+    /** Llama al algoritmo (Búsqueda Tabú en la solución) con el presupuesto indicado (Ta). */
+    private Planificador.Plan calcular(Preparacion pr, long presupuestoMs) {
+        return planificador.planificar(new Planificador.EstadoPlanificacion(
+                pr.cx, pr.aPlanificar, pr.disponibles, presupuestoMs, cfg.maxEvaluaciones, pr.semilla));
+    }
+
+    /**
+     * Resumen del estado de partida del planificador: instante, punto y hora de partida de
+     * cada unidad, entregas (y dónde están), stock y plan vigente reparado. Si la copia
+     * proyectada y el simulador real dan la misma firma, el plan de la copia vale para el real.
+     */
+    private static String firma(double t, Preparacion pr) {
+        StringBuilder f = new StringBuilder(String.format(Locale.US, "%.6f", t));
+        for (UnidadTransporte u : pr.disponibles) {
+            Contexto.Inicio i = pr.cx.inicios.get(u.codigo);
+            f.append(String.format(Locale.US, "|%s@%d,%d,%.6f,%.6f", u.codigo, i.x, i.y, i.inicioH, i.noDisponibleDesdeH));
+        }
+        for (Pedido p : pr.aPlanificar) f.append('|').append(p.id).append(':').append(p.cantidad).append(':')
+                .append(p.aBordoDe).append(':').append(p.enAveriada);
+        for (Contexto.AlmacenPlan a : pr.cx.almacenes) f.append("|").append(a.almacen.codigo).append('=').append(a.stock);
+        for (Contexto.Averiada a : pr.cx.averiadas.values()) f.append("|").append(a.codigo).append('@').append(a.x).append(',').append(a.y);
+        if (pr.cx.planBase != null)
+            for (RutaAlg r : pr.cx.planBase.rutas) {
+                f.append("|ruta ").append(r.unidad.codigo).append(':');
+                for (ParadaAlg pa : r.paradas) f.append(pa.id()).append(',');
+            }
+        return f.toString();
+    }
+
+    /**
+     * Aplica el plan en t: adopta el reparto de productos, reemplaza la línea de tiempo de
+     * cada unidad operativa (la que viaja entre dos nodos llega primero al siguiente) y
+     * registra la replanificación. cxPlan es el contexto en que se calculó el plan.
+     */
+    private void aplicarPlan(double t, Preparacion pr, Planificador.Plan plan, Contexto cxPlan, double ms, String nota) {
+        Contexto.usar(cxPlan);   // el planificador pudo cambiarlo
+        partesCreadas = cxPlan.partesCreadas;
+        List<Pedido> entregasPlan = new ArrayList<>(plan.sinAsignar);
+        for (RutaAlg r : plan.rutas)
+            for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) entregasPlan.add(pa.pedido);
+        adoptarReparto(entregasPlan, t);   // partes que creó o unió el planificador (SI-28)
+        res.replanificaciones++;
+        sumaMs += ms;
+        res.planificadorMsMax = Math.max(res.planificadorMsMax, ms);
+        res.iteracionesTotales += plan.iteraciones;
+        res.evaluacionesTotales += plan.evaluaciones;
+        res.aplazamientos += plan.sinAsignar.size();
+        for (Unidad un : pr.operativas) {   // se reemplazan las líneas de tiempo por las del plan nuevo
+            un.eventos.clear();
+            if (pr.compromiso.containsKey(un)) un.eventos.add(pr.compromiso.get(un));
+            un.encuentroMin = Double.POSITIVE_INFINITY;
+        }
+        comprometer(t, cxPlan, plan, pr.operativas);
+        registrar(new Evt(Evt.T.REPLANIFICACION, t, 0, 0, List.of(), null, t, 0), "",
+                pr.aPlanificar.size() + " entregas, " + pr.disponibles.size() + " unidades, "
+                        + plan.sinAsignar.size() + " sin asignar, " + String.format(Locale.US, "%.0f ms", ms) + nota);
     }
 
     private boolean enMantenimiento(Unidad un, double t) {
@@ -1137,6 +1557,7 @@ class Simulador {
     }
 
     private void registrar(Evt e, String unidad, String detalle) {
+        if (proyeccion) return;   // la copia proyectada no registra (comparte los eventos con el real)
         e.unidad = unidad;
         e.detalle = detalle;
         if (e.tipo != Evt.T.SALIDA) res.registro.add(e);

@@ -36,7 +36,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - Primero **H** = productos sin asignar + productos fuera de plazo.
   - Luego **S** = costo en soles, más las penalidades internas del planificador.
   - Ningún ahorro en S compensa un producto tarde.
-- **Replanificar, no planificar desde cero:** se parte del plan vigente y del estado real. Se replanifica cada **Sa** (60 min) con un presupuesto **Ta** y ante eventos. En cada iteración se replanifican todas las unidades.
+- **Replanificar, no planificar desde cero:** se parte del plan vigente y del estado real. Se replanifica cada **Sa** (60 min) con un presupuesto **Ta** y ante eventos; en las corridas del visualizador, **por bloques de 1 h simulada planificados con 30 min de adelanto** (SI-30, etapa 33). En cada iteración se replanifican todas las unidades.
 - **El planificador nunca se detiene por un pedido tarde**; el colapso lo detecta el **simulador**.
 - **Experimento (indicación del profesor):**
   - Ambos algoritmos se comparan en **las mismas situaciones**: mismos pedidos, mismos bloqueos a las mismas horas, misma flota, mismos almacenes y mismos parámetros.
@@ -81,7 +81,16 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - Replanificación ante pedidos urgentes (SI-29).
   - Diagrama en `docs/diseno/diagrama_integracion.md` y despliegue en `docs/despliegue_aws.md`.
   - Hay 89 pruebas.
-- **Supuestos** SI-01 a SI-29 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
+- **Etapa 33, planificación por bloques con adelanto, lado del planificador** (SI-30):
+  - bloques de **1 h simulada** (`bloque.min=60`; 15 s reales con 5 días en 30 min, 1 min a ×60). Cada bloque se planifica 30 min simulados antes (`bloque.adelanto_min=30`) sobre una **copia del simulador avanzada hasta su inicio** con el plan vigente, en otro hilo;
+  - al empezar el bloque se aplica el plan si el estado real coincide con el proyectado (`firma`), así que no hay saltos (`Resultado.saltos` = 0), y se **insertan** los pedidos llegados después del corte (sin esa inserción los colapsos se multiplicaban con los datos oficiales);
+  - lo urgente, las averías y los bloqueos en el camino **cortan el bloque** y replanifican en el instante con Ta = 2 s (decisión del equipo; falta la confirmación del profesor, pregunta 18);
+  - el plan adelantado usa la mitad del adelanto real (`bloque.fraccion_ta=0.5`, entre Ta y 10 s): 7.5 s con 5 días en 60 min, que es el ritmo por defecto (`sim5d.minutos_reales=60`; ya no se ofrece 15 min);
+  - decisiones del equipo: no se repite el experimento con bloques, no se muestran pedidos «por planificar» y la operación día a día queda en espera;
+  - las corridas web usan bloques siempre; el experimento, solo con `--bloque 120 --adelanto 60` (sin la opción replanifica cada Sa, igual que en las etapas 28 a 31);
+  - las cachés de `MapaVial` están sincronizadas. Falta la parte del visualizador (API `/bloques` y reproducción de trayectorias). Hay 99 pruebas.
+  - **Datos oficiales (MEDIA, 12 ventanas, Ta = 500 ms):** el periódico colapsa en 4 de 12; bloques de 2 h con inserción, en 11 de 12; bloques de 1 h (adelanto de 30 min) con inserción, en 3 de 12. Lo que decide es cuánto espera un pedido nuevo para entrar al plan (hasta un bloque). **Decisión del equipo: bloques de 1 h** (`docs/avance_sem07.md`, etapa 33). Para volver a 2 h: `bloque.min=120`, `bloque.adelanto_min=60` y reiniciar el servidor.
+- **Supuestos** SI-01 a SI-30 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
 ## 4. Cómo compilar, probar y ejecutar
@@ -144,6 +153,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 6. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 7. ~~`inyectarPedido` para el escenario DIA_A_DIA~~ (hecho en la etapa 32: `Simulador.inyectarPedido` y `POST /api/corridas/DIA_A_DIA/pedidos`).
 8. **Solución integrada (etapa 32, entregable de la semana 8):** desplegarla en AWS (`docs/despliegue_aws.md`), generar el ZIP en `sol.integrada.sem08/` y preparar la exposición de la GUI con el diagrama `docs/diseno/diagrama_integracion.md`. Fuera del alcance de esta entrega: averías y bloqueos registrados en vivo durante la simulación del periodo.
+9. **Próximo entregable: planificación por bloques con adelanto** (SI-30, indicación del profesor; diseño en `docs/diseno/propuesta_bloques.md`). Planificador hecho en la etapa 33: bloques de 1 h simulada, planificados 30 min antes sobre el estado proyectado, en paralelo. **Falta el visualizador:** `GET /api/corridas/{ESC}/bloques` con la línea de tiempo del bloque en curso y del siguiente, y reproducir las trayectorias en cola con una transición exacta. También falta la respuesta a la pregunta 18 (si lo urgente y las averías rompen el bloque).
 
 ## 7. Convenciones de trabajo
 

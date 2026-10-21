@@ -79,5 +79,5 @@ En el visualizador:
 | `web.carpeta_ventas`, `web.carpeta_bloqueos`, `web.mantenimiento` | `juego_de_datos/...` | Datos oficiales |
 | `web.diaadia_dias` | 30 | Días que dura la operación día a día antes de cerrarse sola |
 | `web.factor_colapso` | 600 | Ritmo por defecto del escenario hasta el colapso (minutos simulados por minuto real) |
-| `sim5d.minutos_reales` | 30 | Minutos reales que toma la simulación de 5 días |
+| `sim5d.minutos_reales` | 60 | Minutos reales que toma la simulación de 5 días |
 | `simulacion.ta_ms` | 2000 | Presupuesto Ta de cada replanificación |

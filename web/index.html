@@ -496,9 +496,9 @@ const EMOJI = { AUTO: '🚗', MOTO: '🛵', BICICLETA: '🚲' };
 const ESC_INFO = {
   DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']],
                ayuda: 'El reloj avanza desde este momento. Llegan los pedidos del archivo oficial y los que se registren en «Registro de pedidos».' },
-  SIM_5D:    { titulo: 'Simulación 5 días', ritmos: [[240, '5 días en 30 min'], [120, '5 días en 60 min'], [480, '5 días en 15 min']],
-               ayuda: 'Cinco días simulados con los pedidos y bloqueos oficiales. Se replanifica cada 60 min simulados (y ante eventos) con 2 s por llamada.' },
-  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [1200, '1 s = 20 min'], [300, '1 s = 5 min']],
+  SIM_5D:    { titulo: 'Simulación 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']],
+               ayuda: 'Cinco días simulados con los pedidos y bloqueos oficiales. Se planifica por bloques de 1 h simulada, cada uno calculado 30 min antes de que empiece (y ante averías o pedidos urgentes).' },
+  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']],
                ayuda: 'Corre hasta el primer pedido que no llega en su plazo (tope de 30 días).' }
 };
 /* Inicio sugerido: ventanas con los datos oficiales que terminaron sin colapso. */

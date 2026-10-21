@@ -24,7 +24,7 @@ flowchart LR
         end
         subgraph Corridas["Una CorridaWeb por escenario (hilos independientes)"]
             C1["DIA_A_DIA<br/>reloj real"]
-            C2["SIM_5D<br/>5 días en 30 min"]
+            C2["SIM_5D<br/>5 días en 60 min"]
             C3["COLAPSO<br/>hasta el primer pedido tarde"]
         end
         SIM["ServicioSimulacion → Simulador<br/>(eventos discretos, colapso)"]
@@ -37,7 +37,7 @@ flowchart LR
     PC -- "POST iniciar, finalizar,<br/>averías, velocidades, pedidos" --> API
     API --> C1 & C2 & C3
     C1 & C2 & C3 --> SIM
-    SIM -- "cada Sa = 60 min y ante eventos" --> TABU
+    SIM -- "por bloques de 1 h simulada,<br/>30 min antes (otro hilo), y ante excepciones" --> TABU
     DATOS -- "DatosOficiales.cargar" --> C1 & C2 & C3
 ```
 
@@ -61,10 +61,15 @@ sequenceDiagram
     C->>S: ServicioSimulacion.iniciar() (nuevo hilo)
     API-->>V: 200 {corrida, estado}
 
-    loop Cada Sa (60 min simulados) y ante eventos
-        S->>T: planificar(estado real, plan vigente, Ta = 2 s)
-        T-->>S: rutas por unidad (productos repartidos)
-        S->>S: compromete el plan y avanza el reloj (Reloj.escalado)
+    loop Cada bloque de 1 h simulada (etapa 33, SI-30)
+        S->>S: corte (30 min antes del bloque): copia el estado y la avanza hasta el inicio del bloque
+        S-)T: planificar(estado proyectado, plan vigente, Ta del bloque) en otro hilo
+        Note over S: el reloj sigue avanzando (Reloj.escalado)
+        T--)S: rutas por unidad (productos repartidos)
+        S->>S: inicio del bloque: si el estado real coincide, aplica el plan e inserta los pedidos llegados después del corte
+    end
+    opt Avería o pedido urgente (corta el bloque)
+        S->>T: planificar(estado real, Ta = 2 s) en el instante
     end
 
     par Cada segundo, en cada dispositivo

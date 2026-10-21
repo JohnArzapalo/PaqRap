@@ -13,7 +13,7 @@ import java.util.List;
  * en JSON. Planifica con Búsqueda Tabú, el algoritmo elegido (etapa 30).
  *
  * Escenarios:
- *  - SIM_5D: 5 días a ritmo escalado (por defecto, 5 días en 30 min reales).
+ *  - SIM_5D: 5 días a ritmo escalado (por defecto, 5 días en 60 min reales; también 30).
  *  - COLAPSO: hasta el primer pedido tarde (tope de sim.horizonte_max_dias días).
  *  - DIA_A_DIA: reloj real; además de los pedidos del archivo, admite pedidos
  *    registrados desde el visualizador.
@@ -64,6 +64,16 @@ final class CorridaWeb {
         return f;
     }
 
+    /**
+     * Presupuesto de los planes calculados con adelanto (etapa 33): una fracción del adelanto en
+     * tiempo real, nunca menos que Ta ni más que el tope. La otra parte queda de margen: copiar y
+     * proyectar el estado, una PC más lenta y más pedidos cerca del colapso (el tiempo crece con
+     * la demanda). Con 5 días en 60 min, el adelanto dura 15 s y Tabú usa 7.5 s; en 30 min, 3.75 s.
+     */
+    static long taBloqueMs(long taMs, double adelantoRealMs, double fraccion, long topeMs) {
+        return Math.max(taMs, Math.min(topeMs, (long) (fraccion * adelantoRealMs)));
+    }
+
     /** Arma la simulación con los datos oficiales desde "inicio" y la arranca en su hilo. */
     static CorridaWeb iniciar(Simulador.Escenario esc, LocalDateTime inicio, long inicioMs, double factor,
                               int autos, int motos, int bicicletas) throws IOException {
@@ -76,6 +86,18 @@ final class CorridaWeb {
         cfg.horizonteMin = horizonteMin(esc);
         cfg.detenerEnColapso = true;
         cfg.reloj = Reloj.escalado(factor);
+        // Etapa 33 (SI-30): planificación por bloques con adelanto, en otro hilo, para que el reloj
+        // no se detenga a esperar al planificador. El planificador debe terminar dentro del
+        // adelanto en tiempo real (Ta < adelanto: si no, el bloque llega tarde y el reloj espera).
+        cfg.bloqueMin = Parametros.decimal("bloque.min", 60);
+        cfg.adelantoEnParalelo = true;
+        double adelantoRealMs = cfg.adelantoMin / factor * 60_000;
+        if (cfg.bloqueMin > 0 && cfg.taMs >= adelantoRealMs)
+            throw new IllegalArgumentException(String.format(java.util.Locale.US,
+                    "Con este ritmo el adelanto dura %.0f ms reales y el planificador necesita %d ms (Ta): elija un ritmo menor",
+                    adelantoRealMs, cfg.taMs));
+        cfg.taBloqueMs = taBloqueMs(cfg.taMs, adelantoRealMs, Parametros.decimal("bloque.fraccion_ta", 0.5),
+                Parametros.entero("bloque.ta_max_ms", 10_000));
         DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin);
         cfg.mapa = new MapaVial(datos.bloqueos);
         cfg.mantenimientos = datos.mantenimientos;
