@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>PaqRap: diagramas A22 y A23</title>
+<meta name="author" content="Eq5E · 1INF54">
+<style>
+  /* Fuente editable de diagramas_PaqRap.pdf (2 páginas A4 horizontales).
+     Para regenerar el PDF: imprimir esta página con el navegador (Microsoft Edge o Chrome),
+     destino "Guardar como PDF", sin encabezados ni pies del navegador, márgenes "Ninguno". */
+  @page { size: A4 landscape; margin: 0; }
+  :root {
+    --azul: #1f63a8;      /* planificador (Tabú) */
+    --azul-claro: #e3eef9;
+    --verde: #2e7d4f;     /* bloques ejecutados */
+    --verde-claro: #e4f2e9;
+    --gris: #5f6670;      /* datos y pedidos */
+    --gris-claro: #eef0f3;
+    --naranja: #d97100;   /* corte */
+    --naranja-claro: #fdf0e0;
+    --rojo: #c62828;      /* excepciones */
+    --rojo-claro: #fbe9e9;
+    --morado: #7239a8;    /* acciones del rol Control */
+    --morado-claro: #f1e9f8;
+    --tinta: #1c222b;
+    --tinta-2: #48505b;
+    --borde: #c9ced6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  body { font-family: Arial, Helvetica, sans-serif; color: var(--tinta); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pagina {
+    width: 297mm; height: 210mm; padding: 5.5mm 9mm 4.5mm; overflow: hidden;
+    display: flex; flex-direction: column; gap: 1.9mm; page-break-after: always; break-after: page;
+  }
+  .pagina:last-child { page-break-after: auto; break-after: auto; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 6mm; }
+  h1 { font-size: 17.5pt; margin: 0 0 1mm; letter-spacing: -0.2px; }
+  .criterio { font-size: 10pt; color: var(--tinta-2); margin: 0; }
+  .criterio b { color: var(--tinta); }
+  .mensaje { font-size: 10.5pt; margin: 1.2mm 0 0; line-height: 1.3; max-width: 190mm; }
+  .leyenda { border: 1px solid var(--borde); border-radius: 2mm; padding: 1.6mm 2.6mm; font-size: 10pt; min-width: 62mm; }
+  .leyenda .tit { font-weight: bold; margin-bottom: 0.8mm; }
+  .leyenda div { display: flex; align-items: center; gap: 1.8mm; line-height: 1.45; }
+  .chip { width: 4.2mm; height: 2.8mm; border-radius: 0.6mm; display: inline-block; flex: none; }
+  .linea { width: 7mm; height: 0; border-top: 2px solid; display: inline-block; flex: none; }
+  header.cab { display: block; }
+  header.cab .mensaje { max-width: none; }
+  .leyenda-h { display: flex; flex-wrap: wrap; gap: 1.2mm 5mm; align-items: center; font-size: 10pt; margin-top: 1.4mm; }
+  .leyenda-h > span { display: inline-flex; align-items: center; gap: 1.6mm; }
+  .mono { font-family: Consolas, "Courier New", monospace; }
+  .cuerpo { display: flex; gap: 3.5mm; }
+  aside { flex: 1; display: flex; flex-direction: column; gap: 2.2mm; }
+  .caja { border: 1px solid var(--borde); border-radius: 2mm; padding: 1.8mm 2.6mm; font-size: 10pt; line-height: 1.3; background: #fff; }
+  .caja h2 { font-size: 10.5pt; margin: 0 0 1mm; }
+  .caja ol { margin: 0; padding-left: 4.6mm; }
+  .caja ol li { margin-bottom: 0.7mm; }
+  .caja p { margin: 0 0 0.8mm; }
+  .caja p:last-child { margin-bottom: 0; }
+  table.valores { border-collapse: collapse; width: 100%; font-size: 10pt; }
+  table.valores td { padding: 0.55mm 1mm; vertical-align: top; border-bottom: 1px solid #e3e6ea; line-height: 1.22; }
+  table.valores tr:last-child td { border-bottom: none; }
+  table.valores td:first-child { font-weight: bold; white-space: nowrap; width: 17mm; }
+  .fila { display: flex; gap: 3mm; }
+  .fila .caja { flex: 1; }
+  .roja { border-color: var(--rojo); background: var(--rojo-claro); }
+  .roja h2 { color: var(--rojo); }
+  .grisbox { background: var(--gris-claro); }
+  .nota { font-size: 10pt; margin: 0; line-height: 1.3; border-left: 1.2mm solid var(--naranja); padding: 1mm 0 1mm 2.4mm; background: var(--naranja-claro); }
+  footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 10pt; color: var(--tinta-2); border-top: 1px solid var(--borde); padding-top: 1mm; }
+  svg text { font-family: Arial, Helvetica, sans-serif; }
+  svg .mono { font-family: Consolas, "Courier New", monospace; }
+  .paso { flex: 1; border: 1px solid var(--borde); border-radius: 2mm; padding: 1.6mm 2mm; font-size: 10pt; line-height: 1.28; background: #fff; position: relative; }
+  .paso .n { display: inline-block; width: 5.2mm; height: 5.2mm; border-radius: 50%; background: var(--tinta); color: #fff; font-weight: bold; text-align: center; line-height: 5.2mm; font-size: 10pt; margin-right: 1mm; }
+  .paso.control { border-color: var(--morado); background: var(--morado-claro); }
+  .paso.control .n { background: var(--morado); }
+  .secuencia { display: flex; gap: 2mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================ PÁGINA 1 (A22) ============================ -->
+<section class="pagina">
+  <header class="cab">
+    <h1>PaqRap: consumo de datos por bloques (Sa = 1 h, Sc = 1 h, Ta = 7,5 s)</h1>
+    <p class="criterio"><b>Criterio A22.</b> ¿Cómo se consumen los datos en bloques de tiempo (Sc) por cada bloque de tiempo del planificador (Sa)?</p>
+    <p class="mensaje">El tiempo simulado se divide en <b>bloques de 1 h (Sa)</b>. Cada bloque se planifica <b>30 min antes</b> de que empiece, con los pedidos llegados <b>hasta ese corte (Sc = 1 h de datos)</b>. Búsqueda Tabú piensa en paralelo <b>(Ta = 7,5 s reales)</b> mientras el reloj sigue. Al empezar el bloque se aplica el plan sin saltos y se insertan los pedidos llegados después del corte. Lo imprevisto (avería, pedido urgente) corta el bloque y replanifica al instante con Ta = 2 s.</p>
+    <div class="leyenda-h"><b>Leyenda:</b>
+      <span><span class="chip" style="background:var(--gris)"></span>datos: llegada de pedidos</span>
+      <span><span class="chip" style="background:var(--naranja)"></span>corte (inicio de la planificación)</span>
+      <span><span class="chip" style="background:var(--azul)"></span>planificador: Búsqueda Tabú</span>
+      <span><span class="chip" style="background:var(--verde)"></span>bloques ejecutados</span>
+      <span><span class="chip" style="background:var(--rojo)"></span>excepción (avería)</span>
+    </div>
+  </header>
+
+  <div class="cuerpo">
+    <!-- Escala: 08:00 = x 140; 80 unidades por cada 30 min simulados (2,667 por minuto); 11:00 = x 620 -->
+    <svg width="640" height="404" viewBox="0 0 640 404" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagrama de carriles de los bloques de planificación">
+      <defs>
+        <marker id="fGris" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b4250"/></marker>
+        <marker id="fVerde" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d4f"/></marker>
+      </defs>
+
+      <!-- Eje de tiempo: simulado y, debajo, real -->
+      <text x="4" y="17" font-size="13" font-weight="bold" fill="#1c222b">tiempo simulado</text>
+      <text x="4" y="35" font-size="13" fill="#48505b">tiempo real (×120)</text>
+      <g font-size="14" font-weight="bold" fill="#1c222b" text-anchor="middle">
+        <text x="140" y="17">08:00</text><text x="220" y="17">08:30</text><text x="300" y="17">09:00</text>
+        <text x="380" y="17">09:30</text><text x="460" y="17">10:00</text><text x="540" y="17">10:30</text><text x="620" y="17">11:00</text>
+      </g>
+      <g font-size="13" fill="#48505b" text-anchor="middle">
+        <text x="140" y="35">0 s</text><text x="220" y="35">15 s</text><text x="300" y="35">30 s</text>
+        <text x="380" y="35">45 s</text><text x="460" y="35">60 s</text><text x="540" y="35">75 s</text><text x="620" y="35">90 s</text>
+      </g>
+      <line x1="140" y1="44" x2="620" y2="44" stroke="#1c222b" stroke-width="1.5"/>
+      <g stroke="#1c222b" stroke-width="1.5">
+        <line x1="140" y1="40" x2="140" y2="48"/><line x1="220" y1="40" x2="220" y2="48"/><line x1="300" y1="40" x2="300" y2="48"/>
+        <line x1="380" y1="40" x2="380" y2="48"/><line x1="460" y1="40" x2="460" y2="48"/><line x1="540" y1="40" x2="540" y2="48"/>
+        <line x1="620" y1="40" x2="620" y2="48"/>
+      </g>
+
+      <!-- Fondos de los carriles -->
+      <rect x="0" y="50" width="640" height="78" fill="#f4f5f7"/>
+      <rect x="0" y="132" width="640" height="74" fill="#fffaf2"/>
+      <rect x="0" y="210" width="640" height="78" fill="#f2f6fb"/>
+      <rect x="0" y="292" width="640" height="66" fill="#f3f8f5"/>
+      <g stroke="#c9ced6" stroke-width="1"><line x1="0" y1="130" x2="640" y2="130"/><line x1="0" y1="208" x2="640" y2="208"/><line x1="0" y1="290" x2="640" y2="290"/><line x1="0" y1="360" x2="640" y2="360"/></g>
+      <line x1="136" y1="50" x2="136" y2="358" stroke="#c9ced6"/>
+      <!-- Línea de la avería (09:40) al fondo, para no tapar textos -->
+      <line x1="407" y1="96" x2="407" y2="298" stroke="#c62828" stroke-width="2.4"/>
+
+      <!-- Nombres de los carriles -->
+      <g font-size="14" font-weight="bold" fill="#1c222b">
+        <text x="6" y="82">Llegada de</text><text x="6" y="98">pedidos</text><text x="6" y="114" font-weight="normal" fill="#48505b">(datos)</text>
+        <text x="6" y="155">Corte (Sc)</text><text x="6" y="173" font-size="13" font-weight="normal" fill="#9a5000">corte: entran los</text><text x="6" y="188" font-size="13" font-weight="normal" fill="#9a5000">pedidos hasta aquí ▸</text>
+        <text x="6" y="227">Planificador:</text><text x="6" y="242">Búsqueda Tabú</text><text x="6" y="257">(Ta)</text>
+        <text x="6" y="271" font-size="13" font-weight="normal" fill="#48505b">en otro hilo; el reloj</text>
+        <text x="6" y="285" font-size="13" font-weight="normal" fill="#48505b">no se detiene</text>
+        <text x="6" y="320">Bloques</text><text x="6" y="336">ejecutados (Sa)</text>
+      </g>
+
+      <!-- Carril 1: llegada de pedidos -->
+      <line x1="140" y1="104" x2="620" y2="104" stroke="#9aa1ab" stroke-width="1.5"/>
+      <g fill="#b6bcc5">
+        <circle cx="153" cy="104" r="4"/><circle cx="198" cy="104" r="4"/><circle cx="278" cy="104" r="4"/>
+        <circle cx="340" cy="104" r="4"/><circle cx="367" cy="104" r="4"/><circle cx="438" cy="104" r="4"/>
+        <circle cx="492" cy="104" r="4"/><circle cx="513" cy="104" r="4"/><circle cx="567" cy="104" r="4"/><circle cx="607" cy="104" r="4"/>
+      </g>
+      <circle cx="167" cy="104" r="7.5" fill="#3b4250"/>
+      <text x="173" y="88" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c222b">P1 · 08:10</text>
+      <circle cx="247" cy="104" r="7.5" fill="#3b4250"/>
+      <text x="251" y="88" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c222b">P2 · 08:40</text>
+
+      <!-- Cortes (naranja): 08:30, 09:30 y 10:30 -->
+      <g stroke="#d97100" stroke-width="2.2" stroke-dasharray="6 4">
+        <line x1="220" y1="50" x2="220" y2="288"/><line x1="380" y1="50" x2="380" y2="288"/><line x1="540" y1="50" x2="540" y2="288"/>
+      </g>
+      <g font-size="13" font-weight="bold" fill="#d97100" text-anchor="middle">
+        <rect x="180" y="137" width="80" height="19" rx="4" fill="#ffffff" stroke="#d97100"/><text x="220" y="151">corte 08:30</text>
+        <rect x="340" y="137" width="80" height="19" rx="4" fill="#ffffff" stroke="#d97100"/><text x="380" y="151">corte 09:30</text>
+        <rect x="500" y="137" width="80" height="19" rx="4" fill="#ffffff" stroke="#d97100"/><text x="540" y="151">corte 10:30</text>
+      </g>
+      <!-- Corchetes: cada corte consume la última hora de pedidos -->
+      <g stroke="#d97100" stroke-width="1.6" fill="none">
+        <path d="M142,200 L218,200 L218,193" stroke-dasharray="3 3"/>
+        <path d="M222,193 L222,200 L378,200 L378,193"/>
+        <path d="M382,193 L382,200 L538,200 L538,193"/>
+      </g>
+      <text x="180" y="196" font-size="13" fill="#9a5000" text-anchor="middle">desde 07:30</text>
+      <text x="292" y="196" font-size="13" font-weight="bold" fill="#9a5000" text-anchor="middle">Sc = 1 h de pedidos</text>
+      <text x="472" y="196" font-size="13" font-weight="bold" fill="#9a5000" text-anchor="middle">Sc = 1 h de pedidos</text>
+
+      <!-- Carril 3: Búsqueda Tabú, 15 min simulados = 7,5 s reales desde cada corte -->
+      <rect x="349" y="218" width="122" height="16" fill="#f2f6fb"/>
+      <g font-size="13" font-weight="bold" fill="#1f63a8" text-anchor="middle">
+        <text x="250" y="230">planifica bloque 2</text><text x="410" y="230">planifica bloque 3</text><text x="570" y="230">planifica bloque 4</text>
+      </g>
+      <g fill="#1f63a8">
+        <rect x="220" y="236" width="40" height="26" rx="3"/><rect x="380" y="236" width="40" height="26" rx="3"/><rect x="540" y="236" width="40" height="26" rx="3"/>
+      </g>
+      <g font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">
+        <text x="240" y="254">7,5 s</text><text x="400" y="254">7,5 s</text><text x="560" y="254">7,5 s</text>
+      </g>
+
+      <!-- Carril 4: bloques ejecutados -->
+      <g fill="#2e7d4f">
+        <rect x="141" y="298" width="158" height="42" rx="3"/><rect x="301" y="298" width="158" height="42" rx="3"/><rect x="461" y="298" width="158" height="42" rx="3"/>
+      </g>
+      <g font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">
+        <text x="220" y="316">bloque 1</text><text x="350" y="316">bloque 2</text><text x="540" y="316">bloque 3</text>
+      </g>
+      <g font-size="13" fill="#ffffff" text-anchor="middle">
+        <text x="220" y="333">08:00-09:00</text><text x="350" y="333">09:00-10:00</text><text x="540" y="333">10:00-11:00</text>
+      </g>
+      <text x="620" y="354" font-size="13" fill="#2e7d4f" text-anchor="end">a las 11:00 empieza el bloque 4 ▸</text>
+
+      <!-- Flechas verdes: el plan de Tabú se aplica al inicio del bloque -->
+      <g stroke="#2e7d4f" stroke-width="2.2" fill="none" marker-end="url(#fVerde)">
+        <path d="M260,262 C284,264 300,276 301,295"/>
+        <path d="M420,262 C444,264 460,276 461,295"/>
+        <path d="M580,262 C604,264 618,276 619,295"/>
+      </g>
+
+      <!-- P1: entra al plan del bloque 2 (optimizado por Tabú) -->
+      <path d="M167,112 L167,249 L216,249" stroke="#3b4250" stroke-width="1.8" stroke-dasharray="5 4" fill="none" marker-end="url(#fGris)"/>
+      <text x="146" y="273" font-size="13" fill="#3b4250">P1 → plan</text>
+      <text x="146" y="286" font-size="13" fill="#3b4250">del bloque 2</text>
+      <!-- P2: se inserta a las 09:00 sin Tabú y se optimiza en el plan del bloque 3 -->
+      <path d="M255,104 L288,104 L288,295" stroke="#3b4250" stroke-width="1.8" stroke-dasharray="5 4" fill="none" marker-end="url(#fGris)"/>
+      <path d="M288,104 L364,104 L364,249 L376,249" stroke="#3b4250" stroke-width="1.8" stroke-dasharray="5 4" fill="none" marker-end="url(#fGris)"/>
+      <rect x="300" y="266" width="60" height="19" rx="3" fill="#ffffff" stroke="#9aa1ab"/>
+      <text x="330" y="280" font-size="13" fill="#3b4250" text-anchor="middle">inserción</text>
+
+      <!-- Excepción: avería a las 09:40 (x 407) -->
+      <polygon points="411,54 399,77 407,77 401,96 417,70 408,70 415,54" fill="#c62828"/>
+      <text x="421" y="66" font-size="14" font-weight="bold" fill="#c62828">09:40 avería: corta el bloque 2</text>
+      <text x="421" y="81" font-size="13" fill="#c62828">replanifica al instante, Ta = 2 s</text>
+      <text x="421" y="95" font-size="13" fill="#c62828">(el reloj se pausa)</text>
+      <g stroke="#c62828" stroke-width="2.6"><line x1="382" y1="238" x2="418" y2="260"/><line x1="418" y1="238" x2="382" y2="260"/></g>
+      <polygon points="401,298 413,298 407,308" fill="#c62828"/>
+
+      <!-- Explicación de las flechas verdes -->
+      <text x="4" y="380" font-size="14" fill="#1c222b"><tspan font-weight="bold" fill="#2e7d4f">Flechas verdes:</tspan> al empezar cada bloque se aplica el plan si el estado real coincide con el</text>
+      <text x="4" y="398" font-size="14" fill="#1c222b">proyectado (sin saltos) + se insertan los pedidos llegados después del corte.</text>
+    </svg>
+
+    <aside>
+      <div class="caja">
+        <h2>Valores</h2>
+        <table class="valores">
+          <tr><td>Sa</td><td>bloque: <b>1 h simulada = 30 s reales</b></td></tr>
+          <tr><td>Sc</td><td><b>1 h simulada</b> de pedidos (hasta el corte)</td></tr>
+          <tr><td>Adelanto</td><td><b>30 min simulados = 15 s reales</b> (el corte)</td></tr>
+          <tr><td>Ta</td><td><b>7,5 s reales</b> = 15 min sim. (mitad del adelanto)</td></tr>
+          <tr><td>Ta exc.</td><td><b>2 s reales</b>, reloj en pausa (avería, urgente)</td></tr>
+          <tr><td>K</td><td><b>×120</b>: 5 días en 60 min (SIM_5D)</td></tr>
+          <tr><td>Regla</td><td><b>Ta &lt; adelanto real</b> (7,5 s &lt; 15 s): llega a tiempo</td></tr>
+        </table>
+      </div>
+      <div class="caja">
+        <h2>Pasos en cada bloque</h2>
+        <ol>
+          <li><b>Corte</b> (30 min antes): se copia el estado del simulador y se avanza la copia hasta el inicio del bloque con el plan vigente.</li>
+          <li>Búsqueda Tabú planifica el bloque sobre esa copia, en otro hilo, con los pedidos llegados hasta el corte.</li>
+          <li><b>Inicio del bloque:</b> se compara el estado real con el proyectado y, si coinciden, se aplica el plan.</li>
+          <li>Los pedidos que llegaron después del corte se insertan sin correr Tabú; el bloque siguiente los optimiza.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+
+  <div class="fila">
+    <div class="caja roja">
+      <h2>Excepción: avería a las 09:40</h2>
+      <p>Avería registrada por el operador → <b>corta el bloque</b> → replanifica al instante con <b>Ta = 2 s</b> (el reloj se pausa) → se descarta el plan adelantado y se recalcula desde el estado nuevo. Un pedido urgente se trata igual.</p>
+    </div>
+    <div class="caja grisbox">
+      <h2>Pedidos de ejemplo</h2>
+      <p><b>P1 (08:10)</b>, antes del corte de las 08:30: entra al plan del bloque 2, optimizado por Tabú.</p>
+      <p><b>P2 (08:40)</b>, después del corte: se <b>inserta</b> a las 09:00 sin correr Tabú y queda optimizado en el plan del bloque 3 (corte 09:30).</p>
+    </div>
+    <div class="caja">
+      <h2>Por qué bloques de 1 h</h2>
+      <p>Prueba con datos oficiales (5 días, demanda media, 12 corridas): con <b>bloques de 2 h colapsaron 11 de 12</b>; con <b>bloques de 1 h, 3 de 12</b>. Con bloques grandes, un pedido nuevo espera demasiado para entrar a un plan optimizado.</p>
+    </div>
+  </div>
+
+  <p class="nota"><b>Nota.</b> El planificador no recibe todos los pedidos de una vez: en cada corte solo ve los registrados hasta ese momento. Los archivos del profesor se leen al iniciar la corrida, solo los meses que cubre la simulación, no los 36 meses.</p>
+
+  <footer><span>1INF54 · Eq5E · PaqRap · octubre 2026</span><span>Página 1 de 2</span></footer>
+</section>
+
+<!-- ============================ PÁGINA 2 (A23) ============================ -->
+<section class="pagina">
+  <header>
+    <div>
+      <h1>PaqRap: varios navegadores sobre una misma simulación</h1>
+      <p class="criterio"><b>Criterio A23.</b> ¿Cómo interactúan varios navegadores durante la simulación del periodo?</p>
+      <p class="mensaje">La simulación vive en el <b>servidor</b>, no en el navegador. Cualquier cantidad de dispositivos puede mirarla a la vez y entrar cuando quiera. Cada uno consulta el estado <b>cada segundo</b> y navega por su cuenta (zoom, selección, paneles). Solo el que tiene el rol <b>Control</b> envía acciones (iniciar, finalizar, registrar una avería…), y todos ven el resultado en la siguiente consulta.</p>
+    </div>
+    <div class="leyenda">
+      <div class="tit">Leyenda</div>
+      <div><span class="linea" style="border-color:var(--gris)"></span>Consultas GET (todos los dispositivos)</div>
+      <div><span class="linea" style="border-color:var(--morado)"></span>Acciones POST (solo el rol Control)</div>
+      <div><span class="chip" style="background:var(--azul)"></span>Planificador: Búsqueda Tabú</div>
+      <div><span class="chip" style="background:var(--verde)"></span>Corridas (una por escenario)</div>
+      <div><span class="chip" style="background:var(--gris)"></span>Datos (archivos planos)</div>
+    </div>
+  </header>
+
+  <svg width="1054" height="432" viewBox="0 0 1054 432" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagrama de componentes: dispositivos, internet y servidor">
+    <defs>
+      <marker id="gFin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5f6670"/></marker>
+      <marker id="gIni" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5f6670"/></marker>
+      <marker id="mFin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7239a8"/></marker>
+      <marker id="aFin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f63a8"/></marker>
+      <marker id="vFin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d4f"/></marker>
+    </defs>
+
+    <!-- ===== Columna izquierda: dispositivos ===== -->
+    <rect x="1" y="1" width="214" height="320" rx="8" fill="#fafbfc" stroke="#c9ced6"/>
+    <text x="108" y="23" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c222b">Dispositivos (navegador web)</text>
+
+    <!-- PC del operador -->
+    <rect x="12" y="36" width="192" height="86" rx="6" fill="#ffffff" stroke="#7239a8" stroke-width="1.6"/>
+    <g fill="none" stroke="#1c222b" stroke-width="2"><rect x="22" y="52" width="46" height="32" rx="2"/><line x1="45" y1="84" x2="45" y2="94"/><line x1="33" y1="95" x2="57" y2="95"/></g>
+    <text x="78" y="64" font-size="14" font-weight="bold" fill="#1c222b">PC del operador</text>
+    <rect x="78" y="74" width="98" height="22" rx="11" fill="#7239a8"/>
+    <text x="127" y="90" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">rol Control</text>
+    <text x="78" y="113" font-size="13" fill="#48505b">y envía acciones</text>
+
+    <!-- Celular o tablet -->
+    <rect x="12" y="134" width="192" height="86" rx="6" fill="#ffffff" stroke="#c9ced6" stroke-width="1.4"/>
+    <g fill="none" stroke="#1c222b" stroke-width="2"><rect x="33" y="146" width="24" height="42" rx="4"/><line x1="41" y1="182" x2="49" y2="182"/></g>
+    <text x="78" y="162" font-size="14" font-weight="bold" fill="#1c222b">Celular o tablet</text>
+    <rect x="78" y="172" width="112" height="22" rx="11" fill="#6b7280"/>
+    <text x="134" y="188" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">rol Observador</text>
+    <text x="78" y="211" font-size="13" fill="#48505b">solo consulta</text>
+
+    <!-- Proyector del aula -->
+    <rect x="12" y="232" width="192" height="86" rx="6" fill="#ffffff" stroke="#c9ced6" stroke-width="1.4"/>
+    <g fill="none" stroke="#1c222b" stroke-width="2"><rect x="20" y="256" width="40" height="22" rx="4"/><circle cx="50" cy="267" r="6"/><line x1="26" y1="278" x2="24" y2="286"/><line x1="54" y1="278" x2="56" y2="286"/></g>
+    <text x="78" y="260" font-size="14" font-weight="bold" fill="#1c222b">Proyector del aula</text>
+    <rect x="78" y="270" width="112" height="22" rx="11" fill="#6b7280"/>
+    <text x="134" y="286" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">rol Observador</text>
+    <text x="78" y="309" font-size="13" fill="#48505b">solo consulta</text>
+
+    <!-- ===== Columna central: internet y nginx ===== -->
+    <rect x="262" y="1" width="168" height="320" rx="8" fill="#fafbfc" stroke="#c9ced6"/>
+    <text x="346" y="23" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c222b">Internet</text>
+    <text x="346" y="48" font-size="13" class="mono" text-anchor="middle" fill="#1c222b">1inf54-982-5e.</text>
+    <text x="346" y="64" font-size="13" class="mono" text-anchor="middle" fill="#1c222b">inf.pucp.edu.pe</text>
+    <rect x="276" y="92" width="140" height="118" rx="6" fill="#ffffff" stroke="#1c222b" stroke-width="1.6"/>
+    <text x="346" y="116" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c222b">nginx</text>
+    <text x="346" y="136" font-size="13" text-anchor="middle" fill="#1c222b">puerto 80</text>
+    <text x="346" y="160" font-size="13" text-anchor="middle" fill="#48505b">pasa las peticiones</text>
+    <text x="346" y="176" font-size="13" text-anchor="middle" fill="#48505b">al puerto 8090</text>
+    <text x="346" y="248" font-size="13" text-anchor="middle" fill="#48505b">sin conexiones directas</text>
+    <text x="346" y="264" font-size="13" text-anchor="middle" fill="#48505b">entre navegadores:</text>
+    <text x="346" y="280" font-size="13" text-anchor="middle" fill="#48505b">cada uno habla solo</text>
+    <text x="346" y="296" font-size="13" text-anchor="middle" fill="#48505b">con el servidor</text>
+
+    <!-- Flechas dispositivos ↔ nginx (GET, todos) -->
+    <g stroke="#5f6670" stroke-width="2.4" fill="none" marker-end="url(#gFin)" marker-start="url(#gIni)">
+      <path d="M205,92 L272,146"/>
+      <path d="M205,182 L272,166"/>
+      <path d="M205,280 L272,186"/>
+    </g>
+    <!-- Flecha POST, solo del PC con rol Control -->
+    <path d="M205,58 L272,112" stroke="#7239a8" stroke-width="2.8" fill="none" marker-end="url(#mFin)"/>
+    <text x="230" y="64" font-size="13" font-weight="bold" fill="#7239a8">POST</text>
+    <text x="226" y="234" font-size="13" font-weight="bold" fill="#5f6670">GET</text>
+
+    <!-- ===== Columna derecha: servidor ===== -->
+    <rect x="488" y="1" width="565" height="430" rx="8" fill="#fafbfc" stroke="#1c222b" stroke-width="1.6"/>
+    <text x="502" y="23" font-size="15" font-weight="bold" fill="#1c222b">Servidor: máquina virtual del curso (Ubuntu 24.04, Java 21)</text>
+    <text x="502" y="41" font-size="13" fill="#48505b">PaqRap escucha en el puerto 8090</text>
+
+    <!-- ServidorWeb -->
+    <rect x="502" y="52" width="300" height="146" rx="6" fill="#ffffff" stroke="#1c222b" stroke-width="1.4"/>
+    <text x="514" y="72" font-size="14" font-weight="bold" fill="#1c222b">ServidorWeb</text>
+    <text x="606" y="72" font-size="13" class="mono" fill="#48505b">(com.sun.net.httpserver)</text>
+    <rect x="514" y="82" width="276" height="48" rx="5" fill="#eef0f3" stroke="#9aa1ab"/>
+    <text x="526" y="101" font-size="13" font-weight="bold" fill="#1c222b">Archivos del visualizador</text>
+    <text x="526" y="119" font-size="13" class="mono" fill="#1c222b">web/index.html, Leaflet</text>
+    <rect x="514" y="138" width="276" height="50" rx="5" fill="#eef0f3" stroke="#9aa1ab"/>
+    <text x="526" y="157" font-size="13" font-weight="bold" fill="#1c222b">API REST</text>
+    <text x="526" y="176" font-size="13" class="mono" fill="#1c222b">/api/corridas/{ESC}/…</text>
+
+    <!-- nginx → ServidorWeb -->
+    <path d="M416,112 L512,104" stroke="#5f6670" stroke-width="1.8" fill="none" marker-end="url(#gFin)"/>
+    <path d="M416,170 L512,162" stroke="#5f6670" stroke-width="2.4" fill="none" marker-end="url(#gFin)" marker-start="url(#gIni)"/>
+    <path d="M416,128 C470,130 470,150 512,152" stroke="#7239a8" stroke-width="2.8" fill="none" marker-end="url(#mFin)"/>
+    <text x="440" y="98" font-size="13" fill="#5f6670">GET /</text>
+
+    <!-- Datos -->
+    <g>
+      <path d="M842,70 L842,168 A96,14 0 0 0 1034,168 L1034,70" fill="#eef0f3" stroke="#5f6670" stroke-width="1.6"/>
+      <ellipse cx="938" cy="70" rx="96" ry="14" fill="#dfe3e8" stroke="#5f6670" stroke-width="1.6"/>
+      <text x="938" y="104" font-size="14" font-weight="bold" class="mono" text-anchor="middle" fill="#1c222b">juego_de_datos/</text>
+      <text x="938" y="124" font-size="13" text-anchor="middle" fill="#1c222b">ventas, bloqueos,</text>
+      <text x="938" y="140" font-size="13" text-anchor="middle" fill="#1c222b">mantenimiento</text>
+      <text x="938" y="160" font-size="13" text-anchor="middle" fill="#48505b">archivos planos, sin BD</text>
+    </g>
+    <path d="M1012,184 L1012,240" stroke="#5f6670" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#gFin)"/>
+    <text x="1004" y="203" font-size="13" fill="#48505b" text-anchor="end">se leen al iniciar la corrida</text>
+
+    <!-- API → las 3 CorridaWeb -->
+    <path d="M652,188 L652,214" stroke="#1c222b" stroke-width="2" fill="none"/>
+    <path d="M587,214 L956,214" stroke="#1c222b" stroke-width="2" fill="none"/>
+    <g stroke="#1c222b" stroke-width="2" fill="none" marker-end="url(#gFin)">
+      <path d="M587,214 L587,240"/><path d="M772,214 L772,240"/><path d="M956,214 L956,240"/>
+    </g>
+
+    <!-- Tres CorridaWeb -->
+    <rect x="502" y="234" width="538" height="96" rx="7" fill="none" stroke="#2e7d4f" stroke-dasharray="5 4" stroke-width="1.4"/>
+    <g fill="#e4f2e9" stroke="#2e7d4f" stroke-width="1.6">
+      <rect x="512" y="242" width="150" height="62" rx="5"/><rect x="672" y="242" width="200" height="62" rx="5"/><rect x="882" y="242" width="148" height="62" rx="5"/>
+    </g>
+    <g font-size="13" fill="#1c222b" text-anchor="middle">
+      <text x="587" y="262" font-weight="bold" class="mono">CorridaWeb</text>
+      <text x="587" y="278" font-weight="bold" class="mono" fill="#2e7d4f">SIM_5D</text>
+      <text x="587" y="296">5 días en 60 min</text>
+      <text x="772" y="262" font-weight="bold" class="mono">CorridaWeb</text>
+      <text x="772" y="278" font-weight="bold" class="mono" fill="#2e7d4f">COLAPSO</text>
+      <text x="772" y="296">hasta el primer pedido tarde</text>
+      <text x="956" y="262" font-weight="bold" class="mono">CorridaWeb</text>
+      <text x="956" y="278" font-weight="bold" class="mono" fill="#2e7d4f">DIA_A_DIA</text>
+      <text x="956" y="296">reloj real</text>
+    </g>
+    <text x="771" y="323" font-size="13" text-anchor="middle" fill="#2e7d4f">una CorridaWeb por escenario, cada una en su propio hilo (pueden correr a la vez)</text>
+
+    <!-- CorridaWeb → Simulador → Búsqueda Tabú -->
+    <path d="M592,330 L592,356" stroke="#2e7d4f" stroke-width="2" fill="none" marker-end="url(#vFin)"/>
+    <rect x="512" y="358" width="178" height="58" rx="6" fill="#ffffff" stroke="#1c222b" stroke-width="1.4"/>
+    <text x="601" y="379" font-size="14" font-weight="bold" class="mono" text-anchor="middle" fill="#1c222b">Simulador</text>
+    <text x="601" y="395" font-size="13" text-anchor="middle" fill="#1c222b">eventos discretos;</text>
+    <text x="601" y="410" font-size="13" text-anchor="middle" fill="#1c222b">detecta el colapso</text>
+    <path d="M690,404 L896,404" stroke="#1f63a8" stroke-width="2.4" fill="none" marker-end="url(#aFin)"/>
+    <text x="793" y="356" font-size="13" text-anchor="middle" fill="#1f63a8">por bloques de 1 h,</text>
+    <text x="793" y="371" font-size="13" text-anchor="middle" fill="#1f63a8">30 min antes, y ante</text>
+    <text x="793" y="386" font-size="13" text-anchor="middle" fill="#1f63a8">averías o pedidos urgentes</text>
+    <rect x="898" y="358" width="132" height="58" rx="6" fill="#1f63a8"/>
+    <text x="964" y="381" font-size="14" font-weight="bold" text-anchor="middle" fill="#ffffff">Planificador:</text>
+    <text x="964" y="401" font-size="14" font-weight="bold" text-anchor="middle" fill="#ffffff">Búsqueda Tabú</text>
+
+    <!-- Etiquetas completas de las flechas -->
+    <rect x="1" y="330" width="476" height="101" rx="8" fill="#ffffff" stroke="#c9ced6"/>
+    <text x="12" y="347" font-size="13" font-weight="bold" fill="#1c222b">Qué viaja por cada flecha</text>
+    <line x1="12" y1="361" x2="40" y2="361" stroke="#5f6670" stroke-width="1.8" marker-end="url(#gFin)"/>
+    <text x="48" y="365" font-size="13" fill="#1c222b"><tspan class="mono">GET /</tspan> (página web), una vez al entrar</text>
+    <line x1="12" y1="380" x2="40" y2="380" stroke="#5f6670" stroke-width="2.4" marker-end="url(#gFin)" marker-start="url(#gIni)"/>
+    <text x="48" y="384" font-size="13" fill="#1c222b"><tspan class="mono">GET estado</tspan> cada 1 s y <tspan class="mono">GET eventos</tspan> (bitácora);</text>
+    <text x="48" y="399" font-size="13" fill="#1c222b">vuelve la misma instantánea para todos</text>
+    <line x1="12" y1="417" x2="40" y2="417" stroke="#7239a8" stroke-width="2.8" marker-end="url(#mFin)"/>
+    <text x="48" y="421" font-size="13" fill="#7239a8"><tspan font-weight="bold">solo Control:</tspan> POST iniciar · finalizar · avería · velocidad · pedido</text>
+  </svg>
+
+  <div class="fila" style="align-items:stretch">
+    <div style="flex:2.15; display:flex; flex-direction:column; gap:1.2mm">
+      <div style="font-size:10.5pt; font-weight:bold">Secuencia de ejemplo</div>
+      <div class="secuencia">
+        <div class="paso control"><span class="n">1</span>La PC (Control) inicia SIM_5D: <span class="mono">POST /api/corridas/SIM_5D</span>.</div>
+        <div class="paso"><span class="n">2</span>El celular entra después y ve la misma corrida en su estado actual.</div>
+        <div class="paso"><span class="n">3</span>Cada segundo, ambos hacen <span class="mono">GET …/estado</span> y reciben la misma instantánea. Cada uno hace zoom o elige un vehículo <b>sin afectar al otro</b>.</div>
+        <div class="paso control"><span class="n">4</span>La PC registra una avería: <span class="mono">POST …/averias</span>. El servidor replanifica al instante.</div>
+        <div class="paso"><span class="n">5</span>En la siguiente consulta (menos de 1 s), <b>ambos</b> ven la avería y las rutas nuevas.</div>
+      </div>
+    </div>
+    <div class="caja" style="flex:1">
+      <h2>Decisiones de diseño</h2>
+      <p><b>Consulta cada 1 s en lugar de WebSocket:</b> más simple y funciona detrás de cualquier proxy. La instantánea es completa: quien entra tarde lo ve todo en el siguiente segundo.</p>
+      <p><b>El navegador interpola</b> el movimiento entre instantáneas para que se vea fluido.</p>
+      <p><b>Un hilo por escenario:</b> los tres escenarios pueden correr a la vez.</p>
+      <p><b>El rol se elige en el navegador, sin contraseña:</b> evita que el proyector o el celular inicien o finalicen corridas por error.</p>
+    </div>
+  </div>
+
+  <footer><span>1INF54 · Eq5E · PaqRap · octubre 2026</span><span>Página 2 de 2</span></footer>
+</section>
+
+</body>
+</html>
