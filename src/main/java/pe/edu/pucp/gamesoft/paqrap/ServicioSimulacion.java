@@ -57,6 +57,11 @@ final class ServicioSimulacion {
         return simulador.eventosJson(desde);
     }
 
+    /** Trayectorias del bloque en curso y del siguiente (Etapa 35; GET /bloques). */
+    String bloques() {
+        return simulador.bloquesJson();
+    }
+
     /** Resumen para el reporte de cierre (por tipo de unidad y plan vigente). */
     String reporte() {
         return simulador.reporteJson();

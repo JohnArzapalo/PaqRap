@@ -96,6 +96,7 @@ final class CorridaWeb {
             throw new IllegalArgumentException(String.format(java.util.Locale.US,
                     "Con este ritmo el adelanto dura %.0f ms reales y el planificador necesita %d ms (Ta): elija un ritmo menor",
                     adelantoRealMs, cfg.taMs));
+        cfg.factorReloj = factor;
         cfg.taBloqueMs = taBloqueMs(cfg.taMs, adelantoRealMs, Parametros.decimal("bloque.fraccion_ta", 0.5),
                 Parametros.entero("bloque.ta_max_ms", 10_000));
         DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin);
@@ -140,6 +141,10 @@ final class CorridaWeb {
 
     String eventosJson(int desde) {
         return servicio.eventos(desde);
+    }
+
+    String bloquesJson() {
+        return servicio.bloques();
     }
 
     String reporteJson() {

@@ -108,6 +108,10 @@ class Simulador {
         /** Presupuesto (ms) de los planes calculados con adelanto, que no detienen el reloj; 0 = taMs.
          *  Las replanificaciones en el instante (excepciones) usan siempre taMs. */
         long taBloqueMs = 0;
+        /** Etapa 35: minutos simulados por minuto real (0 = sin espera). Con el visualizador, un plan adelantado que
+         *  se lanza tarde (después de una excepción) usa como mucho fraccionTaBloque del tiempo real que le queda. */
+        double factorReloj = 0;
+        double fraccionTaBloque = Parametros.decimal("bloque.fraccion_ta", 0.5);
         /** Reparto por productos (Etapa 31, SI-28): una entrega puede repartirse entre varias unidades. */
         boolean reparto = !"no".equalsIgnoreCase(Parametros.texto("reparto.productos", "si"));
         String estrategiaParciales = Parametros.texto("parciales.estrategia", "ninguna");
@@ -171,6 +175,9 @@ class Simulador {
         final double finMin;
         final int cantidad;
         String unidad = "", detalle = "";
+        /** NODO (Etapa 35): minuto en que la unidad sale del nodo anterior hacia este (llegada − 1 km / v).
+         *  Con la llegada, el visualizador reproduce el desplazamiento sin interpolar a ojo. */
+        double salidaMin = Double.NaN;
 
         Evt(T tipo, double min, int x, int y, List<String> entregas, ParadaAlg parada, double finMin, int cantidad) {
             this.tipo = tipo;
@@ -244,6 +251,9 @@ class Simulador {
         Contexto cx;
         Planificador.Plan plan;   // null: la copia no llegó al inicio del bloque o no había nada que planificar
         double ms;
+        /** Etapa 35: líneas de tiempo del bloque siguiente (solo con el visualizador), para que lo tenga en cola. */
+        Map<String, List<double[]>> trayectorias;
+        Map<String, int[]> posiciones;
 
         Adelanto(double inicioBloque, double corte) {
             this.inicioBloque = inicioBloque;
@@ -300,6 +310,12 @@ class Simulador {
     /** Último instante en que una excepción replanificó: los pedidos hasta ahí ya están en el plan. */
     private double ultimaExcepcion = Double.NEGATIVE_INFINITY;
     private ExecutorService ejecutor;
+    /** Etapa 35 (SI-32): true mientras la simulación está detenida esperando al planificador (replanificación en el instante). */
+    private volatile boolean pausado;
+    /** Etapa 35: versión del plan aplicado (sube con cada plan nuevo) y minuto en que se aplicó; el visualizador
+     *  vuelve a pedir las trayectorias cuando cambia. */
+    private int planVersion;
+    private double planAplicadoMin;
     /** true en la copia que proyecta el estado al inicio de un bloque: no registra eventos. */
     private boolean proyeccion = false;
 
@@ -444,6 +460,13 @@ class Simulador {
         pedidosExternos.add(p);
         Thread h = hilo;
         if (h != null) h.interrupt();   // corta la espera del reloj para atenderlo ya
+    }
+
+    /** Minuto que marca el reloj de la corrida en este instante real (Etapa 35): el último instante procesado si
+     *  está en pausa o sin espera; con ritmo escalado, lo que avanzó el reloj desde entonces. */
+    double minutoDelReloj() {
+        if (pausado) return tActual;
+        return Math.max(tActual, cfg.reloj.ahora(tActual));
     }
 
     /** Minuto simulado actual (para quien registra pedidos desde fuera). */
@@ -681,7 +704,7 @@ class Simulador {
     private void planificarPorBloques(double t, boolean excepcion) {
         boolean inicio = t >= proximoBloque;
         if (excepcion) {
-            recogerAdelanto();   // ya no sirve: el estado cambió
+            descartarAdelanto();   // ya no sirve: el estado cambió (no se lo espera)
             adelantoLanzado = false;
             if (!inicio) res.replanPorEvento++;
             ultimaExcepcion = t;
@@ -708,14 +731,17 @@ class Simulador {
         Simulador copia = new Simulador(this);
         double inicioBloque = proximoBloque;
         if (cfg.adelantoEnParalelo) {
-            if (ejecutor == null) ejecutor = Executors.newSingleThreadExecutor(r -> {
+            // Un hilo por plan adelantado (Etapa 35): si una excepción descarta uno que se está calculando,
+            // termina en segundo plano y no retrasa al siguiente ni a la replanificación en el instante
+            if (ejecutor == null) ejecutor = Executors.newCachedThreadPool(r -> {
                 Thread h = new Thread(r, "planificador-bloques");
                 h.setDaemon(true);
                 return h;
             });
-            pendiente = ejecutor.submit(() -> copia.planificarProyectado(inicioBloque, t));
+            long presupuesto = presupuestoAdelanto(inicioBloque - t);
+            pendiente = ejecutor.submit(() -> copia.planificarProyectado(inicioBloque, t, presupuesto));
         } else {
-            pendiente = CompletableFuture.completedFuture(copia.planificarProyectado(inicioBloque, t));
+            pendiente = CompletableFuture.completedFuture(copia.planificarProyectado(inicioBloque, t, presupuestoAdelanto(inicioBloque - t)));
         }
     }
 
@@ -723,7 +749,20 @@ class Simulador {
      * En la COPIA: sigue el plan vigente hasta el inicio del bloque y planifica desde ese
      * estado proyectado, con los pedidos que llegaron hasta el corte.
      */
-    private Adelanto planificarProyectado(double inicioBloque, double corte) {
+    /**
+     * Presupuesto (ms) del plan de un bloque que empieza dentro de faltanMin minutos simulados: el del bloque
+     * (taBloqueMs, o Ta). Con reloj escalado (visualizador), como mucho fraccionTaBloque del tiempo real que
+     * falta cuando se lanza después del corte (tras una excepción), para que esté listo a tiempo; al menos 0.5 s.
+     * Lanzado en el corte es taBloqueMs, como antes; sin espera (experimento) no cambia.
+     */
+    private long presupuestoAdelanto(double faltanMin) {
+        long base = cfg.taBloqueMs > 0 ? cfg.taBloqueMs : cfg.taMs;
+        if (cfg.factorReloj <= 0 || faltanMin >= cfg.adelantoMin - 1e-9) return base;   // sin espera, o lanzado en el corte
+        long restante = (long) (cfg.fraccionTaBloque * faltanMin / cfg.factorReloj * 60_000);
+        return Math.min(base, Math.max(500, restante));
+    }
+
+    private Adelanto planificarProyectado(double inicioBloque, double corte, long presupuestoMs) {
         Adelanto a = new Adelanto(inicioBloque, corte);
         if (!avanzarProyeccion(inicioBloque)) return a;
         Preparacion pr = preparar(inicioBloque, corte);
@@ -732,8 +771,16 @@ class Simulador {
             a.firma = pr.firma;
             a.cx = pr.cx;
             long t0 = System.nanoTime();
-            a.plan = calcular(pr, cfg.taBloqueMs > 0 ? cfg.taBloqueMs : cfg.taMs);
+            a.plan = calcular(pr, presupuestoMs);
             a.ms = (System.nanoTime() - t0) / 1e6;
+            if (cfg.adelantoEnParalelo) {
+                // Solo para el visualizador (Etapa 35): la COPIA aplica el plan y guarda las líneas de tiempo
+                // del bloque siguiente, que el visualizador tiene en cola. No cambia el plan ni el estado real.
+                aplicarPlan(inicioBloque, pr, a.plan, a.cx, a.ms, "");
+                a.posiciones = new HashMap<>();
+                for (Unidad un : unidades) a.posiciones.put(un.u.codigo, new int[]{un.x, un.y});
+                a.trayectorias = trayectorias(inicioBloque + 2 * cfg.bloqueMin);
+            }
         } finally {
             Contexto.restablecer();
         }
@@ -823,13 +870,24 @@ class Simulador {
         }
     }
 
+    /** Descarta el plan adelantado pendiente sin esperarlo (Etapa 35): una excepción cambió el estado, así que
+     *  ese plan ya no sirve. Antes se lo esperaba (hasta el presupuesto del bloque) y la pantalla quedaba detenida. */
+    private void descartarAdelanto() {
+        if (pendiente == null) return;
+        pendiente.cancel(false);
+        pendiente = null;
+    }
+
     /** Espera (sin retener el estado) el plan adelantado pendiente y lo devuelve; null si no hay. */
     private Adelanto recogerAdelanto() {
         if (pendiente == null) return null;
         Future<Adelanto> f = pendiente;
         pendiente = null;
-        if (!f.isDone()) res.bloquesTardios++;   // el planificador tardó más que el adelanto
+        boolean tarde = !f.isDone();
+        if (tarde) res.bloquesTardios++;   // el planificador tardó más que el adelanto
         boolean interrumpido = false;
+        long r0 = System.currentTimeMillis();
+        pausado = tarde;
         try {
             while (true) {
                 cerrojo.unlock();   // la instantánea puede leerse mientras se espera
@@ -844,6 +902,10 @@ class Simulador {
         } catch (ExecutionException e) {
             throw new IllegalStateException("Falló la planificación con adelanto", e.getCause());
         } finally {
+            if (tarde) {   // la simulación esperó al planificador: ese tiempo real no es tiempo simulado (SI-32)
+                pausado = false;
+                cfg.reloj.pausa(System.currentTimeMillis() - r0);
+            }
             if (interrumpido) Thread.currentThread().interrupt();
         }
     }
@@ -1047,21 +1109,33 @@ class Simulador {
 
     /** Planifica en el instante t con los pedidos que llegaron hasta "corte" y aplica el plan. */
     private void replanificar(double t, double corte) {
+        // Etapa 35 (SI-32): mientras se planifica en el instante la simulación está detenida; al terminar,
+        // el reloj descuenta ese tiempo real para no saltar hacia adelante (solo con ritmo escalado).
+        long r0 = System.currentTimeMillis();
+        pausado = true;
         aplicarVelocidadesPendientes(t);
         Preparacion pr = preparar(t, corte);
-        if (pr == null) return;   // nada que cambiar: sigue el plan vigente
+        if (pr == null) {   // nada que cambiar: sigue el plan vigente (no hubo pausa que descontar)
+            pausado = false;
+            return;
+        }
         try {
-            long t0 = System.nanoTime();
-            Planificador.Plan plan;
-            cerrojo.unlock();   // la instantánea puede leerse mientras el planificador trabaja
             try {
-                plan = calcular(pr, cfg.taMs);
+                long t0 = System.nanoTime();
+                Planificador.Plan plan;
+                cerrojo.unlock();   // la instantánea puede leerse mientras el planificador trabaja
+                try {
+                    plan = calcular(pr, cfg.taMs);
+                } finally {
+                    cerrojo.lock();
+                }
+                aplicarPlan(t, pr, plan, pr.cx, (System.nanoTime() - t0) / 1e6, "");
             } finally {
-                cerrojo.lock();
+                Contexto.restablecer();
             }
-            aplicarPlan(t, pr, plan, pr.cx, (System.nanoTime() - t0) / 1e6, "");
         } finally {
-            Contexto.restablecer();
+            pausado = false;
+            cfg.reloj.pausa(System.currentTimeMillis() - r0);
         }
     }
 
@@ -1208,6 +1282,10 @@ class Simulador {
     private void aplicarPlan(double t, Preparacion pr, Planificador.Plan plan, Contexto cxPlan, double ms, String nota) {
         Contexto.usar(cxPlan);   // el planificador pudo cambiarlo
         partesCreadas = cxPlan.partesCreadas;
+        if (!proyeccion) {
+            planVersion++;
+            planAplicadoMin = t;
+        }
         List<Pedido> entregasPlan = new ArrayList<>(plan.sinAsignar);
         for (RutaAlg r : plan.rutas)
             for (ParadaAlg pa : r.paradas) if (pa.tipo == TipoParada.ENTREGA) entregasPlan.add(pa.pedido);
@@ -1464,7 +1542,9 @@ class Simulador {
                                     un.encuentroMin = anterior;   // se detiene en el nodo anterior y se replanifica
                                 }
                             }
-                            un.eventos.add(new Evt(Evt.T.NODO, tMin, nx, ny, null, null, tMin, 0));
+                            Evt paso = new Evt(Evt.T.NODO, tMin, nx, ny, null, null, tMin, 0);
+                            paso.salidaMin = tMin - 60.0 / v;   // recorre 1 km a la velocidad v
+                            un.eventos.add(paso);
                             anterior = tMin;
                         }
                         break;
@@ -1584,7 +1664,15 @@ class Simulador {
             EscritorJson j = new EscritorJson().abrirObjeto(null);
             j.abrirObjeto("reloj").valor("simulado_min", t).valor("simulado", formatear(t))
              .valor("real_ms", System.currentTimeMillis()).valor("escenario", cfg.escenario.name())
-             .valor("inicio_min", cfg.inicioMin).valor("horizonte_min", cfg.horizonte()).cerrarObjeto();
+             .valor("inicio_min", cfg.inicioMin).valor("horizonte_min", cfg.horizonte()).valor("pausado", pausado)
+             // Etapa 35: minuto que marca el reloj de la corrida AHORA. simulado_min es el último instante procesado
+             // (va atrás hasta el siguiente evento); el visualizador usa ahora_min para mover las unidades sin saltos.
+             .valor("ahora_min", minutoDelReloj()).cerrarObjeto();
+            // Etapa 35: versión del plan vigente y bloque en curso; si cambia la versión, el visualizador pide /bloques
+            j.abrirObjeto("plan").valor("version", planVersion).valor("aplicado_min", planAplicadoMin);
+            if (cfg.bloqueMin > 0) j.valor("bloque_inicio_min", proximoBloque - cfg.bloqueMin).valor("bloque_fin_min", proximoBloque)
+                    .valor("siguiente_listo", adelantoListo() != null);
+            j.cerrarObjeto();
             // Semáforo: % de entregas cuyo resultado ya se conoce que llegaron en plazo
             int enPlazo = 0, conocidas = 0;
             for (Map.Entry<String, Double> e : entregadaEn.entrySet()) {
@@ -1697,6 +1785,77 @@ class Simulador {
             }
             j.cerrarObjeto();
             j.cerrarObjeto();
+            return j.cerrarObjeto().toString();
+        } finally {
+            cerrojo.unlock();
+        }
+    }
+
+    // ============================ Trayectorias por bloques (Etapa 35) ============================
+
+    /** Líneas de tiempo comprometidas de las unidades operativas hasta hastaMin: por cada nodo,
+     *  {salida del nodo anterior, llegada, x, y}. Es lo que la unidad hará si nada cambia el plan. */
+    private Map<String, List<double[]>> trayectorias(double hastaMin) {
+        Map<String, List<double[]>> m = new LinkedHashMap<>();
+        for (Unidad un : unidades) {
+            if (un.estado != EstadoUnidad.OPERATIVA) continue;
+            List<double[]> pasos = new ArrayList<>();
+            for (Evt e : un.eventos) {
+                if (e.min > hastaMin) break;
+                if (e.tipo == Evt.T.NODO) pasos.add(new double[]{e.salidaMin, e.min, e.x, e.y});
+            }
+            m.put(un.u.codigo, pasos);
+        }
+        return m;
+    }
+
+    /** Plan del bloque siguiente ya calculado (con sus trayectorias), o null si todavía no está listo. */
+    private Adelanto adelantoListo() {
+        Future<Adelanto> f = pendiente;
+        if (f == null || !f.isDone()) return null;
+        try {
+            Adelanto a = f.get();
+            return a.trayectorias != null ? a : null;
+        } catch (InterruptedException | ExecutionException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Trayectorias para el visualizador (GET /api/corridas/{ESC}/bloques; SI-30, propuesta_bloques.md §6):
+     * la línea de tiempo nodo a nodo del bloque en curso y del siguiente según el plan vigente y, si ya
+     * está calculado, el plan del bloque siguiente (en cola). Con ellas el visualizador reproduce el
+     * desplazamiento según el reloj, sin saltos: cada plan nuevo empieza donde está cada unidad.
+     * Seguro desde otro hilo.
+     */
+    String bloquesJson() {
+        cerrojo.lock();
+        try {
+            double hasta = cfg.bloqueMin > 0 ? proximoBloque + cfg.bloqueMin : tActual + 3 * cfg.saMin;
+            EscritorJson j = new EscritorJson().abrirObjeto(null).valor("version", planVersion).valor("ahora_min", tActual).valor("reloj_min", minutoDelReloj())
+                    .valor("pausado", pausado).valor("hasta_min", hasta);
+            if (cfg.bloqueMin > 0) j.valor("bloque_inicio_min", proximoBloque - cfg.bloqueMin).valor("bloque_fin_min", proximoBloque);
+            j.abrirArreglo("unidades");
+            Map<String, List<double[]>> tr = trayectorias(hasta);
+            for (Unidad un : unidades) {
+                j.abrirObjeto(null).valor("codigo", un.u.codigo).valor("x", un.x).valor("y", un.y)
+                 .valor("velocidad", velocidad(un.u.tipo)).abrirArreglo("pasos");
+                for (double[] p : tr.getOrDefault(un.u.codigo, List.of())) j.paso(p[0], p[1], (int) p[2], (int) p[3]);
+                j.cerrarArreglo().cerrarObjeto();
+            }
+            j.cerrarArreglo();
+            Adelanto a = adelantoListo();
+            if (a == null) j.valor("siguiente", (String) null);
+            else {
+                j.abrirObjeto("siguiente").valor("inicio_min", a.inicioBloque).abrirArreglo("unidades");
+                for (Map.Entry<String, List<double[]>> e : a.trayectorias.entrySet()) {
+                    int[] pos = a.posiciones.get(e.getKey());
+                    j.abrirObjeto(null).valor("codigo", e.getKey()).valor("x", pos[0]).valor("y", pos[1]).abrirArreglo("pasos");
+                    for (double[] p : e.getValue()) j.paso(p[0], p[1], (int) p[2], (int) p[3]);
+                    j.cerrarArreglo().cerrarObjeto();
+                }
+                j.cerrarArreglo().cerrarObjeto();
+            }
             return j.cerrarObjeto().toString();
         } finally {
             cerrojo.unlock();

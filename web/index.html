@@ -686,7 +686,7 @@ function direccion(x, y, tx, ty){ return tx > x ? 'E' : tx < x ? 'O' : ty > y ? 
 const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
   logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
   filtro: 'ALL', acc: { sim: true, res: false, flota: false, log: false }, reportado: {}, registrados: [], datos: null,
-  dir: {}, rastro: {}, rutas: 'pend' };
+  dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null };
 /* ll1 / ll2: límites de las bandas de llenado (bajo < ll1 ≤ medio < ll2 ≤ alto), iguales para unidades y almacenes. */
 const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, ll1: 40, ll2: 75, rP: 15, rF: 20, rC: 30, rI: 60 };
 const umb = () => S.umbrales[S.tab] || UMB_DEF;
@@ -826,7 +826,8 @@ function dibujarMapa(s){
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
       m.on('click', () => abrirDetalle(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
-    m.setLatLng([u.y, u.x]); m._base = { x: u.x, y: u.y };
+    // Con trayectorias, la posición la da la reproducción (cada cuadro); la instantánea solo ubica a las demás
+    const T = S.tray[S.tab]; if (!(T && u.estado === 'OPERATIVA' && T.unidades[u.codigo])) m.setLatLng([u.y, u.x]);
     orientar(u.codigo, u.camino.length ? direccion(u.x, u.y, u.camino[0][0], u.camino[0][1]) : null);
     const ll = 100 * u.carga / u.capacidad;
     m.setTooltipContent(`<b>${u.codigo}</b> · ${estadoVisible(u, s).t}<br>Carga ${u.carga}/${u.capacidad} (${ll.toFixed(0)} %) · ${NOMBRE_SEM[semLlenado(ll)]}<br>${u.velocidad} km/h${textoAveria(u, s)}`);
@@ -870,19 +871,76 @@ function dibujarMapa(s){
 function limpiarMapa(){ gUni.clearLayers(); gRutas.clearLayers(); gBloq.clearLayers(); gPed.clearLayers(); for (const o of [mUni, mPed]) for (const k of Object.keys(o)) delete o[k];
   dibujarAlmacenes({ almacenes: ALMACENES.map(a => ({ ...a, stock: a.capacidad })) }); }
 
-/* Entre dos instantáneas (1 s) se mueven las unidades a lo largo de su camino para que se vea fluido,
-   y el ícono gira hacia el tramo que recorre en ese momento. */
+/* =====================================================================
+   REPRODUCCIÓN DE TRAYECTORIAS (etapa 35, SI-30 y SI-32; C29)
+   El planificador entrega, en /bloques, la línea de tiempo de cada unidad nodo a nodo
+   ({salida, llegada, x, y}) del bloque en curso y del siguiente, y el plan del bloque
+   siguiente en cola cuando ya está calculado. El visualizador mueve cada unidad según
+   su reloj: cada plan nuevo empieza donde está la unidad, así que no hay saltos. Mientras
+   el planificador replanifica en el instante, el reloj está en pausa y nada se mueve.
+   ===================================================================== */
+async function cargarTrayectorias(e){
+  if (S.trayPid[e]) return; S.trayPid[e] = true;
+  try {
+    const b = await api('GET', `/api/corridas/${e}/bloques`); const porCodigo = us => Object.fromEntries((us || []).map(u => [u.codigo, u]));
+    S.tray[e] = { version: b.version, unidades: porCodigo(b.unidades), sig: b.siguiente ? { inicio: b.siguiente.inicio_min, unidades: porCodigo(b.siguiente.unidades) } : null };
+  } catch (err){ /* se reintenta con la siguiente instantánea */ }
+  finally { S.trayPid[e] = false; }
+}
+/* Minuto simulado que se muestra ahora: el del reloj de la corrida en la última instantánea más lo que avanzó
+   el reloj real (al ritmo K). Para que nada salte, el minuto mostrado nunca retrocede y avanza a lo sumo un 50 %
+   más rápido que el ritmo: si quedó atrás (p. ej., mientras se esperaba la trayectoria de un plan nuevo), alcanza
+   al reloj de a poco. Con el planificador replanificando en el instante, el reloj está en pausa. */
+function relojCliente(s, congelar){
+  const K = +(S.corrida[S.tab] || {}).factor || S.K[S.tab] || 1;
+  const base = s.reloj.ahora_min ?? s.reloj.simulado_min;
+  const real = s.reloj.pausado || s.estado_corrida !== 'EN_EJECUCION' ? base : base + Math.min(2.5, (performance.now() - S.recv[S.tab]) / 1000) * K / 60;
+  const ms = performance.now(), ant = S.tDisp;
+  if (!ant || ant.tab !== S.tab || Math.abs(real - ant.t) > 10){ S.tDisp = { tab: S.tab, t: real, ms }; return real; }   // otra corrida o pestaña dormida
+  const t = congelar ? ant.t : Math.max(ant.t, Math.min(real, ant.t + (ms - ant.ms) / 60000 * K * 1.5));
+  S.tDisp = { tab: S.tab, t, ms }; return t;
+}
+/* Posición en el minuto tau según una trayectoria {x, y, pasos}: quieta en un nodo hasta su salida
+   y luego avanzando en línea recta hasta el nodo siguiente. Devuelve también la dirección. */
+function posTrayectoria(tr, tau){
+  let px = tr.x, py = tr.y, dir = null;
+  for (const [sal, lle, x, y] of tr.pasos){
+    if (tau >= lle){ dir = direccion(px, py, x, y) || dir; px = x; py = y; continue; }
+    if (tau <= sal) return { x: px, y: py, dir: dir || direccion(px, py, x, y) };
+    const f = (tau - sal) / Math.max(1e-6, lle - sal);
+    return { x: px + (x - px) * f, y: py + (y - py) * f, dir: direccion(px, py, x, y) };
+  }
+  return { x: px, y: py, dir };
+}
+function reproducir(s, T){
+  // Hubo un plan nuevo en el instante (avería, urgencia) y su trayectoria aún no llega: se retienen las
+  // unidades (y el reloj mostrado) en vez de seguir la ruta anterior; al llegar la nueva, siguen desde ahí.
+  const espera = s.plan && s.plan.version !== T.version && !(T.sig && (S.tDisp ? S.tDisp.t : 0) >= T.sig.inicio);
+  const tau = relojCliente(s, espera);
+  if (espera) return;
+  for (const u of s.unidades){
+    const m = mUni[u.codigo]; if (!m || u.estado !== 'OPERATIVA') continue;
+    const cola = T.sig && tau >= T.sig.inicio ? T.sig.unidades[u.codigo] : null;
+    const tr = cola || T.unidades[u.codigo]; if (!tr) continue;
+    const p = posTrayectoria(tr, tau); m.setLatLng([p.y, p.x]); orientar(u.codigo, p.dir);
+  }
+}
+/* Respaldo (servidor sin /bloques): entre dos instantáneas se mueven las unidades a lo largo de su camino. */
+function interpolarEntreFotos(s){
+  const K = S.K[S.tab] || (S.corrida[S.tab] || {}).factor || 1;
+  const dtMin = Math.min(1.5, (performance.now() - S.recv[S.tab]) / 1000) * K / 60; const simNow = s.reloj.simulado_min + dtMin;
+  const comiendo = HORAS_ALIMENTACION.includes(aFecha(s, simNow).getHours());
+  for (const u of s.unidades){ const m = mUni[u.codigo]; if (!m || u.estado !== 'OPERATIVA' || comiendo || u.ocupado_hasta_min > simNow || !u.camino.length) continue;
+    let d = u.velocidad / 60 * dtMin, x = u.x, y = u.y, dir = null;
+    for (const [tx, ty] of u.camino){ const r = Math.abs(tx - x) + Math.abs(ty - y); dir = direccion(x, y, tx, ty) || dir;
+      if (r <= d){ x = tx; y = ty; d -= r; } else { x += Math.sign(tx - x) * d; y += Math.sign(ty - y) * d; break; } }
+    m.setLatLng([y, x]); orientar(u.codigo, dir); }
+}
 function interpolar(){
   const s = S.vista === 'mon' ? S.snap[S.tab] : null;
   if (s && s.estado_corrida === 'EN_EJECUCION'){
-    const K = S.K[S.tab] || (S.corrida[S.tab] || {}).factor || 1;
-    const dtMin = Math.min(1.5, (performance.now() - S.recv[S.tab]) / 1000) * K / 60; const simNow = s.reloj.simulado_min + dtMin;
-    const comiendo = HORAS_ALIMENTACION.includes(aFecha(s, simNow).getHours());
-    for (const u of s.unidades){ const m = mUni[u.codigo]; if (!m || u.estado !== 'OPERATIVA' || comiendo || u.ocupado_hasta_min > simNow || !u.camino.length) continue;
-      let d = u.velocidad / 60 * dtMin, x = u.x, y = u.y, dir = null;
-      for (const [tx, ty] of u.camino){ const r = Math.abs(tx - x) + Math.abs(ty - y); dir = direccion(x, y, tx, ty) || dir;
-        if (r <= d){ x = tx; y = ty; d -= r; } else { x += Math.sign(tx - x) * d; y += Math.sign(ty - y) * d; break; } }
-      m.setLatLng([y, x]); orientar(u.codigo, dir); }
+    const T = S.tray[S.tab];
+    if (T) reproducir(s, T); else interpolarEntreFotos(s);
   }
   requestAnimationFrame(interpolar);
 }
@@ -896,7 +954,8 @@ function pintarSimulacion(){
   const info = ESC_INFO[S.tab]; const s = S.snap[S.tab]; const c = S.corrida[S.tab];
   $('#rbTitle').textContent = info.titulo;
   const st = estadoTxt(s && s.estado_corrida); if (!s) st[0] = 'Sin iniciar';
-  $('#rbState').textContent = st[0]; $('#rbState').className = 'chip ' + st[1];
+  const pausa = s && s.reloj.pausado && s.estado_corrida === 'EN_EJECUCION';   // replanificación en el instante: el reloj espera (SI-32)
+  $('#rbState').textContent = pausa ? 'Replanificando · reloj en pausa' : st[0]; $('#rbState').className = 'chip ' + (pausa ? '' : st[1]);
   const obs = S.rol !== 'control', corre = !!(s && s.estado_corrida === 'EN_EJECUCION');
   $('#btnFinalizar').disabled = !corre || obs; $('#btnReporte').disabled = !s || corre;
   $('#btnRegistroLnk').hidden = S.tab !== 'DIA_A_DIA';
@@ -908,7 +967,8 @@ function pintarSimulacion(){
   if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal', '#ckTrans']) $(id).textContent = '—';
     $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--/--/---- --:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckNota').hidden = true;
     $('#pgFill').style.width = '0'; $('#pgPct').textContent = '0 %'; $('#pgTicks').innerHTML = ''; return; }
-  const d = aFecha(s, s.reloj.simulado_min); const tc = minCorrida(s); const fin = c.fin_real_ms || s.reloj.real_ms;
+  const ahora = s.reloj.ahora_min ?? s.reloj.simulado_min;   // minuto del reloj de la corrida (etapa 35)
+  const d = aFecha(s, ahora); const tc = ahora - s.reloj.inicio_min; const fin = c.fin_real_ms || s.reloj.real_ms;
   $('#smInicio').textContent = fmtFecha(new Date(c.inicio_ms));
   $('#smFlota').textContent = `${c.autos + c.motos + c.bicicletas} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis`;
   $('#smRitmo').textContent = ritmoTxt(S.tab, c.factor);
@@ -1123,10 +1183,13 @@ async function actualizar(e){
   conexion(true, 'Conectado al planificador');
   const s = r.estado; s.estado_corrida = r.corrida.estado; s.reloj.inicio_corrida_ms = r.corrida.inicio_ms;
   const prev = S.snap[e];
-  if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; S.rastro[e] = {}; }   // otra corrida
+  if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; S.rastro[e] = {}; delete S.tray[e]; }   // otra corrida
   if (prev && prev.reloj.inicio_corrida_ms === s.reloj.inicio_corrida_ms){ const dr = s.reloj.real_ms - prev.reloj.real_ms;
     if (dr > 0 && s.reloj.simulado_min > prev.reloj.simulado_min) S.K[e] = (s.reloj.simulado_min - prev.reloj.simulado_min) * 60000 / dr; }
   S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
+  if (s.plan){ const T = S.tray[e]; if (!T || T.version !== s.plan.version || (s.plan.siguiente_listo && !T.sig)) cargarTrayectorias(e); }
+  // Mientras el planificador replanifica en el instante, se consulta cada 250 ms para retomar apenas termine
+  if (s.reloj.pausado || (s.plan && S.tray[e] && S.tray[e].version !== s.plan.version)) consultaRapida(e);
   try { const ev = await api('GET', `/api/corridas/${e}/eventos?desde=${S.desde[e] || 0}`); ev.eventos.forEach(x => agregarLog(e, x)); S.desde[e] = ev.total; } catch (err){ /* se reintenta */ }
   if (e === S.tab && S.vista === 'mon') render();
   if (s.estado_corrida !== 'EN_EJECUCION' && !S.reportado[e]){ S.reportado[e] = true; if (e === S.tab && S.vista === 'mon') setTimeout(() => abrirReporte(e), 600); }
@@ -1140,6 +1203,8 @@ async function actualizarEscenarios(){
   } catch (err){ conexion(false, 'Sin conexión con el planificador'); }
 }
 let ocupado = false;
+function consultaRapida(e){ clearTimeout(S.rapida); S.rapida = setTimeout(async () => { if (ocupado || S.vista !== 'mon' || S.tab !== e) return;
+  ocupado = true; try { await actualizar(e); } finally { ocupado = false; } }, 250); }
 setInterval(async () => { if (ocupado || S.vista === 'inicio') return; ocupado = true;
   try { await actualizar(S.vista === 'reg' ? 'DIA_A_DIA' : S.tab); if (S.vista === 'reg') pintarRegistro(); } finally { ocupado = false; } }, 1000);
 setInterval(actualizarEscenarios, 3000);
@@ -1219,7 +1284,7 @@ $('#ciGo').onclick = async () => {
   try {
     await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime(), factor: $('#ciRitmo').value,
       autos: $('#ciAutos').value, motos: $('#ciMotos').value, bicicletas: $('#ciBicis').value });
-    S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e]; S.lista[e] = 'EN_EJECUCION';
+    S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e]; delete S.tray[e]; S.rastro[e] = {}; S.tDisp = null; S.lista[e] = 'EN_EJECUCION';
     mostrarEscenario(e); toast('Corrida iniciada. Todos los dispositivos la verán.');
   } catch (err){ $('#ciMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
   finally { $('#ciGo').disabled = false; }

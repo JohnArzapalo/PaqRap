@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
  *   POST /api/corridas/{ESC}                 inicia (inicio=aaaa-mm-ddThh:mm, inicio_ms, factor, autos, motos, bicicletas)
  *   GET  /api/corridas/{ESC}/estado          instantánea (el visualizador la consulta cada segundo)
  *   GET  /api/corridas/{ESC}/eventos?desde=n bitácora desde el evento n
+ *   GET  /api/corridas/{ESC}/bloques         trayectorias del bloque en curso y del siguiente (etapa 35)
  *   GET  /api/corridas/{ESC}/reporte         resumen de cierre
  *   POST /api/corridas/{ESC}/finalizacion    detiene la corrida
  *   POST /api/corridas/{ESC}/averias         unidad, tipo (1, 2 o 3)
@@ -100,6 +101,9 @@ public final class ServidorWeb {
                     break;
                 case "GET eventos":
                     responder(ex, 200, c.eventosJson(entero(datos, "desde", 0)));
+                    break;
+                case "GET bloques":
+                    responder(ex, 200, c.bloquesJson());
                     break;
                 case "GET reporte":
                     responder(ex, 200, c.reporteJson());

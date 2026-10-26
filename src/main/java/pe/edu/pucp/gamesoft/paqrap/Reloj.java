@@ -11,6 +11,11 @@ package pe.edu.pucp.gamesoft.paqrap;
  * interrumpe, esperarHasta devuelve false y ahora() da el minuto simulado que
  * corresponde al tiempo real transcurrido.
  *
+ * PAUSA (Etapa 35, SI-32): mientras el hilo de la simulación espera al planificador
+ * (una replanificación en el instante, con Ta = 2 s), el tiempo simulado no debe
+ * avanzar. pausa(ms) descuenta ese tiempo real: el reloj escalado corre su origen
+ * real, así que al seguir no «salta» ms × factor minutos para alcanzar al reloj real.
+ *
  * Supuestos (docs/propuesta_cambios_IEN.md): SI-18 (el evento externo se aplica en el minuto simulado que corresponde al tiempo real).
  */
 interface Reloj {
@@ -21,6 +26,11 @@ interface Reloj {
     /** Minuto simulado que corresponde al instante real actual (sin espera: el objetivo). */
     default double ahora(double minutoObjetivo) {
         return minutoObjetivo;
+    }
+
+    /** La simulación estuvo detenida ms milisegundos reales: no cuentan como tiempo simulado.
+     *  Sin espera (experimento) no hace nada. */
+    default void pausa(long ms) {
     }
 
     static Reloj sinEspera() {
@@ -56,6 +66,11 @@ interface Reloj {
             public double ahora(double minutoObjetivo) {
                 if (Double.isNaN(inicioSim)) return minutoObjetivo;
                 return inicioSim + (System.currentTimeMillis() - inicioReal) * factor / 60_000.0;
+            }
+
+            @Override
+            public void pausa(long ms) {
+                if (!Double.isNaN(inicioSim) && ms > 0) inicioReal += ms;   // el origen real se corre lo que duró la pausa
             }
         };
     }

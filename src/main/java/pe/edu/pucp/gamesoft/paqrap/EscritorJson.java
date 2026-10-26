@@ -82,6 +82,13 @@ final class EscritorJson {
         return this;
     }
 
+    /** Paso de una trayectoria [salida, llegada, x, y] dentro de un arreglo (minutos con 2 decimales). */
+    EscritorJson paso(double salidaMin, double llegadaMin, int x, int y) {
+        separar();
+        sb.append('[').append(String.format(Locale.US, "%.2f,%.2f", salidaMin, llegadaMin)).append(',').append(x).append(',').append(y).append(']');
+        return this;
+    }
+
     private static String cadena(String s) {
         StringBuilder r = new StringBuilder("\"");
         for (char c : s.toCharArray()) {
