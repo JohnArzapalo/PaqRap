@@ -142,7 +142,7 @@ final class Contexto {
 
     /** Contexto vigente POR HILO (Etapa 21): cada simulación corre en su hilo y el
      *  planificador se ejecuta en ese mismo hilo, así dos simulaciones no se pisan.
-     *  (Los algoritmos aún tienen estado estático propio: semilla y contadores; ver SI-19.) */
+     *  (Desde la etapa 24 los algoritmos tampoco tienen estado estático: SI-19 superado.) */
     private static final ThreadLocal<Contexto> ACTUAL = ThreadLocal.withInitial(Contexto::new);
 
     static Contexto actual() {

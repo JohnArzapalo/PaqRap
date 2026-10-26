@@ -1,6 +1,6 @@
 # Operación día a día completa (etapa 35, Tarea 6): plan
 
-**Estado:** plan, a la espera del visto bueno del equipo. No se ha tocado el simulador.
+**Estado:** aprobado por el equipo tal cual e **implementado en la etapa 35** (SI-35; pruebas en `DiaADiaTest`).
 
 Ítems del formulario: A11 (avance del planificador), B13 (carga de datos), C12 a C16 (relojes), G09 (reporte al cerrar las operaciones).
 

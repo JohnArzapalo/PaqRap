@@ -86,11 +86,20 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - al empezar el bloque se aplica el plan si el estado real coincide con el proyectado (`firma`), así que no hay saltos (`Resultado.saltos` = 0), y se **insertan** los pedidos llegados después del corte (sin esa inserción los colapsos se multiplicaban con los datos oficiales);
   - lo urgente, las averías y los bloqueos en el camino **cortan el bloque** y replanifican en el instante con Ta = 2 s (decisión del equipo; falta la confirmación del profesor, pregunta 18);
   - el plan adelantado usa la mitad del adelanto real (`bloque.fraccion_ta=0.5`, entre Ta y 10 s): 7.5 s con 5 días en 60 min, que es el ritmo por defecto (`sim5d.minutos_reales=60`; ya no se ofrece 15 min);
-  - decisiones del equipo: no se repite el experimento con bloques, no se muestran pedidos «por planificar» y la operación día a día queda en espera;
+  - decisiones del equipo: no se repite el experimento con bloques, no se muestran pedidos «por planificar» y la operación día a día queda en espera (se completó en la etapa 35);
   - las corridas web usan bloques siempre; el experimento, solo con `--bloque 120 --adelanto 60` (sin la opción replanifica cada Sa, igual que en las etapas 28 a 31);
-  - las cachés de `MapaVial` están sincronizadas. Falta la parte del visualizador (API `/bloques` y reproducción de trayectorias). Hay 99 pruebas.
+  - las cachés de `MapaVial` están sincronizadas. La parte del visualizador (API `/bloques` y reproducción de trayectorias) se hizo en la etapa 35. Hay 99 pruebas.
   - **Datos oficiales (MEDIA, 12 ventanas, Ta = 500 ms):** el periódico colapsa en 4 de 12; bloques de 2 h con inserción, en 11 de 12; bloques de 1 h (adelanto de 30 min) con inserción, en 3 de 12. Lo que decide es cuánto espera un pedido nuevo para entrar al plan (hasta un bloque). **Decisión del equipo: bloques de 1 h** (`docs/avance_sem07.md`, etapa 33). Para volver a 2 h: `bloque.min=120`, `bloque.adelanto_min=60` y reiniciar el servidor.
 - **Etapa 34, rediseño del visualizador** (`web/index.html`): pantalla de inicio para elegir el escenario e iniciarlo; sin barras superiores, el mapa ocupa todo el espacio que deja la barra lateral; barra lateral con cuatro secciones desplegables (Simulación, Resumen, Flota y Bitácora); paleta oscura con retícula blanca; sin emojis. Detalle en `docs/avance_sem07.md`.
+- **Etapa 35, formulario de evaluación del software** (rama `feature/etapa35-eval-sw`, sin fusionar; detalle en `docs/avance_sem07.md`):
+  - mapa: íconos SVG por tipo que giran hacia donde avanzan, averías por tipo, un solo semáforo de llenado con estado vacío (SI-31: bajo = rojo, medio = ámbar, alto = verde, pedido de la JP), leyenda desplegable, botón de rutas y cuatro relojes;
+  - el reloj se pausa mientras la simulación espera al planificador (SI-32) y el visualizador reproduce las trayectorias del bloque (`GET /bloques`): ya no hay saltos;
+  - panel de flota, almacenes y envíos con orden, filtros y búsqueda; vinculación mapa-panel, buscador y ruta anterior de un envío (`GET /historial`);
+  - lectura incremental de los pedidos, solo hasta el bloque siguiente (SI-33, A22; el experimento da idéntico);
+  - en la web, las unidades sin tareas vuelven al almacén más cercano con stock (SI-34);
+  - operación día a día completa (SI-35): pedidos del operador por bloques, carga masiva en su hora y «Cerrar operaciones»;
+  - indicadores globales con semáforo (ocupación de la flota y llenado de los almacenes) y reporte de la última planificación estable en los tres escenarios;
+  - diagramas A22 y A23 actualizados; `exec.mainClass` = `ServidorWeb`. Hay 116 pruebas.
 - **Despliegue vigente: máquina virtual del curso** (21-oct-2026; pasos en `docs/despliegue_aws.md`, §2):
   - **http://1inf54-982-5e.inf.pucp.edu.pe/** (200.16.7.154). Usuario SSH `1inf54.982.5e`; la contraseña la tiene el equipo y **nunca se escribe en el repositorio**.
   - Ubuntu 24.04, 2 núcleos, 3.8 GB y OpenJDK 21. Solo están abiertos los puertos 22, 80 y 443, y Tomcat ocupa el 8080.
@@ -99,7 +108,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - Para actualizar: regenerar el paquete desde el último commit, copiarlo con `scp`, descomprimirlo encima, volver a bajar la memoria con `sed`, compilar con `scripts/compilar.sh` y reiniciar con `sudo systemctl restart paqrap`.
   - La instancia de AWS (EC2) queda solo de respaldo.
 - **Entregable de la semana 10:** `sol.integrada.sem10/PaqRap_sol_integrada_sem10.zip` (commit `7bdde4f`, sin `CLAUDE.md` ni menciones a Claude). Se generó pero **no está en git**.
-- **Supuestos** SI-01 a SI-30 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
+- **Supuestos** SI-01 a SI-35 y cambios al IEN: `docs/propuesta_cambios_IEN.md`.
 - **Datos oficiales del profesor: `juego_de_datos/`** (ventas y bloqueos mensuales de 2026-01 a 2028-12, más el mantenimiento de 2026-09/10). **Los datos de `datos/` son SINTÉTICOS.** Toda salida hecha con ellos lleva la marca «SINTETICO» y **no sirve para el informe**. Cuando lleguen los oficiales, seguir `docs/protocolo_experimento.md`.
 
 ## 4. Cómo compilar, probar y ejecutar
@@ -164,13 +173,15 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
 6. Verificar **2-opt y cross-exchange** frente al §4.2 del ISA, porque están marcados como provisionales.
 7. ~~`inyectarPedido` para el escenario DIA_A_DIA~~ (hecho en la etapa 32: `Simulador.inyectarPedido` y `POST /api/corridas/DIA_A_DIA/pedidos`).
 8. ~~Solución integrada (etapa 32, entregable de la semana 8)~~ (hecha; ZIP en `sol.integrada.sem08/`). **Desplegada en la máquina virtual del curso** el 21-oct-2026 (§3).
-9. **Planificación por bloques con adelanto** (SI-30; diseño en `docs/diseno/propuesta_bloques.md`). El planificador está hecho (etapa 33). **Falta el visualizador:** `GET /api/corridas/{ESC}/bloques` con la línea de tiempo del bloque en curso y del siguiente, y reproducir las trayectorias en cola con una transición exacta. Hoy el visualizador sigue leyendo la instantánea cada segundo e interpola.
-10. **Decisiones abiertas del equipo** (pendientes al 21-oct-2026):
-    - **Vehículos sin tareas:** hoy se quedan detenidos donde terminan, porque al empezar un bloque nuevo se cancela su regreso al almacén. Falta decidir si deben volver al almacén más cercano con stock (cambio en `Simulador`).
-    - **Criterio 33 de la Guía:** pide mostrar u ocultar las rutas, y en la etapa 34 se quitó el botón Rutas. Falta decidir si se agrega un interruptor junto a Encuadrar.
+9. ~~Planificación por bloques con adelanto~~ (SI-30; planificador en la etapa 33 y visualizador en la etapa 35: `GET /api/corridas/{ESC}/bloques` y reproducción de las trayectorias con el reloj en pausa, SI-32).
+10. **Decisiones abiertas del equipo** (al 26-oct-2026):
+    - ~~Vehículos sin tareas~~: decidido en la etapa 35, vuelven al almacén más cercano con stock, solo en la web (SI-34).
+    - ~~Criterio 33 de la Guía~~: en la etapa 35 volvió el botón de rutas junto a Encuadrar (pendientes, recorridas u ocultas).
     - **Alimentación:** hoy es fija a las 03, 11 y 19 h para toda la flota (SI-06). Falta decidir si cada unidad elige su hora dentro de la ventana del turno; sería un cambio en el evaluador común.
     - **Pedido de la JP de no replanificar los vehículos en ruta:** choca con P16 del Sheet («todo vehículo en el almacén o en ruta es vuelto a planificar»). La solución ya lo cubre en la práctica (Tabú parte del plan vigente y penaliza cada cambio de unidad con S/ 16; solo 20 a 27 cambios en 5 días). Si la JP insiste, conviene preguntárselo por escrito al profesor.
-    - **Operación día a día:** en espera; por ahora el pedido que registra el operador se planifica al registrarse.
+    - ~~Operación día a día~~: completada en la etapa 35 (SI-35).
+    - **Fecha del escenario hasta el colapso para la demostración:** desde el 01/01/2027 no colapsa en 30 días (los pedidos de enero de 2027 terminan el día 20); desde el 01/06/2027 colapsa en unas 26 h (etapa 35).
+    - **Fusión de `feature/etapa35-eval-sw` a `main`:** la decide el equipo (pull request), y después se actualiza la máquina virtual (§3).
 11. **Preguntas al profesor que siguen abiertas:** 11 (destino bloqueado), 13 (escenario del experimento), 18 (si lo urgente y las averías cortan el bloque; hoy sí lo cortan) y las de `docs/preguntas_para_el_profesor.md`. Contexto completo del curso (Sheet de P&R, hoja «Guía» con 108 criterios del software en vivo, sesiones): `C:\Users\MARIA GRACIA\Downloads\JL\DP1\1INF54_hallazgos_maestro_v11.md`, fuera del repositorio.
 
 ## 7. Convenciones de trabajo

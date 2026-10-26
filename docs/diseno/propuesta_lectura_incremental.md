@@ -1,6 +1,6 @@
 # Lectura de pedidos por bloques (A22, etapa 35): propuesta
 
-**Estado:** propuesta, a la espera del visto bueno del equipo. No se ha tocado el código.
+**Estado:** aprobada por el equipo tal cual e **implementada en la etapa 35** (SI-33; pruebas en `LecturaIncrementalTest`).
 
 ## 1. Qué pide el profesor
 

@@ -7,7 +7,10 @@ PaqRap planifica y simula en tiempo real el reparto de paquetes de una flota de 
 - **Búsqueda Tabú** (`BusquedaTabu`)
 - **Algoritmo Genético** (`AlgoritmoGenetico`)
 
-Ambas replanifican cada 60 min, y además ante un evento (una avería o un bloqueo), partiendo del plan vigente y del estado real de cada unidad: posición, carga a bordo, averías y mantenimiento.
+Ninguna planifica desde cero: parten del plan vigente y del estado real de cada unidad (posición, carga a bordo, averías y mantenimiento).
+
+- **En el experimento**, ambas replanifican cada 60 min (Sa), y además ante un evento (una avería o un bloqueo).
+- **En la solución integrada** (visualizador), Búsqueda Tabú planifica por **bloques de 1 h simulada, cada uno 30 min antes de que empiece**, y lee los pedidos por partes, solo hasta el bloque siguiente. Ante una avería, un pedido urgente o un bloqueo en el camino, **corta el bloque y replanifica al instante** (Ta = 2 s, con el reloj en pausa).
 
 **Algoritmo elegido: Búsqueda Tabú** (etapa 30, `Resultados/LEEME.md`). Los datos oficiales del profesor están en `juego_de_datos/`; los de `datos/` son SINTÉTICOS y no sirven para el informe.
 
@@ -24,7 +27,8 @@ scripts/iniciar_servidor.sh        # Linux o macOS (Windows: scripts\iniciar_ser
 Después, abrir **http://localhost:8080/**, o la IP del servidor desde otro dispositivo.
 
 - Diagrama de la interacción entre Planificador y Visualizador, y contrato de la API: [docs/diseno/diagrama_integracion.md](docs/diseno/diagrama_integracion.md)
-- Despliegue en AWS EC2: [docs/despliegue_aws.md](docs/despliegue_aws.md)
+- Diagramas A22 (consumo de datos por bloques) y A23 (varios navegadores): [docs/diseno/diagramas_PaqRap.pdf](docs/diseno/diagramas_PaqRap.pdf)
+- Despliegue en la máquina virtual del curso (y en AWS EC2, de respaldo): [docs/despliegue_aws.md](docs/despliegue_aws.md)
 - ZIP del entregable: `scripts/empaquetar_solucion.sh`, que lo genera en `sol.integrada.sem08/`.
 
 ---
@@ -53,7 +57,7 @@ Qué se configuró y por qué: **[docs/configuracion_5_dias.md](docs/configuraci
 
 Todos los comandos se ejecutan en la raíz del proyecto.
 
-**Compilar y correr las pruebas** (89 pruebas JUnit):
+**Compilar y correr las pruebas** (116 pruebas JUnit):
 
 ```bash
 mvn test

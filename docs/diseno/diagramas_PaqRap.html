@@ -82,9 +82,9 @@
 <!-- ============================ PÁGINA 1 (A22) ============================ -->
 <section class="pagina">
   <header class="cab">
-    <h1>PaqRap: consumo de datos por bloques (Sa = 1 h, Sc = 1 h, Ta = 7,5 s)</h1>
+    <h1>Consumo por bloques: Sa = 30 s reales (1 h simulada a ×120), Sc = 1 h simulada, Ta = 7,5 s</h1>
     <p class="criterio"><b>Criterio A22.</b> ¿Cómo se consumen los datos en bloques de tiempo (Sc) por cada bloque de tiempo del planificador (Sa)?</p>
-    <p class="mensaje">El tiempo simulado se divide en <b>bloques de 1 h (Sa)</b>. Cada bloque se planifica <b>30 min antes</b> de que empiece, con los pedidos llegados <b>hasta ese corte (Sc = 1 h de datos)</b>. Búsqueda Tabú piensa en paralelo <b>(Ta = 7,5 s reales)</b> mientras el reloj sigue. Al empezar el bloque se aplica el plan sin saltos y se insertan los pedidos llegados después del corte. Lo imprevisto (avería, pedido urgente) corta el bloque y replanifica al instante con Ta = 2 s.</p>
+    <p class="mensaje">El tiempo simulado se divide en <b>bloques de 1 h simulada (Sa = 30 s reales a ×120)</b>. Cada bloque se planifica <b>30 min antes</b> de que empiece, con los pedidos leídos <b>hasta ese corte (Sc = 1 h simulada de datos)</b>. Búsqueda Tabú piensa en paralelo <b>(Ta = 7,5 s reales)</b> mientras el reloj sigue. Al empezar el bloque se aplica el plan sin saltos y se insertan los pedidos llegados después del corte. Lo imprevisto (avería, pedido urgente) corta el bloque y replanifica al instante con Ta = 2 s.</p>
     <div class="leyenda-h"><b>Leyenda:</b>
       <span><span class="chip" style="background:var(--gris)"></span>datos: llegada de pedidos</span>
       <span><span class="chip" style="background:var(--naranja)"></span>corte (inicio de la planificación)</span>
@@ -231,6 +231,7 @@
         <table class="valores">
           <tr><td>Sa</td><td>bloque: <b>1 h simulada = 30 s reales</b></td></tr>
           <tr><td>Sc</td><td><b>1 h simulada</b> de pedidos (hasta el corte)</td></tr>
+          <tr><td>Lectura</td><td>línea a línea, <b>hasta el bloque siguiente</b></td></tr>
           <tr><td>Adelanto</td><td><b>30 min simulados = 15 s reales</b> (el corte)</td></tr>
           <tr><td>Ta</td><td><b>7,5 s reales</b> = 15 min sim. (mitad del adelanto)</td></tr>
           <tr><td>Ta exc.</td><td><b>2 s reales</b>, reloj en pausa (avería, urgente)</td></tr>
@@ -241,8 +242,8 @@
       <div class="caja">
         <h2>Pasos en cada bloque</h2>
         <ol>
-          <li><b>Corte</b> (30 min antes): se copia el estado del simulador y se avanza la copia hasta el inicio del bloque con el plan vigente.</li>
-          <li>Búsqueda Tabú planifica el bloque sobre esa copia, en otro hilo, con los pedidos llegados hasta el corte.</li>
+          <li><b>Corte</b> (30 min antes): se leen los pedidos hasta el corte, se copia el estado y se avanza la copia hasta el inicio del bloque con el plan vigente.</li>
+          <li>Búsqueda Tabú planifica el bloque sobre esa copia, en otro hilo, solo con esos pedidos.</li>
           <li><b>Inicio del bloque:</b> se compara el estado real con el proyectado y, si coinciden, se aplica el plan.</li>
           <li>Los pedidos que llegaron después del corte se insertan sin correr Tabú; el bloque siguiente los optimiza.</li>
         </ol>
@@ -266,7 +267,7 @@
     </div>
   </div>
 
-  <p class="nota"><b>Nota.</b> El planificador no recibe todos los pedidos de una vez: en cada corte solo ve los registrados hasta ese momento. Los archivos del profesor se leen al iniciar la corrida, solo los meses que cubre la simulación, no los 36 meses.</p>
+  <p class="nota"><b>Sin cargar todo en memoria.</b> Los pedidos se leen del archivo del mes <b>línea a línea, solo hasta el bloque siguiente</b> (<span class="mono">LectorVentasIncremental</span>), y al terminar el mes sigue con el siguiente. Los bloqueos y el mantenimiento, conocidos de antemano, se leen al iniciar, solo los meses de la simulación.</p>
 
   <footer><span>1INF54 · Eq5E · PaqRap · octubre 2026</span><span>Página 1 de 2</span></footer>
 </section>
@@ -277,7 +278,7 @@
     <div>
       <h1>PaqRap: varios navegadores sobre una misma simulación</h1>
       <p class="criterio"><b>Criterio A23.</b> ¿Cómo interactúan varios navegadores durante la simulación del periodo?</p>
-      <p class="mensaje">La simulación vive en el <b>servidor</b>, no en el navegador. Cualquier cantidad de dispositivos puede mirarla a la vez y entrar cuando quiera. Cada uno consulta el estado <b>cada segundo</b> y navega por su cuenta (zoom, selección, paneles). Solo el que tiene el rol <b>Control</b> envía acciones (iniciar, finalizar, registrar una avería…), y todos ven el resultado en la siguiente consulta.</p>
+      <p class="mensaje">La simulación vive en el <b>servidor</b>, no en el navegador. Cualquier cantidad de dispositivos puede mirarla a la vez y entrar cuando quiera. Cada uno consulta el estado <b>cada segundo</b> y navega por su cuenta (zoom, selección, filtros, orden) sin cambiar lo que ven los demás. Solo el rol <b>Control</b> envía acciones (iniciar, avería…); todos ven el resultado en la siguiente consulta.</p>
     </div>
     <div class="leyenda">
       <div class="tit">Leyenda</div>
@@ -431,10 +432,10 @@
     <line x1="12" y1="361" x2="40" y2="361" stroke="#5f6670" stroke-width="1.8" marker-end="url(#gFin)"/>
     <text x="48" y="365" font-size="13" fill="#1c222b"><tspan class="mono">GET /</tspan> (página web), una vez al entrar</text>
     <line x1="12" y1="380" x2="40" y2="380" stroke="#5f6670" stroke-width="2.4" marker-end="url(#gFin)" marker-start="url(#gIni)"/>
-    <text x="48" y="384" font-size="13" fill="#1c222b"><tspan class="mono">GET estado</tspan> cada 1 s y <tspan class="mono">GET eventos</tspan> (bitácora);</text>
-    <text x="48" y="399" font-size="13" fill="#1c222b">vuelve la misma instantánea para todos</text>
+    <text x="48" y="384" font-size="13" fill="#1c222b"><tspan class="mono">GET estado</tspan> cada 1 s, <tspan class="mono">eventos</tspan>, <tspan class="mono">bloques</tspan> (al cambiar el plan) e</text>
+    <text x="48" y="399" font-size="13" fill="#1c222b"><tspan class="mono">historial</tspan> (a pedido): la misma respuesta para todos</text>
     <line x1="12" y1="417" x2="40" y2="417" stroke="#7239a8" stroke-width="2.8" marker-end="url(#mFin)"/>
-    <text x="48" y="421" font-size="13" fill="#7239a8"><tspan font-weight="bold">solo Control:</tspan> POST iniciar · finalizar · avería · velocidad · pedido</text>
+    <text x="48" y="421" font-size="13" fill="#7239a8"><tspan font-weight="bold">solo Control:</tspan> POST iniciar · finalizar · avería · velocidad · pedidos</text>
   </svg>
 
   <div class="fila" style="align-items:stretch">
@@ -443,15 +444,15 @@
       <div class="secuencia">
         <div class="paso control"><span class="n">1</span>La PC (Control) inicia SIM_5D: <span class="mono">POST /api/corridas/SIM_5D</span>.</div>
         <div class="paso"><span class="n">2</span>El celular entra después y ve la misma corrida en su estado actual.</div>
-        <div class="paso"><span class="n">3</span>Cada segundo, ambos hacen <span class="mono">GET …/estado</span> y reciben la misma instantánea. Cada uno hace zoom o elige un vehículo <b>sin afectar al otro</b>.</div>
-        <div class="paso control"><span class="n">4</span>La PC registra una avería: <span class="mono">POST …/averias</span>. El servidor replanifica al instante.</div>
-        <div class="paso"><span class="n">5</span>En la siguiente consulta (menos de 1 s), <b>ambos</b> ven la avería y las rutas nuevas.</div>
+        <div class="paso"><span class="n">3</span>Cada segundo, ambos hacen <span class="mono">GET …/estado</span> y reciben la misma instantánea. Cada uno hace zoom, filtra u ordena <b>sin afectar al otro</b>.</div>
+        <div class="paso control"><span class="n">4</span>La PC registra una avería: <span class="mono">POST …/averias</span>. El servidor replanifica al instante (reloj en pausa).</div>
+        <div class="paso"><span class="n">5</span>En la siguiente consulta (menos de 1 s), <b>ambos</b> ven la avería y las rutas nuevas, sin saltos.</div>
       </div>
     </div>
     <div class="caja" style="flex:1">
       <h2>Decisiones de diseño</h2>
       <p><b>Consulta cada 1 s en lugar de WebSocket:</b> más simple y funciona detrás de cualquier proxy. La instantánea es completa: quien entra tarde lo ve todo en el siguiente segundo.</p>
-      <p><b>El navegador interpola</b> el movimiento entre instantáneas para que se vea fluido.</p>
+      <p><b>El navegador reproduce las trayectorias del bloque</b>, nodo a nodo con las horas del plan: sin saltos.</p>
       <p><b>Un hilo por escenario:</b> los tres escenarios pueden correr a la vez.</p>
       <p><b>El rol se elige en el navegador, sin contraseña:</b> evita que el proyector o el celular inicien o finalicen corridas por error.</p>
     </div>

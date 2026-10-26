@@ -2,7 +2,7 @@
 
 **Estado:**
 - **Planificador: implementado en la etapa 33** (`Simulador`, pruebas en `BloquesTest`).
-- **Visualizador: pendiente.** Falta la API que entrega la línea de tiempo del bloque en curso y del siguiente, y que el visualizador la reproduzca.
+- **Visualizador: implementado en la etapa 35** (SI-32): `GET /api/corridas/{ESC}/bloques` y reproducción de las trayectorias con el reloj del navegador (pruebas en `TrayectoriasTest`). Ver §6.
 
 Recoge la indicación del profesor (clase de la semana 8) y cómo la llevamos a PaqRap.
 
@@ -96,7 +96,10 @@ El fin de un mantenimiento ya no replanifica: la unidad entra en el bloque sigui
 - **No se mostrarán los pedidos «por planificar»** (los que llegaron durante el bloque y aún no tienen unidad): esperan como mucho 1 h simulada (30 s reales a ×120) y no le aportan al usuario del visualizador.
 - **La operación día a día queda en espera:** por ahora, el pedido que registra el operador se planifica al registrarse; se revisará cuando se trabaje ese escenario.
 
-## 6. Pendiente (visualizador)
+## 6. Visualizador (hecho en la etapa 35)
+
+Lo que sigue era el pendiente; se hizo tal cual. Además, el reloj se pausa mientras la simulación espera al planificador (SI-32), y el navegador sostiene a cada unidad en su lugar hasta tener las trayectorias del plan nuevo, así que tampoco salta con una avería.
+
 
 - `GET /api/corridas/{ESC}/bloques`: la línea de tiempo (cada unidad, nodo a nodo, con su hora) del bloque en curso y, cuando esté listo, la del siguiente.
 - El visualizador **reproduce** esas trayectorias según el reloj, con dos bloques en cola y una transición exacta, en vez de interpolar a ojo entre fotos. La foto por segundo se mantiene para los indicadores.
