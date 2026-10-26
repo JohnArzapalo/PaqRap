@@ -30,7 +30,12 @@ final class ServicioSimulacion {
 
     ServicioSimulacion(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
                        Simulador.Config cfg) {
-        this.simulador = Simulador.crear(pedidos, flota, planificador, cfg);
+        this(FuentePedidos.deLista(pedidos), flota, planificador, cfg);
+    }
+
+    /** Con otra fuente de pedidos (Etapa 35: lectura incremental de los archivos oficiales). */
+    ServicioSimulacion(FuentePedidos fuente, List<UnidadTransporte> flota, Planificador planificador, Simulador.Config cfg) {
+        this.simulador = Simulador.crear(fuente, flota, planificador, cfg);
     }
 
     /** Arranca la simulación en un hilo propio. */

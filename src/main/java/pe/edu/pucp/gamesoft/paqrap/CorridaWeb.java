@@ -99,10 +99,13 @@ final class CorridaWeb {
         cfg.factorReloj = factor;
         cfg.taBloqueMs = taBloqueMs(cfg.taMs, adelantoRealMs, Parametros.decimal("bloque.fraccion_ta", 0.5),
                 Parametros.entero("bloque.ta_max_ms", 10_000));
-        DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin);
+        // Etapa 35 (A22, SI-33): los pedidos se leen por partes, línea a línea, hasta el bloque siguiente;
+        // los bloqueos y mantenimientos (conocidos de antemano) se cargan por mes, como antes.
+        DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin, false);
         cfg.mapa = new MapaVial(datos.bloqueos);
         cfg.mantenimientos = datos.mantenimientos;
-        ServicioSimulacion servicio = new ServicioSimulacion(datos.pedidos, flota(autos, motos, bicicletas),
+        FuentePedidos pedidos = new LectorVentasIncremental(YearMonth.from(inicio), cfg.inicioMin, cfg.inicioMin + cfg.horizonteMin);
+        ServicioSimulacion servicio = new ServicioSimulacion(pedidos, flota(autos, motos, bicicletas),
                 Planificador.tabu((int) Parametros.entero("tabu.duracion", 8)), cfg);
         CorridaWeb c = new CorridaWeb(esc, inicio, inicioMs, factor, autos, motos, bicicletas, servicio);
         servicio.iniciar();

@@ -20,6 +20,7 @@ import java.util.List;
  * los números de línea se repiten entre archivos.
  *
  * Carpetas configurables en config/parametros.properties (web.*).
+ * Etapa 35: las corridas del visualizador ya no cargan aquí los pedidos (los lee LectorVentasIncremental).
  */
 final class DatosOficiales {
 
@@ -54,6 +55,15 @@ final class DatosOficiales {
      * @param desdeMin  minuto de inicio de la corrida
      */
     static DatosOficiales cargar(YearMonth primero, double desdeMin, double horizonteMin) throws IOException {
+        return cargar(primero, desdeMin, horizonteMin, true);
+    }
+
+    /**
+     * Con conPedidos = false solo carga bloqueos y mantenimientos (Etapa 35, A22): las corridas del visualizador
+     * leen los pedidos por partes con LectorVentasIncremental. Los bloqueos y mantenimientos son datos conocidos
+     * de antemano que el planificador necesita hacia adelante (SI-23), y son pocos (unas 560 líneas por mes).
+     */
+    static DatosOficiales cargar(YearMonth primero, double desdeMin, double horizonteMin, boolean conPedidos) throws IOException {
         if (!Files.exists(archivoVentas(primero)))
             throw new IllegalArgumentException("No hay datos de ventas para " + primero + " (" + archivoVentas(primero) + ")");
         DatosOficiales d = new DatosOficiales();
@@ -62,7 +72,7 @@ final class DatosOficiales {
         for (YearMonth mes = primero; offsetMin < finMin && Files.exists(archivoVentas(mes)); mes = mes.plusMonths(1)) {
             double offsetH = offsetMin / 60.0;
             String prefijo = mes.equals(primero) ? "" : String.format("%04d%02d/", mes.getYear(), mes.getMonthValue());
-            for (Pedido p : LectorPedidos.leerAbsoluto(archivoVentas(mes).toString())) {
+            if (conPedidos) for (Pedido p : LectorPedidos.leerAbsoluto(archivoVentas(mes).toString())) {
                 p.horaRegistro += offsetH;
                 if (p.horaRegistro * 60 < desdeMin) continue;
                 p.id = prefijo + p.id;

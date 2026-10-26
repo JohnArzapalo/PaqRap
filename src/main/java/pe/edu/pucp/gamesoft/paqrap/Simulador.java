@@ -296,7 +296,14 @@ class Simulador {
     private final Planificador planificador;
     private final List<Unidad> unidades = new ArrayList<>();
     private final Map<String, Unidad> unidadPorCodigo = new HashMap<>();
+    /** Pedidos ya leídos de la fuente que todavía no llegaron (Etapa 35, A22: como mucho un bloque por delante). */
     private final List<Pedido> porLlegar;
+    /** De dónde salen los pedidos: una lista (experimento) o la lectura incremental de los archivos (web). null en la copia. */
+    private final FuentePedidos fuente;
+    /** Hora de registro y hora límite (min) de cada pedido original que llegó, para las métricas de cierre. */
+    private final Map<String, double[]> registroDe = new HashMap<>();
+    /** Pedidos originales leídos (solo con lectura incremental, que no conoce el total de antemano). */
+    private final Set<String> originalesLeidos = new java.util.HashSet<>();
     private int siguiente = 0;
     private final Map<String, Pedido> entregas = new LinkedHashMap<>();
     /** Estado de cada entrega: P (pendiente en almacén), U:cod (a bordo), A:cod (en averiada), E (entregada), X (reemplazada por partes). */
@@ -390,7 +397,7 @@ class Simulador {
     private volatile boolean detenerSolicitado;
     private double tActual = 0;
 
-    private Simulador(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador, Config cfg) {
+    private Simulador(FuentePedidos fuente, List<UnidadTransporte> flota, Planificador planificador, Config cfg) {
         this.cfg = cfg;
         this.flota = flota;
         this.planificador = planificador;
@@ -402,14 +409,11 @@ class Simulador {
         if (cfg.bloqueMin > 0 && (cfg.adelantoMin <= 0 || cfg.adelantoMin > cfg.bloqueMin))
             throw new IllegalArgumentException("El adelanto (" + cfg.adelantoMin + " min) debe ser positivo y no mayor que el bloque ("
                     + cfg.bloqueMin + " min)");
-        porLlegar = new ArrayList<>(pedidos);
-        porLlegar.sort(Comparator.comparingDouble(p -> p.horaRegistro));
-        // Etapa 32: llegadas urgentes, que replanifican al llegar (ver esUrgente)
-        for (Pedido p : porLlegar)
-            if (esUrgente(p, p.horaRegistro * 60)) llegadasUrgentes.add(p.horaRegistro * 60);
-        Set<String> originales = new LinkedHashSet<>();
-        for (Pedido p : porLlegar) originales.add(p.idOriginal);
-        res.pedidosOriginalesTotal = originales.size();
+        // Etapa 35 (A22, SI-33): los pedidos se leen de la fuente por partes, a medida que hacen falta
+        // (leerPedidos); las llegadas urgentes (Etapa 32, esUrgente) se detectan al leerlos.
+        this.fuente = fuente;
+        porLlegar = new ArrayList<>();
+        res.pedidosOriginalesTotal = Math.max(0, fuente.originalesTotales());
         stock[0] = Double.POSITIVE_INFINITY;
         stock[1] = stock[2] = Compartido.STOCK_INTERMEDIO;
     }
@@ -428,7 +432,8 @@ class Simulador {
             unidades.add(c);
             unidadPorCodigo.put(c.u.codigo, c);
         }
-        porLlegar = new ArrayList<>(o.porLlegar);
+        porLlegar = new ArrayList<>(o.porLlegar);   // solo lo ya leído: la copia no lee de la fuente
+        fuente = null;
         siguiente = o.siguiente;
         entregas.putAll(o.entregas);
         estado.putAll(o.estado);
@@ -475,6 +480,28 @@ class Simulador {
     /**
      * @param pedidos entregas con horaRegistro ABSOLUTA en horas (LectorPedidos.leerAbsoluto)
      */
+    /**
+     * Etapa 35 (A22): lee de la fuente los pedidos registrados hasta hastaMin (los que hagan falta para
+     * decidir hasta el próximo bloque o replanificación) y detecta los urgentes. Descarta de la memoria
+     * los que ya llegaron. Sin fuente (la copia proyectada) no hace nada.
+     */
+    private void leerPedidos(double hastaMin) {
+        if (fuente == null) return;
+        for (Pedido p : fuente.leerHasta(hastaMin)) {
+            porLlegar.add(p);
+            if (esUrgente(p, p.horaRegistro * 60)) llegadasUrgentes.add(p.horaRegistro * 60);
+            if (fuente.originalesTotales() < 0 && originalesLeidos.add(p.idOriginal)) res.pedidosOriginalesTotal++;
+        }
+        if (siguiente > 256) {   // los que ya llegaron no hacen falta aquí (quedan en «entregas»)
+            porLlegar.subList(0, siguiente).clear();
+            siguiente = 0;
+        }
+        if (siguienteUrgente > 256) {
+            llegadasUrgentes.subList(0, siguienteUrgente).clear();
+            siguienteUrgente = 0;
+        }
+    }
+
     static Resultado simular(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
                              Config cfg) {
         return crear(pedidos, flota, planificador, cfg).ejecutar();
@@ -483,7 +510,12 @@ class Simulador {
     /** Crea la simulación sin correrla (para ejecutarla en otro hilo: ServicioSimulacion). */
     static Simulador crear(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
                            Config cfg) {
-        return new Simulador(pedidos, flota, planificador, cfg);
+        return new Simulador(FuentePedidos.deLista(pedidos), flota, planificador, cfg);
+    }
+
+    /** Crea la simulación con otra fuente de pedidos (Etapa 35: lectura incremental de los archivos oficiales). */
+    static Simulador crear(FuentePedidos fuente, List<UnidadTransporte> flota, Planificador planificador, Config cfg) {
+        return new Simulador(fuente, flota, planificador, cfg);
     }
 
     /** Corre la simulación en el hilo actual hasta el colapso, el horizonte o una detención. */
@@ -562,6 +594,8 @@ class Simulador {
         cerrojo.lock();
         try {
         while (!terminar) {
+            // 0. Pedidos de la fuente hasta el próximo bloque (o replanificación): lo que hace falta para decidir
+            leerPedidos(Math.max(t, cfg.bloqueMin > 0 ? proximoBloque : proximaReplan));
             // 1. Próximo instante
             double T = Math.min(cfg.bloqueMin > 0 ? proximoInstanteDeBloque() : proximaReplan, fin);
             for (Unidad un : unidades) {
@@ -785,6 +819,7 @@ class Simulador {
      */
     private void lanzarAdelanto(double t) {
         adelantoLanzado = true;
+        leerPedidos(proximoBloque);   // la copia necesita saber si antes del bloque llega un pedido urgente
         aplicarVelocidadesPendientes(t);
         Simulador copia = new Simulador(this);
         double inicioBloque = proximoBloque;
@@ -1199,6 +1234,7 @@ class Simulador {
         entregas.put(p.id, p);
         estado.put(p.id, "P");
         partesDe.computeIfAbsent(p.idOriginal, k -> new ArrayList<>()).add(p.id);
+        registroDe.putIfAbsent(p.idOriginal, new double[]{p.horaRegistro * 60, p.horaLimite() * 60});
         plazos.add(p);
     }
 
@@ -1704,10 +1740,8 @@ class Simulador {
 
     private void cerrarMetricas() {
         double fin = res.finMin;
-        Map<String, double[]> original = new HashMap<>();   // idOriginal -> {registro, límite}
-        for (Pedido p : porLlegar) original.putIfAbsent(p.idOriginal, new double[]{p.horaRegistro * 60, p.horaLimite() * 60});
         for (Map.Entry<String, List<String>> e : partesDe.entrySet()) {
-            double[] ol = original.get(e.getKey());
+            double[] ol = registroDe.get(e.getKey());   // {registro, límite} del pedido original
             if (ol == null || ol[0] > fin) continue;
             res.pedidosLlegados++;
             boolean entregado = !e.getValue().isEmpty();

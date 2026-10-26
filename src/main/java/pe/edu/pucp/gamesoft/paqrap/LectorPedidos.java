@@ -71,32 +71,40 @@ class LectorPedidos {
         try (BufferedReader br = Files.newBufferedReader(Paths.get(archivo), StandardCharsets.UTF_8)) {
             String linea;
             while ((linea = br.readLine()) != null) {
-                nroLinea++;
-                linea = linea.trim();
-                if (linea.isEmpty()) continue;
-                Matcher m = REGISTRO.matcher(linea);
-                if (!m.matches()) {
-                    System.err.println("  Línea " + nroLinea + " con formato inválido, se omite: " + linea);
-                    continue;
-                }
-                Registro r = new Registro();
-                r.nroLinea = nroLinea;
-                r.llegadaHoras = hora(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
-                                      Integer.parseInt(m.group(3)));
-                r.x = Integer.parseInt(m.group(4));
-                r.y = Integer.parseInt(m.group(5));
-                r.cliente = m.group(6);
-                r.cantidad = Integer.parseInt(m.group(7));
-                r.hl = Integer.parseInt(m.group(8));
-                registros.add(r);
+                Registro r = leerLinea(linea, ++nroLinea);
+                if (r != null) registros.add(r);
             }
         }
         return registros;
     }
 
+    /**
+     * Una línea del archivo (Etapa 35: también la usa LectorVentasIncremental, que lee de a una).
+     * Devuelve null si está vacía o tiene formato inválido (en ese caso avisa y se omite).
+     */
+    static Registro leerLinea(String linea, int nroLinea) {
+        linea = linea.trim();
+        if (linea.isEmpty()) return null;
+        Matcher m = REGISTRO.matcher(linea);
+        if (!m.matches()) {
+            System.err.println("  Línea " + nroLinea + " con formato inválido, se omite: " + linea);
+            return null;
+        }
+        Registro r = new Registro();
+        r.nroLinea = nroLinea;
+        r.llegadaHoras = hora(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
+                              Integer.parseInt(m.group(3)));
+        r.x = Integer.parseInt(m.group(4));
+        r.y = Integer.parseInt(m.group(5));
+        r.cliente = m.group(6);
+        r.cantidad = Integer.parseInt(m.group(7));
+        r.hl = Integer.parseInt(m.group(8));
+        return r;
+    }
+
     /** Entregas de un pedido original con la hora de registro indicada. Los
      *  pedidos mayores a 24 paquetes se dividen en entregas parciales. */
-    private static List<Pedido> entregas(Registro r, double horaRegistro) {
+    static List<Pedido> entregas(Registro r, double horaRegistro) {
         List<Pedido> pedidos = new ArrayList<>();
         int partes = (r.cantidad + MAX_PAQUETES_POR_ENTREGA - 1) / MAX_PAQUETES_POR_ENTREGA;
         int restante = r.cantidad;
