@@ -187,6 +187,39 @@ class BloquesTest {
         assertEquals(10_000, CorridaWeb.taBloqueMs(2_000, 1_800_000, 0.5, 10_000));   // día a día: tope
     }
 
+    /** Unidades que terminaron lejos de un almacén (al final de la corrida): sin destino y fuera de los tres almacenes. */
+    private static List<String> varadas(Simulador s) {
+        List<String> r = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{\"codigo\":\"(\\w+)\",\"tipo\":\"\\w+\",\"estado\":\"OPERATIVA\",\"x\":(\\d+),\"y\":(\\d+)").matcher(s.instantaneaJson());
+        while (m.find()) {
+            int x = Integer.parseInt(m.group(2)), y = Integer.parseInt(m.group(3));
+            boolean enAlmacen = (x == 27 && y == 14) || (x == 12 && y == 38) || (x == 57 && y == 27);
+            if (!enAlmacen) r.add(m.group(1) + "(" + x + "," + y + ")");
+        }
+        return r;
+    }
+
+    /** Etapa 35 (SI-34, decisión del equipo): en la web, una unidad que queda sin ruta vuelve al almacén más
+     *  cercano con stock. Sin esa opción (experimento), el plan siguiente cancelaba su regreso y quedaba
+     *  detenida a mitad de camino. Un día después del último pedido, con la opción, todas están en un almacén. */
+    @Test
+    void lasUnidadesSinTareasVuelvenAUnAlmacen() {
+        Simulador.Config sin = conBloques();
+        sin.horizonteMin = 1440;
+        Simulador s1 = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), sin);
+        Simulador.Resultado r1 = s1.ejecutar();
+        Simulador.Config con = conBloques();
+        con.horizonteMin = 1440;
+        con.regresoSinTareas = true;
+        Simulador s2 = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), con);
+        Simulador.Resultado r2 = s2.ejecutar();
+        assertEquals(12, r1.pedidosEnPlazo);
+        assertEquals(12, r2.pedidosEnPlazo, "volver al almacén no quita plazos");
+        assertTrue(!varadas(s1).isEmpty(), "sin la opción alguna unidad queda varada (el problema): " + varadas(s1));
+        assertEquals(List.of(), varadas(s2), "con la opción todas vuelven a un almacén");
+        assertEquals(0, r2.saltos);
+    }
+
     @Test
     void elAdelantoNoPuedeSuperarAlBloque() {
         Simulador.Config c = conBloques();

@@ -91,6 +91,7 @@ final class CorridaWeb {
         // adelanto en tiempo real (Ta < adelanto: si no, el bloque llega tarde y el reloj espera).
         cfg.bloqueMin = Parametros.decimal("bloque.min", 60);
         cfg.adelantoEnParalelo = true;
+        cfg.regresoSinTareas = true;   // Etapa 35 (SI-34): las unidades sin tareas vuelven a un almacén con stock
         double adelantoRealMs = cfg.adelantoMin / factor * 60_000;
         if (cfg.bloqueMin > 0 && cfg.taMs >= adelantoRealMs)
             throw new IllegalArgumentException(String.format(java.util.Locale.US,

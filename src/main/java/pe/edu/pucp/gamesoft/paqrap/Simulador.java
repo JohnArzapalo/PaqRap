@@ -105,6 +105,9 @@ class Simulador {
         /** true: el bloque se planifica en otro hilo mientras la simulación sigue (visualizador);
          *  false: en el mismo hilo, en el instante del corte (experimento: mismo resultado, sin hilos). */
         boolean adelantoEnParalelo = false;
+        /** Etapa 35 (decisión del equipo, SI-34): una unidad que queda sin ruta vuelve al almacén más cercano con
+         *  stock en vez de quedarse donde está. Solo en las corridas del visualizador; el experimento no cambia. */
+        boolean regresoSinTareas = false;
         /** Presupuesto (ms) de los planes calculados con adelanto, que no detienen el reloj; 0 = taMs.
          *  Las replanificaciones en el instante (excepciones) usan siempre taMs. */
         long taBloqueMs = 0;
@@ -1638,6 +1641,7 @@ class Simulador {
             un.vioBloqueo = false;
             if (r == null) {
                 un.rutaVigente = new ArrayList<>();
+                if (cfg.regresoSinTareas) comprometerRegreso(t, cx, un);
                 continue;
             }
             un.rutaVigente = new ArrayList<>(r.paradas);
@@ -1700,6 +1704,43 @@ class Simulador {
             if (antes != null && !antes.equals(e.getValue())) res.cambiosDeUnidad++;
         }
         asignacionAnterior = asignacion;
+    }
+
+    /**
+     * Unidad sin tareas en el plan nuevo (Etapa 35, SI-34): vuelve al almacén más cercano por la red que tenga
+     * stock (el central siempre), saliendo de donde está o del nodo al que va llegando. Si ya está en un
+     * almacén, se queda. La línea de tiempo es la de cualquier tramo: nodo a nodo, con la alimentación.
+     */
+    private void comprometerRegreso(double t, Contexto cx, Unidad un) {
+        Evt compromiso = un.eventos.peekLast();   // si viaja entre dos nodos, primero llega al siguiente
+        int x = compromiso != null ? compromiso.x : un.x, y = compromiso != null ? compromiso.y : un.y;
+        double salida = compromiso != null ? compromiso.min : Math.max(t, un.ocupadoHasta);
+        if (almacenEn(x, y) != null) return;
+        Almacen destino = null;
+        double dMin = Double.MAX_VALUE;
+        Almacen[] candidatos = {Compartido.ALMACEN_CENTRAL, Compartido.ALMACEN_NOROESTE, Compartido.ALMACEN_ESTE};
+        for (int i = 0; i < candidatos.length; i++) {
+            if (i > 0 && (!cfg.almacenesIntermedios || stock[i] <= 0)) continue;
+            Almacen a = candidatos[i];
+            double d = cx.mapa != null ? cx.mapa.distancia(x, y, a.x, a.y, salida / 60.0) : Compartido.distancia(x, y, a.x, a.y);
+            if (d < dMin) { dMin = d; destino = a; }
+        }
+        double v = velocidad(un.u.tipo), inicioH = salida / 60.0;
+        List<Integer> camino = cx.mapa != null ? cx.mapa.caminoTramo(x, y, destino.x, destino.y, inicioH, v, cx.alimentacion)
+                : caminoManhattan(x, y, destino.x, destino.y);
+        un.eventos.add(new Evt(Evt.T.SALIDA, salida, x, y, List.of(), null, salida, destino.x * 1000 + destino.y));
+        double anterior = salida, llegada = salida;
+        for (int i = 1; i < camino.size(); i++) {
+            int nx = MapaVial.x(camino.get(i)), ny = MapaVial.y(camino.get(i));
+            llegada = 60 * (cx.alimentacion ? Contexto.finConAlimentacion(inicioH, i / v) : inicioH + i / v);
+            if (cx.mapa != null && i < camino.size() - 1 && un.encuentroMin == Double.POSITIVE_INFINITY
+                    && cx.mapa.bloqueado(nx, ny, llegada / 60.0)) un.encuentroMin = anterior;   // se detiene y se replanifica
+            Evt paso = new Evt(Evt.T.NODO, llegada, nx, ny, null, null, llegada, 0);
+            paso.salidaMin = llegada - 60.0 / v;
+            un.eventos.add(paso);
+            anterior = llegada;
+        }
+        un.eventos.add(new Evt(Evt.T.FIN, llegada, destino.x, destino.y, List.of(), null, llegada, 0));
     }
 
     /** Entregas en almacén que carga una RECARGA: las siguientes hasta la próxima
