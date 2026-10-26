@@ -377,6 +377,8 @@ class Simulador {
     private ExecutorService ejecutor;
     /** Etapa 35 (SI-32): true mientras la simulación está detenida esperando al planificador (replanificación en el instante). */
     private volatile boolean pausado;
+    /** Etapa 35: true cuando la corrida terminó (horizonte, colapso o detención): su reloj ya no avanza. */
+    private volatile boolean terminada;
     /** Etapa 35: versión del plan aplicado (sube con cada plan nuevo) y minuto en que se aplicó; el visualizador
      *  vuelve a pedir las trayectorias cuando cambia. */
     private int planVersion;
@@ -557,9 +559,9 @@ class Simulador {
     }
 
     /** Minuto que marca el reloj de la corrida en este instante real (Etapa 35): el último instante procesado si
-     *  está en pausa o sin espera; con ritmo escalado, lo que avanzó el reloj desde entonces. */
+     *  está en pausa, terminada o sin espera; con ritmo escalado, lo que avanzó el reloj desde entonces. */
     double minutoDelReloj() {
-        if (pausado) return tActual;
+        if (pausado || terminada) return tActual;
         return Math.max(tActual, cfg.reloj.ahora(tActual));
     }
 
@@ -753,6 +755,7 @@ class Simulador {
             }
         }
         } finally {
+            terminada = true;
             cerrarMetricas();
             if (ejecutor != null) ejecutor.shutdownNow();
             cerrojo.unlock();

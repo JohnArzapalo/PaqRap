@@ -106,10 +106,14 @@ button{cursor:pointer;}
 .ov-tl{top:10px;left:10px;display:flex;gap:6px;}
 .map-btn{background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11.5px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35);}
 .map-btn:hover{border-color:var(--brand);}
-.ov-tr{top:10px;right:10px;display:grid;grid-template-columns:repeat(4,auto);gap:6px;}
+/* Indicadores: arriba a la derecha, en una o dos filas según el ancho libre que dejan los botones de la izquierda;
+   con poco ancho, debajo de los botones (y en pantallas angostas, abajo a la izquierda) */
+.ov-tr{top:10px;right:10px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:calc(100% - 580px);}
+@media(max-width:1300px){ .ov-tr{top:46px;left:10px;right:auto;justify-content:flex-start;max-width:calc(100% - 20px);} }
 .hud{background:rgba(18,27,43,.9);border:1px solid var(--border);border-radius:10px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.35);min-width:88px;border-left:4px solid var(--border);}
 .hud .l{font-size:10.5px;color:var(--text-dim);white-space:nowrap;} .hud .v{font-family:var(--font-display);font-weight:600;font-size:16px;white-space:nowrap;}
-.hud.ok{border-left-color:var(--green);} .hud.warn{border-left-color:var(--amber);} .hud.bad{border-left-color:var(--red);}
+.hud.ok{border-left-color:var(--green);} .hud.warn{border-left-color:var(--amber);} .hud.bad{border-left-color:var(--red);} .hud.vacio{border-left-color:var(--sem-vacio);}
+.hud .s{font-size:10px;color:var(--text-faint);white-space:nowrap;}
 .map-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
 /* Leyenda desplegable (etapa 35): reemplaza a la leyenda fija, para dejar libre el mapa */
 .leyenda{position:absolute;z-index:940;top:44px;left:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
@@ -334,7 +338,7 @@ legend{font-size:12px;font-weight:600;color:var(--text-dim);padding:0 4px;}
   .ln-cards{grid-template-columns:1fr;}
   .stage{height:auto;display:block;} .map-wrap{height:72vh;height:72dvh;}
   .side{border-left:0;overflow:visible;} .side-toggle{display:none;}
-  .ov-tr{grid-template-columns:repeat(2,auto);}
+  .ov-tl{flex-wrap:wrap;right:10px;} .ov-tr{top:auto;bottom:10px;max-width:calc(100% - 60px);}
   .hud{min-width:0;padding:3px 8px;} .hud .v{font-size:13px;} .hud .l{font-size:9.5px;}
   .view-reg{height:auto;}
   .reg-grid,.g3,.rep-kpis{grid-template-columns:1fr 1fr;}
@@ -1098,7 +1102,9 @@ function pintarSimulacion(){
   $('#ckTransLbl').textContent = real ? 'Tiempo de operación transcurrido' : 'Tiempo simulado transcurrido';
   $('#ckHM').innerHTML = `<span class="fe">${fmtDia(d)}</span>${fmtHM(d)}`;
   const semana = d.toLocaleDateString('es-PE', { weekday: 'long' });
-  $('#ckDay').textContent = (dia ? '' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' de la simulación · ') + semana;
+  // Al cumplirse los 5 días el reloj marca las 00:00 del día siguiente: se rotula como el fin, no como un «día 6»
+  const finDe5 = S.tab === 'SIM_5D' && tc >= 5 * 1440;
+  $('#ckDay').textContent = (dia ? '' : finDe5 ? 'Fin de los 5 días · ' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' de la simulación · ') + semana;
   $('#ckDate').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
   $('#ckTrans').textContent = fmtDias(tc);
   $('#smHoraReal').textContent = fmtFecha(new Date());
@@ -1115,16 +1121,27 @@ function pintarSimulacion(){
   const n = S.tab === 'DIA_A_DIA' ? 4 : span / 1440;
   $('#pgTicks').innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${S.tab === 'DIA_A_DIA' ? pad(i * 6) + ' h' : (i < n ? 'D' + (i + 1) : 'fin')}</span>`).join('');
 }
+/* Indicadores globales (G01 a G04): ocupación de toda la flota operativa y llenado de los almacenes intermedios
+   en conjunto, con el mismo semáforo de llenado (y vacío) que las unidades y los almacenes. */
+function indicadoresGlobales(s){
+  const op = s.unidades.filter(u => u.estado === 'OPERATIVA'); const carga = op.reduce((a, u) => a + u.carga, 0), cap = op.reduce((a, u) => a + u.capacidad, 0);
+  const inter = s.almacenes.filter(a => a.capacidad); const stock = inter.reduce((a, x) => a + x.stock, 0), capA = inter.reduce((a, x) => a + x.capacidad, 0);
+  const pf = cap ? 100 * carga / cap : 0, pa = capA ? 100 * stock / capA : 0;
+  return { flota: { carga, cap, pct: pf, sem: semLlenado(pf) }, almacenes: { stock, cap: capA, pct: pa, sem: semLlenado(pa) } };
+}
 function pintarHud(s){
   const el = $('#hud'); if (!s){ el.innerHTML = ''; return; }
   const I = s.indicadores; const U = umb(); const riesgo = s.pedidos.filter(p => p.limite_min - s.reloj.simulado_min < U.holgA).length;
   const semC = s.colapso.ocurrio ? 'bad' : s.semaforo.color === 'verde' ? 'ok' : s.semaforo.color === 'ambar' ? 'warn' : 'bad';
+  const G = indicadoresGlobales(s);
   el.innerHTML = [
+    ['Ocupación de la flota', G.flota.pct.toFixed(0) + ' %', G.flota.sem, `${num(G.flota.carga)}/${num(G.flota.cap)} paq. · ${NOMBRE_SEM[G.flota.sem]}`],
+    ['Llenado de almacenes', G.almacenes.pct.toFixed(0) + ' %', G.almacenes.sem, `${num(G.almacenes.stock)}/${num(G.almacenes.cap)} · ${NOMBRE_SEM[G.almacenes.sem]}`],
     ['En plazo', s.semaforo.pct_entregas_en_plazo.toFixed(1) + ' %', semC],
     ['Entregas', num(I.entregas_realizadas), ''],
     ['Pendientes', num(s.pedidos.length), riesgo ? (riesgo > 3 ? 'bad' : 'warn') : 'ok'],
     ['Costo', soles(I.costo_acumulado), '']
-  ].map(([l, v, c]) => `<div class="hud ${c}"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  ].map(([l, v, c, sub]) => `<div class="hud ${c}" ${sub ? `title="${sub}"` : ''}><div class="l">${l}</div><div class="v">${v}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`).join('');
 }
 function pintarKpis(s){
   const el = $('#kpis'); const U = umb();

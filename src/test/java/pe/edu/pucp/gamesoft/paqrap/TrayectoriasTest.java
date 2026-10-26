@@ -42,6 +42,22 @@ class TrayectoriasTest {
         assertTrue(ms >= 150 && ms < 400, "después de la pausa sigue al ritmo K: " + ms + " ms");
     }
 
+    /** Al terminar la corrida, su reloj se detiene en el último instante: la hora que muestra el visualizador
+     *  no sigue avanzando después del fin de la SIM_5D o del colapso. */
+    @Test
+    void alTerminarElRelojSeDetiene() throws InterruptedException {
+        Simulador.Config c = SimuladorTest.config(60);
+        c.horizonteMin = 30;
+        c.reloj = Reloj.escalado(6000);   // 100 min simulados por segundo real
+        Simulador s = Simulador.crear(List.of(new Pedido("A", "A", 30, 14, 2, 36, 0.0)),
+                List.of(new UnidadTransporte("TA01", TipoUnidad.AUTO)), Planificador.tabu(8), c);
+        s.ejecutar();
+        double fin = s.minutoDelReloj();
+        assertEquals(30, fin, 1e-9, "termina en el horizonte");
+        Thread.sleep(300);                // sin la corrección, 30 min simulados más
+        assertEquals(fin, s.minutoDelReloj(), 1e-9, "el reloj de una corrida terminada no avanza");
+    }
+
     /** Sin espera (experimento), la pausa no cambia nada. */
     @Test
     void sinEsperaLaPausaNoCambiaNada() {
