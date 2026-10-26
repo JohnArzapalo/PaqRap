@@ -392,6 +392,9 @@ class Simulador {
     private final ConcurrentLinkedQueue<Object[]> averiasExternas = new ConcurrentLinkedQueue<>();
     /** Pedidos registrados desde fuera (visualizador, operación día a día); llegan en el instante actual. */
     private final ConcurrentLinkedQueue<Pedido> pedidosExternos = new ConcurrentLinkedQueue<>();
+    /** Pedidos de la carga masiva del día a día (etapa 35): llegan en SU hora de registro, que es futura. */
+    private final ConcurrentLinkedQueue<Pedido> pedidosProgramados = new ConcurrentLinkedQueue<>();
+    private final Set<String> idsProgramados = new java.util.HashSet<>();
     /** Cambios de velocidad pendientes (se aplican en la siguiente replanificación, P16). */
     private final ConcurrentLinkedQueue<Object[]> velocidadesPendientes = new ConcurrentLinkedQueue<>();
     /** Velocidades vigentes en ESTA simulación tras los cambios en caliente (Etapa 24). */
@@ -415,6 +418,7 @@ class Simulador {
         // Etapa 35 (A22, SI-33): los pedidos se leen de la fuente por partes, a medida que hacen falta
         // (leerPedidos); las llegadas urgentes (Etapa 32, esUrgente) se detectan al leerlos.
         this.fuente = fuente;
+        tActual = cfg.inicioMin;   // antes de que arranque el hilo, «ahora» es el inicio de la corrida
         porLlegar = new ArrayList<>();
         res.pedidosOriginalesTotal = Math.max(0, fuente.originalesTotales());
         stock[0] = Double.POSITIVE_INFINITY;
@@ -559,6 +563,35 @@ class Simulador {
         return Math.max(tActual, cfg.reloj.ahora(tActual));
     }
 
+    /**
+     * Pedido de la carga masiva de la operación día a día (Etapa 35, Tarea 6): llega en SU hora de registro
+     * (no antes de ahora), como los del archivo oficial: entra al plan del bloque que le corresponde y, si es
+     * urgente, replanifica al llegar. Seguro desde otro hilo.
+     */
+    void programarPedido(Pedido p) {
+        pedidosProgramados.add(p);
+        Thread h = hilo;
+        if (h != null) h.interrupt();   // para recalcular el próximo instante con el pedido nuevo
+    }
+
+    /** Pone el pedido programado entre los que faltan llegar, en su lugar por hora de registro. */
+    private void programar(Pedido p, double t) {
+        if (p.horaRegistro * 60 < t) p.horaRegistro = t / 60.0;   // no puede llegar en el pasado
+        idsProgramados.add(p.id);
+        int i = porLlegar.size();
+        while (i > siguiente && porLlegar.get(i - 1).horaRegistro > p.horaRegistro) i--;
+        porLlegar.add(i, p);
+        double llegada = p.horaRegistro * 60;
+        if (esUrgente(p, llegada)) {
+            int k = llegadasUrgentes.size();
+            while (k > siguienteUrgente && llegadasUrgentes.get(k - 1) > llegada) k--;
+            llegadasUrgentes.add(k, llegada);
+        }
+        registrar(new Evt(Evt.T.REPLANIFICACION, t, p.x, p.y, List.of(p.id), null, t, p.cantidad), "",
+                "pedido " + p.idOriginal + " programado para " + formatear(llegada) + ": " + p.cantidad + " paq. a (" + p.x + ","
+                        + p.y + "), plazo " + p.plazoMaximoHoras + " h");
+    }
+
     /** Minuto simulado actual (para quien registra pedidos desde fuera). */
     double minutoActual() {
         return tActual;
@@ -627,7 +660,7 @@ class Simulador {
             } finally {
                 cerrojo.lock();
             }
-            if (!completo || !averiasExternas.isEmpty() || !pedidosExternos.isEmpty() || detenerSolicitado) {
+            if (!completo || !averiasExternas.isEmpty() || !pedidosExternos.isEmpty() || !pedidosProgramados.isEmpty() || detenerSolicitado) {
                 Thread.interrupted();
                 T = Math.max(t, Math.min(T, cfg.reloj.ahora(T)));   // se atiende en el instante real actual
             }
@@ -685,18 +718,18 @@ class Simulador {
             Pedido nuevo;
             while ((nuevo = pedidosExternos.poll()) != null) {   // registrados desde el visualizador
                 nuevo.horaRegistro = t / 60.0;
-                // Se suma a los pedidos por llegar con su hora de registro y se planifica ahora mismo.
-                // Con bloques, solo si es urgente o si lo registró el operador en la operación día a
-                // día (a ritmo real, esperar al bloque siguiente serían hasta 3 h); si no, entra al
-                // bloque siguiente
+                // Se suma a los pedidos por llegar con su hora de registro. Sin bloques se planifica ahora
+                // mismo; con bloques (también en la operación día a día, etapa 35), solo si es urgente;
+                // si no, entra al plan del bloque siguiente (o se inserta al empezar, si llegó después del corte)
                 int i = porLlegar.size();
                 while (i > siguiente && porLlegar.get(i - 1).horaRegistro > nuevo.horaRegistro) i--;
                 porLlegar.add(i, nuevo);
                 registrar(new Evt(Evt.T.REPLANIFICACION, t, nuevo.x, nuevo.y, List.of(nuevo.id), null, t, nuevo.cantidad), "",
                         "pedido " + nuevo.idOriginal + " registrado: " + nuevo.cantidad + " paq. a (" + nuevo.x + ","
                                 + nuevo.y + "), plazo " + nuevo.plazoMaximoHoras + " h");
-                replanEvento |= cfg.bloqueMin <= 0 || cfg.escenario == Escenario.DIA_A_DIA || esUrgente(nuevo, t);
+                replanEvento |= cfg.bloqueMin <= 0 || esUrgente(nuevo, t);
             }
+            while ((nuevo = pedidosProgramados.poll()) != null) programar(nuevo, t);   // carga masiva (etapa 35)
             replanEvento |= aplicarTransiciones(t);
 
             // 5. Replanificación periódica (cada Sa, o al empezar cada bloque) o por evento. Resguardo:
@@ -2216,9 +2249,53 @@ class Simulador {
             for (Unidad un : unidades)
                 if (!un.rutaVigente.isEmpty())
                     j.abrirObjeto(null).valor("unidad", un.u.codigo).valor("paradas", un.rutaVigente.size()).cerrarObjeto();
-            int vigentes = 0;
-            for (String est : estado.values()) if (!est.equals("E") && !est.equals("X")) vigentes++;
-            return j.cerrarArreglo().valor("pedidos_vigentes", vigentes).cerrarObjeto().toString();
+            int vigentes = 0, sinUnidad = 0;
+            java.util.Set<String> enRuta = new java.util.HashSet<>();
+            for (Unidad un : unidades) for (ParadaAlg pa : un.rutaVigente) if (pa.tipo == TipoParada.ENTREGA) enRuta.add(pa.pedido.id);
+            for (Map.Entry<String, String> e : estado.entrySet()) {
+                if (e.getValue().equals("E") || e.getValue().equals("X")) continue;
+                vigentes++;
+                if (e.getValue().equals("P") && !enRuta.contains(e.getKey())) sinUnidad++;
+            }
+            j.cerrarArreglo().valor("pedidos_vigentes", vigentes);
+            // Etapa 35 (G08 a G10): la última planificación estable completa: el plan vigente al cierre, con cada
+            // parada de cada unidad, su carga y su hora estimada de llegada, y el regreso al almacén
+            // Pedidos que ya llegaron (o se registraron) pero aún esperan al bloque siguiente, y los programados
+            int porPlanificar = 0, programados = 0;
+            for (int i = siguiente; i < porLlegar.size(); i++) {
+                Pedido p = porLlegar.get(i);
+                if (p.horaRegistro * 60 <= tActual) porPlanificar++;
+                else if (idsProgramados.contains(p.id)) programados++;   // de la carga masiva (no los del archivo leídos por adelantado)
+            }
+            j.abrirObjeto("plan").valor("aplicado_min", planVersion > 0 ? planAplicadoMin : Double.NaN).valor("pendientes", vigentes)
+             .valor("sin_unidad", sinUnidad).valor("por_planificar", porPlanificar).valor("programados", programados)
+             .abrirArreglo("unidades");
+            for (Unidad un : unidades) {
+                if (un.rutaVigente.isEmpty() || un.estado != EstadoUnidad.OPERATIVA) continue;
+                Map<ParadaAlg, Evt> evtDe = new java.util.IdentityHashMap<>();
+                Evt fin = null;
+                for (Evt e : un.eventos) {
+                    if (e.parada != null) evtDe.putIfAbsent(e.parada, e);
+                    if (e.tipo == Evt.T.FIN) fin = e;
+                }
+                j.abrirObjeto(null).valor("codigo", un.u.codigo).valor("tipo", un.u.tipo.name()).abrirArreglo("paradas");
+                for (ParadaAlg pa : un.rutaVigente) {
+                    Evt e = evtDe.get(pa);
+                    j.abrirObjeto(null).valor("tipo", pa.tipo.name()).valor("x", pa.x()).valor("y", pa.y())
+                     .valor("lugar", pa.tipo == TipoParada.RECARGA ? pa.almacen.codigo : pa.tipo == TipoParada.TRASVASE ? "trasvase de " + pa.unidadAveriada
+                             : "cliente (" + pa.x() + "," + pa.y() + ")")
+                     .valor("llegada_min", e != null ? e.min : Double.NaN);
+                    if (pa.tipo == TipoParada.ENTREGA) j.valor("pedido", pa.pedido.id).valor("cantidad", pa.pedido.cantidad);
+                    j.cerrarObjeto();
+                }
+                if (fin != null) {
+                    Almacen a = almacenEn(fin.x, fin.y);
+                    j.abrirObjeto(null).valor("tipo", "REGRESO").valor("x", fin.x).valor("y", fin.y)
+                     .valor("lugar", a != null ? a.codigo : "(" + fin.x + "," + fin.y + ")").valor("llegada_min", fin.min).cerrarObjeto();
+                }
+                j.cerrarArreglo().cerrarObjeto();
+            }
+            return j.cerrarArreglo().cerrarObjeto().cerrarObjeto().toString();
         } finally {
             cerrojo.unlock();
         }

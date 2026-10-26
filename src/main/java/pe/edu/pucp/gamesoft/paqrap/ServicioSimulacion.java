@@ -77,9 +77,19 @@ final class ServicioSimulacion {
         return simulador.reporteJson();
     }
 
+    /** Pedido de la carga masiva (operación día a día, etapa 35): llega en su hora de registro. */
+    void programarPedido(Pedido p) {
+        simulador.programarPedido(p);
+    }
+
     /** Pedido registrado desde el visualizador (operación día a día): llega en el instante actual. */
     void registrarPedido(Pedido p) {
         simulador.inyectarPedido(p);
+    }
+
+    /** Minuto que marca el reloj de la corrida ahora (Etapa 35): para registrar pedidos en la hora actual. */
+    double minutoDelReloj() {
+        return simulador.minutoDelReloj();
     }
 
     /** Minuto simulado actual. */

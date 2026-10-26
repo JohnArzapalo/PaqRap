@@ -669,7 +669,7 @@ body.observer .ctrl-only{display:none !important;}
         <label class="fl">Archivo<input type="file" id="fileIn" accept=".txt,.csv"></label>
         <label class="fl">Contenido (una línea por pedido)<textarea id="bulkTxt" rows="8" placeholder="01d00h24m:31,17,c9167,4,36"></textarea></label>
         <div style="display:flex;gap:8px;"><button class="btn-play" id="btnValidar">Validar y registrar</button><button class="btn-secondary" id="btnEjemplo">Cargar ejemplo</button></div>
-        <p class="help">Las líneas válidas se registran AHORA en la operación en curso (la hora de la línea se ignora).</p>
+        <p class="help">Cada línea se registra en <b>su fecha y hora</b>: <span class="mono">##d##h##m</span> es el día del mes en curso de la operación y la hora. Si esa hora ya pasó, la línea se rechaza; si es futura, el pedido llega en su hora, como los del archivo oficial.</p>
         <div id="bulkRes"></div>
       </div>
     </div>
@@ -683,8 +683,8 @@ body.observer .ctrl-only{display:none !important;}
 <!-- ===== MODALES ===== -->
 <div class="modal" id="mdFin">
   <div class="mbox">
-    <div class="mh"><h3>¿Finalizar la corrida?</h3><button class="mx" data-close>×</button></div>
-    <div class="mb"><p>La corrida se detendrá para todos los dispositivos conectados.</p></div>
+    <div class="mh"><h3 id="finT">¿Finalizar la corrida?</h3><button class="mx" data-close>×</button></div>
+    <div class="mb"><p id="finP">La corrida se detendrá para todos los dispositivos conectados.</p></div>
     <div class="mf"><button class="btn-secondary" data-close>Volver</button><button class="btn-play danger" id="finGo">Finalizar</button></div>
   </div>
 </div>
@@ -1076,6 +1076,7 @@ function pintarSimulacion(){
   $('#rbState').textContent = pausa ? 'Replanificando · reloj en pausa' : st[0]; $('#rbState').className = 'chip ' + (pausa ? '' : st[1]);
   const obs = S.rol !== 'control', corre = !!(s && s.estado_corrida === 'EN_EJECUCION');
   $('#btnFinalizar').disabled = !corre || obs; $('#btnReporte').disabled = !s || corre;
+  $('#btnFinalizar').textContent = S.tab === 'DIA_A_DIA' ? 'Cerrar operaciones' : 'Finalizar';   // G09
   $('#btnRegistroLnk').hidden = S.tab !== 'DIA_A_DIA';
   $('#emptyState').classList.toggle('on', !s);
   $('#emTitle').textContent = obs ? 'Esperando el inicio de la corrida' : 'Esta corrida no se ha iniciado';
@@ -1662,7 +1663,11 @@ $('#ciGo').onclick = async () => {
   } catch (err){ $('#ciMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
   finally { $('#ciGo').disabled = false; }
 };
-$('#btnFinalizar').onclick = () => abrirModal('mdFin');
+$('#btnFinalizar').onclick = () => { const dia = S.tab === 'DIA_A_DIA';
+  $('#finT').textContent = dia ? '¿Cerrar las operaciones?' : '¿Finalizar la corrida?';
+  $('#finP').textContent = dia ? 'Se detiene la operación día a día para todos los dispositivos conectados y se muestra el reporte con la última planificación estable.'
+                               : 'La corrida se detendrá para todos los dispositivos conectados y se mostrará el reporte con la última planificación estable.';
+  $('#finGo').textContent = dia ? 'Cerrar operaciones' : 'Finalizar'; abrirModal('mdFin'); };
 $('#finGo').onclick = async () => { cerrarModales(); try { await api('POST', `/api/corridas/${S.tab}/finalizacion`); toast('Se pidió finalizar la corrida.'); } catch (err){ toast(err.message, true); } };
 $('#btnAbrirAveria').onclick = () => { if (!S.snap[S.tab] || S.snap[S.tab].estado_corrida !== 'EN_EJECUCION'){ toast('No hay una corrida en ejecución.', true); return; } abrirModal('mdAveria'); };
 $('#btnAveria').onclick = async () => { const u = $('#avUnidad').value; if (!u) return; cerrarModales();
@@ -1698,11 +1703,23 @@ async function abrirReporte(e){
       <div><div class="sec-t">Por plazo comprometido</div><table class="t"><thead><tr><th>Plazo</th><th class="n">Entregas</th><th class="n">En plazo</th><th class="n">%</th></tr></thead><tbody>
         ${Object.entries(P).map(([h, v]) => `<tr><td>${h === '36' ? 'Regular 36 h' : 'Priorizado ' + h + ' h'}</td><td class="n">${v.entregas}</td><td class="n">${v.en_plazo}</td><td class="n">${v.entregas ? (100 * v.en_plazo / v.entregas).toFixed(1) : '—'}</td></tr>`).join('')}</tbody></table></div>
     </div>
-    <p class="help">Plan vigente al cierre: ${r.ultimoPlan.length} rutas con ${r.ultimoPlan.reduce((a, p) => a + p.paradas, 0)} paradas.</p>`;
+    ${tablaUltimoPlan(s, r)}`;
   abrirModal('mdReporte');
+}
+/* Última planificación estable (G08 a G10): el plan vigente al cierre, unidad por unidad, con cada parada,
+   su carga y su hora estimada de llegada, y los pedidos que quedan sin entregar. */
+function tablaUltimoPlan(s, r){
+  const P = r.plan; if (!P) return '';
+  // dos recargas seguidas en el mismo almacén se muestran una vez (como en la ficha de la unidad)
+  const filas = P.unidades.flatMap(u => u.paradas.filter((p, i) => i === 0 || p.tipo !== 'RECARGA' || p.lugar !== u.paradas[i - 1].lugar || u.paradas[i - 1].tipo !== 'RECARGA').map((p, i) => `<tr><td class="mono">${i === 0 ? u.codigo : ''}</td><td class="n">${i + 1}</td><td>${p.tipo === 'ENTREGA' ? 'Entrega' : p.tipo === 'RECARGA' ? 'Recarga' : p.tipo === 'TRASVASE' ? 'Trasvase' : 'Regreso'}</td><td class="mono">${esc(p.pedido || p.lugar)}</td><td>(${p.x}, ${p.y})</td><td class="n">${p.cantidad ?? ''}</td><td>${p.llegada_min !== null ? fmtFecha(aFecha(s, p.llegada_min)) : '—'}</td></tr>`));
+  const espera = (P.por_planificar ? ` · ${P.por_planificar} pedidos registrados esperando el bloque siguiente` : '') + (P.programados ? ` · ${P.programados} programados para más tarde` : '');
+  return `<div><div class="sec-t">Última planificación estable · ${P.aplicado_min !== null ? 'aplicada el ' + fmtFecha(aFecha(s, P.aplicado_min)) : 'todavía no se había aplicado ningún plan'} · ${P.unidades.length} unidades con ruta, ${P.unidades.reduce((a, u) => a + u.paradas.length, 0)} paradas · ${P.pendientes} entregas sin entregar (${P.sin_unidad} sin unidad)${espera}</div>
+    ${filas.length ? `<div style="max-height:320px;overflow:auto"><table class="t"><thead><tr><th>Unidad</th><th class="n">#</th><th>Parada</th><th>Pedido o almacén</th><th>Lugar</th><th class="n">Paq.</th><th>Llegada estimada</th></tr></thead><tbody>${filas.join('')}</tbody></table></div>` : '<p class="help">Al cierre ninguna unidad tenía paradas pendientes.</p>'}</div>`;
 }
 $('#repCsv').onclick = () => { const r = ultimoReporte; if (!r) return;
   const filas = [['tipo', 'unidades', 'km', 'costo', 'utilizacion_pct'], ...r.porTipo.map(p => [p.tipo, p.unidades, p.km.toFixed(1), p.costo.toFixed(1), p.utilizacion.toFixed(1)])];
+  if (r.plan){ filas.push([], ['ultima_planificacion_aplicada_min', r.plan.aplicado_min], ['unidad', 'orden', 'parada', 'pedido_o_almacen', 'x', 'y', 'cantidad', 'llegada_min']);
+    for (const u of r.plan.unidades) u.paradas.forEach((p, i) => filas.push([u.codigo, i + 1, p.tipo, p.pedido || p.lugar, p.x, p.y, p.cantidad ?? '', p.llegada_min ?? ''])); }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([filas.map(x => x.join(',')).join('\n')], { type: 'text/csv' })); a.download = 'reporte_' + S.tab.toLowerCase() + '.csv'; a.click(); };
 
 /* =====================================================================
@@ -1727,11 +1744,11 @@ function validarPedido(){ const x = +$('#rgX').value, y = +$('#rgY').value, q = 
 function diaActivo(){ const s = S.snap.DIA_A_DIA; return s && s.estado_corrida === 'EN_EJECUCION' ? s : null; }
 function pintarRegistro(){
   dibujarMinimapa(); const s = diaActivo(); const pl = +document.querySelector('#rgPlazo input:checked').value; const err = validarPedido();
-  $('#regTarget').innerHTML = s ? 'Se agrega a la <b>operación día a día</b> en curso; llega en el instante actual y dispara una replanificación.'
+  $('#regTarget').innerHTML = s ? 'Se agrega a la <b>operación día a día</b> en curso con la fecha y hora actuales de la operación. Entra al plan del bloque siguiente (como mucho 1 h); si es urgente, se replanifica al instante.'
                                 : '<span class="bad-t">Inicia la operación día a día para registrar pedidos.</span>';
-  if (s){ const reg = aFecha(s, s.reloj.simulado_min); $('#rgLim').innerHTML = `Registro <b>${fmtFecha(reg)}</b> + ${pl} h = hora límite <b>${fmtFecha(new Date(reg.getTime() + pl * 3600000))}</b>`; }
+  if (s){ const reg = aFecha(s, ahoraDe(s)); $('#rgLim').innerHTML = `Fecha y hora de registro <b>${fmtFecha(reg)}</b> + ${pl} h = hora límite <b>${fmtFecha(new Date(reg.getTime() + pl * 3600000))}</b>`; }
   else $('#rgLim').textContent = 'Hora límite = hora de registro + plazo.';
-  $('#btnRegistrar').disabled = !s || err.length > 0; $('#rgMsg').innerHTML = err.map(e => `<span class="bad-t">${e}</span>`).join('<br>');
+  $('#btnRegistrar').disabled = !s || err.length > 0; $('#rgMsg').innerHTML = err.length ? err.map(e => `<span class="bad-t">${e}</span>`).join('<br>') : (S.rgOk || '');
   $('#regCount').textContent = S.registrados.length;
   $('#rgTbody').innerHTML = S.registrados.length ? S.registrados.slice().reverse().map(r => { const partes = s ? s.pedidos.filter(p => p.pedido === r.id) : [];
       const est = !s ? '—' : partes.length ? [...new Set(partes.map(p => p.estado.replace('_', ' ')))].join(', ') : 'entregado';
@@ -1744,21 +1761,28 @@ async function registrar(p){
 }
 $('#btnRegistrar').onclick = async () => { if (!diaActivo() || validarPedido().length) return;
   const p = { cliente: $('#rgCli').value.trim(), x: +$('#rgX').value, y: +$('#rgY').value, cantidad: +$('#rgQty').value, plazo: +document.querySelector('#rgPlazo input:checked').value };
-  try { const r = await registrar(p); pintarRegistro(); $('#rgMsg').innerHTML = `<span class="ok-t">Pedido ${esc(r.id)} registrado.</span>`; } catch (err){ $('#rgMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; } };
-$('#btnEjemplo').onclick = () => $('#bulkTxt').value = '01d00h24m:31,17,c9167,4,36\n01d00h48m:63,35,c8232,3,12\n01d01h12m:12,05,c9451,30,8\n01d01h30m:75,20,c1022,2,36\n01d02h05m:44,41,c3310,0,18';
+  try { const r = await registrar(p); S.rgOk = `<span class="ok-t">Pedido ${esc(r.id)} registrado el ${fmtFecha(aFecha(diaActivo(), r.registro_min))}; hora límite ${fmtFecha(aFecha(diaActivo(), r.limite_min))}.</span>`; pintarRegistro(); }
+  catch (err){ S.rgOk = ''; $('#rgMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; } };
+
 $('#fileIn').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => $('#bulkTxt').value = r.result; r.readAsText(f); };
+/* Carga masiva (Tarea 6, B13): el servidor valida cada línea con el mismo lector que los archivos oficiales y la
+   registra en SU fecha y hora (día del mes en curso de la operación); las que ya pasaron se rechazan. */
 $('#btnValidar').onclick = async () => {
-  const re = /^(\d{2})d(\d{2})h(\d{2})m:(\d+),(\d+),([A-Za-z0-9]+),(\d+),(\d+)$/; const ok = [], bad = [];
-  $('#bulkTxt').value.split(/\r?\n/).forEach((ln, i) => { if (!ln.trim()) return; const m = ln.trim().match(re);
-    if (!m) return bad.push([i + 1, ln, 'Formato inválido']); const [, , hh, mm, x, y, cli, qq, hl] = m;
-    if (+hh > 23 || +mm > 59) return bad.push([i + 1, ln, 'Hora fuera de rango']); if (+x > 70 || +y > 50) return bad.push([i + 1, ln, 'Destino fuera de la retícula 70 × 50']);
-    if (+qq < 1) return bad.push([i + 1, ln, 'Cantidad debe ser mayor que cero']); if (![4, 8, 12, 18, 36].includes(+hl)) return bad.push([i + 1, ln, 'Plazo no permitido (4, 8, 12, 18 o 36)']);
-    ok.push({ cliente: cli, x: +x, y: +y, cantidad: +qq, plazo: +hl }); });
-  let reg = 0; if (diaActivo()) for (const p of ok){ try { await registrar(p); reg++; } catch (err){ bad.push(['—', p.cliente, err.message]); } }
-  $('#bulkRes').innerHTML = `<p><b class="ok-t">${ok.length} líneas válidas</b>${diaActivo() ? ` (${reg} registradas)` : ' (inicia la operación día a día para registrarlas)'} · <b class="${bad.length ? 'bad-t' : ''}">${bad.length} rechazadas</b></p>`
-    + (bad.length ? `<table class="t"><thead><tr><th class="n">Línea</th><th>Contenido</th><th>Motivo</th></tr></thead><tbody>${bad.map(b => `<tr><td class="n">${b[0]}</td><td class="mono">${esc(b[1])}</td><td class="bad-t">${esc(b[2])}</td></tr>`).join('')}</tbody></table>` : '');
+  if (!diaActivo()){ $('#bulkRes').innerHTML = '<p class="bad-t">Inicia la operación día a día para registrar pedidos.</p>'; return; }
+  let r; try { r = await api('POST', '/api/corridas/DIA_A_DIA/pedidos/lote', { texto: $('#bulkTxt').value }); }
+  catch (err){ $('#bulkRes').innerHTML = `<p class="bad-t">${esc(err.message)}</p>`; return; }
+  const s = S.snap.DIA_A_DIA;
+  for (const a of r.aceptados) S.registrados.push({ id: a.id, x: a.x, y: a.y, cantidad: a.cantidad, plazo: a.plazo, regTxt: fmtFecha(aFecha(s, a.registro_min)), limTxt: fmtFecha(aFecha(s, a.limite_min)), registro_min: a.registro_min });
+  $('#bulkRes').innerHTML = `<p><b class="ok-t">${r.aceptados.length} registradas</b> (${r.aceptados.filter(a => a.registro_min > a.ahora_min).length} programadas para más tarde) · <b class="${r.rechazados.length ? 'bad-t' : ''}">${r.rechazados.length} rechazadas</b></p>`
+    + (r.aceptados.length ? `<table class="t"><thead><tr><th class="n">Línea</th><th>Identificador</th><th>Registro</th><th>Hora límite</th></tr></thead><tbody>${r.aceptados.map(a => `<tr><td class="n">${a.linea}</td><td class="mono">${esc(a.id)}</td><td>${fmtFecha(aFecha(s, a.registro_min))}</td><td>${fmtFecha(aFecha(s, a.limite_min))}</td></tr>`).join('')}</tbody></table>` : '')
+    + (r.rechazados.length ? `<table class="t"><thead><tr><th class="n">Línea</th><th>Contenido</th><th>Motivo</th></tr></thead><tbody>${r.rechazados.map(b => `<tr><td class="n">${b.linea}</td><td class="mono">${esc(b.texto)}</td><td class="bad-t">${esc(b.motivo)}</td></tr>`).join('')}</tbody></table>` : '');
   pintarRegistro();
 };
+$('#btnEjemplo').onclick = () => { const s = diaActivo(); const d = s ? aFecha(s, ahoraDe(s)) : new Date(); const lin = [];
+  // líneas de ejemplo: una pasada (se rechaza) y tres futuras, en el día en curso de la operación
+  for (const [dh, x, y, c, q, hl] of [[-30, 31, 17, 'c9167', 4, 36], [20, 63, 35, 'c8232', 3, 12], [45, 12, 5, 'c9451', 12, 8], [90, 44, 41, 'c3310', 6, 18]]){
+    const t = new Date(d.getTime() + dh * 60000); lin.push(`${pad(t.getDate())}d${pad(t.getHours())}h${pad(t.getMinutes())}m:${x},${y},${c},${q},${hl}`); }
+  $('#bulkTxt').value = lin.join('\n'); };
 
 /* ===== Arranque: primero se elige el escenario ===== */
 S.fl = filtrosFlotaIniciales(); S.wh.sem = new Set(SEM_ALM.map(x => x[0]));
