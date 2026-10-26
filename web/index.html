@@ -23,6 +23,9 @@
   --map-bg:#070C16; --grid:rgba(255,255,255,.13); --grid-strong:rgba(255,255,255,.38); --grid-border:rgba(255,255,255,.85);
   --ruta:#38BDF8; --ruta-sel:#FDE047; --bloqueo:#FF4D6D;
   --u-auto:#10B981; --u-moto:#6366F1; --u-bici:#F59E0B; --u-idle:#475569; --u-mant:#64748B;
+  /* etapa 35: semáforo de llenado (unidades y almacenes), vacío y averías por tipo (colores fuera del semáforo) */
+  --sem-ok:#34D399; --sem-warn:#FBBF24; --sem-bad:#F87171; --sem-vacio:#F1F5F9;
+  --av1:#A78BFA; --av2:#E879F9; --av3:#22D3EE;
   --alm-central:#EAB308; --alm-inter:#3B82F6;
   --ped-ok:#22C55E; --ped-warn:#F59E0B; --ped-bad:#EF4444;
   --font-display:'Space Grotesk', sans-serif; --font-body:'Inter', sans-serif; --font-mono:'JetBrains Mono', monospace;
@@ -107,14 +110,30 @@ button{cursor:pointer;}
 .hud{background:rgba(18,27,43,.9);border:1px solid var(--border);border-radius:10px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.35);min-width:88px;border-left:4px solid var(--border);}
 .hud .l{font-size:10.5px;color:var(--text-dim);white-space:nowrap;} .hud .v{font-family:var(--font-display);font-weight:600;font-size:16px;white-space:nowrap;}
 .hud.ok{border-left-color:var(--green);} .hud.warn{border-left-color:var(--amber);} .hud.bad{border-left-color:var(--red);}
-.ov-bl{bottom:10px;left:10px;background:rgba(18,27,43,.9);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);max-width:70%;}
-.ov-bl span{display:flex;align-items:center;gap:5px;}
-.lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-.lg-alm{width:12px;height:12px;border-radius:3px;border:1.5px solid #fff;display:inline-block;}
-.lg-uni{width:16px;height:16px;border-radius:50%;border:1.5px solid #fff;display:inline-grid;place-items:center;font-style:normal;font-size:9px;font-weight:700;color:#fff;font-family:var(--font-mono);}
-.u-badge{width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;font-family:var(--font-mono);background:var(--u-auto);}
-.lg-ln{width:18px;height:0;border-top:3px dashed var(--bloqueo);display:inline-block;}
-.lg-rt{width:18px;height:0;border-top:2px solid var(--ruta);display:inline-block;}
+.map-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
+/* Leyenda desplegable (etapa 35): reemplaza a la leyenda fija, para dejar libre el mapa */
+.leyenda{position:absolute;z-index:940;top:44px;left:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
+.leyenda h4{font-family:var(--font-display);font-size:12px;color:var(--text);font-weight:600;margin-top:2px;}
+.leyenda .lg-row{display:flex;align-items:center;gap:8px;}
+.leyenda .lg-row b{color:var(--text);font-weight:600;}
+.lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.lg-sw{width:16px;height:16px;border-radius:50%;border:2px solid #fff;display:inline-block;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.5);}
+.lg-alm{width:14px;height:14px;border-radius:3px;border:1.5px solid #fff;display:inline-block;flex-shrink:0;}
+.lg-ln{width:22px;height:0;border-top:3px dashed var(--bloqueo);display:inline-block;flex-shrink:0;}
+.lg-rt{width:22px;height:0;border-top:2.5px solid var(--ruta);display:inline-block;flex-shrink:0;}
+.lg-rt.rec{border-top:2.5px dashed var(--ruta);opacity:.55;}
+/* Ícono de unidad (etapa 35): dibujo SVG del vehículo, color según su estado y flecha hacia donde avanza */
+.veh{position:relative;width:30px;height:30px;}
+.veh-c{position:absolute;inset:2px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.55);display:grid;place-items:center;}
+.veh-g{width:18px;height:18px;color:var(--g,#0B1220);transition:transform .25s ease;}
+.veh-d{position:absolute;inset:0;transition:transform .25s ease;pointer-events:none;}
+.veh-d::after{content:"";position:absolute;right:-6px;top:50%;margin-top:-5px;border-left:7px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent;filter:drop-shadow(0 0 1px rgba(0,0,0,.9));}
+.veh.parada .veh-d{display:none;}
+.veh.sel .veh-c{outline:3px solid var(--ruta-sel);outline-offset:2px;}
+.veh.atenuada{opacity:.22;}
+.veh-av{position:absolute;top:-6px;right:-7px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#0B1220;color:#fff;border:1.5px solid #fff;font:700 9.5px var(--font-mono);display:grid;place-items:center;}
+.u-badge{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;background:var(--panel-raised);flex-shrink:0;}
+.u-badge svg{width:19px;height:19px;color:#fff;}
 .side-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);z-index:950;background:var(--panel);border:1px solid var(--border);border-right:0;border-radius:8px 0 0 8px;padding:12px 5px;font-size:18px;line-height:1;color:var(--text-dim);}
 .side-toggle:hover{color:var(--text);}
 .lf-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;font-family:var(--font-mono);}
@@ -161,7 +180,10 @@ button{cursor:pointer;}
 .sim-name{font-family:var(--font-display);font-weight:600;font-size:15px;}
 .sim-clock{background:linear-gradient(160deg,var(--panel-raised),var(--panel-alt));border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:grid;gap:3px;}
 .sim-clock .l{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
-.sim-clock .hm{font-family:var(--font-mono);font-size:40px;font-weight:600;line-height:1.05;color:var(--text);}
+.sim-clock .hm{font-family:var(--font-mono);font-size:34px;font-weight:600;line-height:1.05;color:var(--text);white-space:nowrap;}
+.sim-clock .hm .fe{font-size:19px;color:var(--text-dim);margin-right:6px;}
+.kv-tiempos{grid-template-columns:1fr auto;font-size:12px;}
+.kv-tiempos dd{text-align:right;}
 .sim-clock .d{font-family:var(--font-display);font-weight:600;font-size:15px;}
 .sim-clock .sub{font-size:12px;color:var(--text-dim);}
 .tag-ali{display:inline-block;margin-left:6px;font-size:10.5px;padding:1px 7px;border-radius:10px;background:var(--amber-dim);color:var(--amber);font-weight:600;}
@@ -184,7 +206,9 @@ button{cursor:pointer;}
 .wh-name{font-size:11.5px;font-weight:600;} .wh-pct{font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
 .wh-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);font-family:var(--font-mono);}
 .bar{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;margin:4px 0 2px;} .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
-.bar i.warn{background:var(--amber);} .bar i.bad{background:var(--red);}
+.bar i.warn{background:var(--amber);} .bar i.bad{background:var(--red);} .bar i.ok{background:var(--sem-ok);} .bar i.vacio{background:transparent;}
+.semtag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;border:1px solid var(--border);white-space:nowrap;}
+.semtag i{width:8px;height:8px;border-radius:50%;display:inline-block;}
 .risk-top{display:flex;align-items:baseline;gap:8px;} .risk-top .rv{font-size:24px;font-weight:700;font-family:var(--font-display);}
 .risk-row{display:grid;grid-template-columns:110px 1fr 40px;gap:6px;align-items:center;font-size:11.5px;color:var(--text-dim);}
 .risk-row b{text-align:right;color:var(--text);}
@@ -194,16 +218,18 @@ button{cursor:pointer;}
 .vehicle-card{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;}
 .vehicle-card:hover{border-color:var(--brand);}
 .vehicle-top{display:flex;align-items:center;gap:9px;}
-.v-icon{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;background:var(--panel-raised);font-size:13px;font-weight:700;color:#fff;font-family:var(--font-mono);}
+.v-icon{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;background:var(--panel-raised);flex-shrink:0;}
+.v-icon svg{width:19px;height:19px;color:#fff;}
 .v-id{font-family:var(--font-mono);font-size:12px;font-weight:600;} .v-type{font-size:10.5px;color:var(--text-dim);}
 .v-status{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
 .st-ruta{background:var(--green-dim);color:var(--green);} .st-warn{background:var(--amber-dim);color:var(--amber);}
 .st-bad{background:var(--red-dim);color:var(--red);} .st-dim{background:var(--panel-raised);color:var(--text-dim);}
 .v-occ{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);} .v-occ .bar{flex:1;margin:0;}
 .ulist{display:none;border-top:1px solid var(--border-soft);padding-top:6px;} .vehicle-card.open .ulist{display:block;}
-.urow{display:grid;grid-template-columns:48px 1fr 50px;gap:5px;align-items:center;padding:3px 2px;border-radius:5px;background:none;border:0;width:100%;text-align:left;font-size:11.5px;}
+.urow{display:grid;grid-template-columns:48px 1fr 46px 40px;gap:5px;align-items:center;padding:3px 2px;border-radius:5px;background:none;border:0;width:100%;text-align:left;font-size:11.5px;}
 .urow:hover,.urow.sel{background:var(--panel-raised);} .urow .uc{font-family:var(--font-mono);font-weight:600;font-size:11px;}
 .urow .ue{color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.urow .uq{font-size:10.5px;text-align:right;color:var(--text);}
 /* formularios */
 .frm{display:grid;gap:8px;} .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .fl{font-size:11.5px;color:var(--text-dim);display:grid;gap:3px;}
@@ -266,12 +292,12 @@ legend{font-size:12px;font-weight:600;color:var(--text-dim);padding:0 4px;}
   .ln-cards{grid-template-columns:1fr;}
   .stage{height:auto;display:block;} .map-wrap{height:72vh;height:72dvh;}
   .side{border-left:0;overflow:visible;} .side-toggle{display:none;}
-  .ov-tr{grid-template-columns:repeat(2,auto);} .ov-bl{display:none;}
+  .ov-tr{grid-template-columns:repeat(2,auto);}
   .hud{min-width:0;padding:3px 8px;} .hud .v{font-size:13px;} .hud .l{font-size:9.5px;}
   .view-reg{height:auto;}
   .reg-grid,.g3,.rep-kpis{grid-template-columns:1fr 1fr;}
 }
-@media(max-width:520px){ .reg-grid,.g2,.g3,.rep-kpis{grid-template-columns:1fr;} .sim-clock .hm{font-size:34px;} }
+@media(max-width:520px){ .reg-grid,.g2,.g3,.rep-kpis{grid-template-columns:1fr;} .sim-clock .hm{font-size:28px;} }
 body.observer .ctrl-only{display:none !important;}
 </style>
 </head>
@@ -324,8 +350,10 @@ body.observer .ctrl-only{display:none !important;}
         <div id="lnCampos" class="ctrl-only" style="display:grid;gap:12px;">
           <fieldset>
             <legend>Periodo y ritmo</legend>
-            <div class="g2">
-              <label class="fl">Fecha y hora de inicio<input type="datetime-local" id="ciInicio" step="60"></label>
+            <!-- Fecha y hora con campos propios (dd/mm/aaaa y hh:mm de 24 h): así no dependen del idioma del navegador (C02, C07) -->
+            <div class="g3">
+              <label class="fl">Fecha de inicio (dd/mm/aaaa)<input id="ciFecha" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></label>
+              <label class="fl">Hora de inicio (hh:mm, 24 h)<input id="ciHora" inputmode="numeric" placeholder="hh:mm" maxlength="5" autocomplete="off"></label>
               <label class="fl">Ritmo<select id="ciRitmo"></select></label>
             </div>
             <p class="help" id="ciAyuda"></p>
@@ -350,11 +378,13 @@ body.observer .ctrl-only{display:none !important;}
           </fieldset>
           <fieldset>
             <legend>Umbrales del semáforo (solo en este dispositivo)</legend>
-            <div class="g3">
-              <label class="fl">Holgura verde (min)<input type="number" id="uHv" value="120"></label>
-              <label class="fl">Holgura ámbar (min)<input type="number" id="uHa" value="60"></label>
-              <label class="fl">Saturación ámbar (%)<input type="number" id="uSa" value="60"></label>
+            <div class="g2">
+              <label class="fl">Llenado bajo: menos de (%)<input type="number" id="uL1" value="40" min="1" max="99"></label>
+              <label class="fl">Llenado alto: desde (%)<input type="number" id="uL2" value="75" min="2" max="100"></label>
+              <label class="fl">Pedido: holgura verde desde (min)<input type="number" id="uHv" value="120"></label>
+              <label class="fl">Pedido: holgura ámbar desde (min)<input type="number" id="uHa" value="60"></label>
             </div>
+            <p class="help" id="uAyuda"></p>
           </fieldset>
         </div>
         <div id="ciMsg"></div>
@@ -373,13 +403,13 @@ body.observer .ctrl-only{display:none !important;}
     <!-- MAPA: ocupa todo el espacio que deja la barra lateral -->
     <div class="map-wrap" id="mapWrap">
       <div id="map"></div>
-      <div class="ov ov-tl"><button class="map-btn" id="tgFit">Encuadrar</button></div>
-      <div class="ov ov-tr" id="hud"></div>
-      <div class="ov ov-bl">
-        <span><i class="lg-alm" style="background:var(--alm-central)"></i>Central</span><span><i class="lg-alm" style="background:var(--alm-inter)"></i>Intermedio</span><span><i class="lg-uni" style="background:var(--u-auto)">A</i>Auto</span><span><i class="lg-uni" style="background:var(--u-moto)">M</i>Moto</span><span><i class="lg-uni" style="background:var(--u-bici)">B</i>Bici</span><span><i class="lg-uni" style="background:var(--u-idle)"></i>Disponible</span>
-        <span><i class="lg-dot" style="background:var(--ped-ok)"></i><i class="lg-dot" style="background:var(--ped-warn)"></i><i class="lg-dot" style="background:var(--ped-bad)"></i> Pedido según holgura</span>
-        <span><i class="lg-ln"></i> Bloqueo</span><span><i class="lg-rt"></i> Ruta</span>
+      <div class="ov ov-tl">
+        <button class="map-btn" id="tgFit" title="Encuadrar la retícula completa">Encuadrar</button>
+        <button class="map-btn" id="tgRutas" title="Rutas en el mapa: pendientes, pendientes y recorridas, u ocultas">Rutas: pendientes</button>
+        <button class="map-btn" id="tgLey" aria-pressed="false" title="Mostrar u ocultar la leyenda">Leyenda</button>
       </div>
+      <div class="ov ov-tr" id="hud"></div>
+      <div class="leyenda" id="leyenda" hidden></div>
       <button class="side-toggle" id="tgSide" title="Mostrar u ocultar la barra lateral">›</button>
       <div class="map-empty" id="emptyState">
         <div class="box">
@@ -407,16 +437,20 @@ body.observer .ctrl-only{display:none !important;}
             <dt>Fecha de inicio</dt><dd id="smInicio">—</dd>
             <dt>Vehículos</dt><dd id="smFlota">—</dd>
             <dt>Ritmo</dt><dd id="smRitmo">—</dd>
-            <dt>Tiempo real</dt><dd id="smReal" class="mono">—</dd>
-            <dt>Hora real</dt><dd id="smHoraReal" class="mono">—</dd>
           </dl>
+          <!-- Relojes (C12 a C16): fecha y hora simulada, tiempo simulado transcurrido, fecha y hora real y tiempo real transcurrido -->
           <div class="sim-clock">
-            <div class="l">Tiempo operativo</div>
-            <div class="hm" id="ckHM">--:--</div>
+            <div class="l" id="ckLbl">Fecha y hora simulada (día, hora y minuto)</div>
+            <div class="hm" id="ckHM">--/--/---- --:--</div>
             <div class="d" id="ckDay">Día —</div>
             <div class="sub" id="ckDate">sin reloj</div>
-            <div class="sub" id="ckTrans"></div>
           </div>
+          <dl class="kv kv-tiempos">
+            <dt id="ckTransLbl">Tiempo simulado transcurrido</dt><dd id="ckTrans" class="mono">—</dd>
+            <dt>Fecha y hora actual (real)</dt><dd id="smHoraReal" class="mono">—</dd>
+            <dt>Tiempo real transcurrido</dt><dd id="smReal" class="mono">—</dd>
+          </dl>
+          <p class="help" id="ckNota" hidden></p>
           <div class="progress">
             <div class="pg-h"><span id="pgLbl">Avance de los 5 días</span><span id="pgPct" class="mono">0 %</span></div>
             <div class="bar2" id="pgBar"><i id="pgFill" style="width:0"></i></div>
@@ -440,7 +474,7 @@ body.observer .ctrl-only{display:none !important;}
         <div class="acc-b">
           <div class="kpi-grid" id="kpis"></div>
           <div class="panel"><div class="panel-head"><h2>Riesgo de colapso</h2><small>alerta temprana</small></div><div id="risk"></div></div>
-          <div class="panel"><div class="panel-head"><h2>Almacenes</h2><small>saturación = consumo / capacidad</small></div><div id="whs" style="display:grid;gap:6px;"></div></div>
+          <div class="panel"><div class="panel-head"><h2>Almacenes</h2><small>llenado = stock / capacidad</small></div><div id="whs" style="display:grid;gap:6px;"></div></div>
           <div class="panel"><div class="panel-head"><h2>Evolución</h2><small id="evoCap">entregas por día</small></div><svg id="evo" viewBox="0 0 300 100" style="width:100%;height:100px;"></svg></div>
           <div class="panel ctrl-only">
             <div class="panel-head"><h2>Acciones de operación</h2></div>
@@ -580,7 +614,7 @@ async function api(metodo, ruta, datos){
   if (datos){ op.body = new URLSearchParams(datos); op.headers = { 'Content-Type': 'application/x-www-form-urlencoded' }; }
   const r = await fetch(API + ruta, op);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok){ const e = new Error(j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+  if (!r.ok){ const e = new Error(j.error || ('Error del servidor (código ' + r.status + ')')); e.status = r.status; throw e; }
   return j;
 }
 
@@ -615,12 +649,46 @@ const COL = {};
 ['map-bg', 'grid', 'grid-strong', 'grid-border', 'ruta', 'ruta-sel', 'bloqueo', 'u-auto', 'u-moto', 'u-bici', 'u-idle', 'u-mant',
  'alm-central', 'alm-inter', 'ped-ok', 'ped-warn', 'ped-bad', 'red', 'amber', 'text', 'text-dim', 'text-faint', 'brand', 'border'].forEach(k => COL[k] = cssVar('--' + k));
 const COLOR_TIPO = { AUTO: COL['u-auto'], MOTO: COL['u-moto'], BICICLETA: COL['u-bici'] };
+['sem-ok', 'sem-warn', 'sem-bad', 'sem-vacio', 'av1', 'av2', 'av3'].forEach(k => COL[k] = cssVar('--' + k));
+
+/* =====================================================================
+   SEMÁFORO DE LLENADO (etapa 35, SI-31): el MISMO sentido y los MISMOS umbrales
+   para unidades (carga / capacidad) y almacenes intermedios (stock / capacidad),
+   con un estado propio para el vacío (0 %). El sentido está en esta sola constante:
+     'jp'       → bajo = rojo, medio = ámbar, alto = verde (pedido de la JP el 21-oct;
+                  decisión del equipo, etapa 35)
+     'glosario' → bajo = verde, medio = ámbar, alto = rojo (hoja Datos del formulario)
+   ===================================================================== */
+const SENTIDO_SEMAFORO = 'jp';
+const BANDAS_SEMAFORO = SENTIDO_SEMAFORO === 'jp' ? ['bad', 'warn', 'ok'] : ['ok', 'warn', 'bad'];
+const NOMBRE_SEM = { ok: 'Verde', warn: 'Ámbar', bad: 'Rojo', vacio: 'Vacío' };
+/* Clase del semáforo para un llenado en %: 'vacio', 'ok' (verde), 'warn' (ámbar) o 'bad' (rojo). */
+function semLlenado(pct){ const U = umb(); if (!(pct > 0)) return 'vacio'; return BANDAS_SEMAFORO[pct < U.ll1 ? 0 : pct < U.ll2 ? 1 : 2]; }
+const colorSem = c => COL['sem-' + c];
+/* Rangos de cada color, para la leyenda y las ayudas. */
+function rangosSemaforo(){ const U = umb(); const r = [`1–${U.ll1 - 1} %`, `${U.ll1}–${U.ll2 - 1} %`, `${U.ll2}–100 %`];
+  return [['vacio', '0 % (sin carga)'], ...BANDAS_SEMAFORO.map((c, i) => [c, r[i]])]; }
+const COLOR_AVERIA = { 1: COL.av1, 2: COL.av2, 3: COL.av3 };
+const TEXTO_AVERIA = { 1: 'Tipo 1 · se recupera en el lugar (2 h)', 2: 'Tipo 2 · trasvase y taller', 3: 'Tipo 3 · fuera de servicio varios días' };
+
+/* Dibujos de los vehículos (vistos de lado, mirando a la derecha), en SVG sin dependencias. */
+const GLIFO = {
+  AUTO: '<path fill="currentColor" d="M1.8 15.6v-3.1c0-.5.3-.9.8-1l2.3-.6 2.6-3.4c.3-.4.7-.6 1.2-.6h5.8c.5 0 .9.2 1.2.5l2.8 3.3 2.9.7c.5.1.8.5.8 1v3.2z"/><path style="fill:var(--c)" d="M8.6 8.5h2.6v2.4H6.8zM12.5 8.5h1.9l2 2.4h-3.9z"/><circle cx="6.8" cy="16" r="2.5" fill="currentColor" style="stroke:var(--c)" stroke-width="1.2"/><circle cx="17.2" cy="16" r="2.5" fill="currentColor" style="stroke:var(--c)" stroke-width="1.2"/>',
+  MOTO: '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.2" cy="16" r="3.2"/><circle cx="18.8" cy="16" r="3.2"/><path d="M5.2 16l3.6-5h5.4l1.6 2.2M18.8 16l-3-7.6h2.6"/></g><path fill="currentColor" d="M8.2 8.2h5.6l1.2 2.3H8.6z"/>',
+  BICICLETA: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="15.8" r="3.6"/><circle cx="18.5" cy="15.8" r="3.6"/><path d="M5.5 15.8l3.7-6.6h6.2l3.1 6.6M9.2 9.2l3 6.6H5.5M15.4 9.2l-1-3h2.3M7.8 7.4h3.2"/></g>'
+};
+const svgVeh = (tipo, cls) => `<svg class="${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${GLIFO[tipo]}</svg>`;
+/* Dirección de avance en la retícula (solo 4 direcciones): giro del dibujo y de la flecha. */
+const GIRO = { E: ['none', 0], O: ['scaleX(-1)', 180], N: ['rotate(-90deg)', -90], S: ['rotate(90deg)', 90] };
+function direccion(x, y, tx, ty){ return tx > x ? 'E' : tx < x ? 'O' : ty > y ? 'N' : ty < y ? 'S' : null; }
 
 /* ===== Estado del cliente ===== */
 const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
   logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
-  filtro: 'ALL', acc: { sim: true, res: false, flota: false, log: false }, reportado: {}, registrados: [], datos: null };
-const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, satA: 60, satR: 85, ocuA: 75, ocuR: 95, rP: 15, rF: 20, rC: 30, rI: 60 };
+  filtro: 'ALL', acc: { sim: true, res: false, flota: false, log: false }, reportado: {}, registrados: [], datos: null,
+  dir: {}, rastro: {}, rutas: 'pend' };
+/* ll1 / ll2: límites de las bandas de llenado (bajo < ll1 ≤ medio < ll2 ≤ alto), iguales para unidades y almacenes. */
+const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, ll1: 40, ll2: 75, rP: 15, rF: 20, rC: 30, rI: 60 };
 const umb = () => S.umbrales[S.tab] || UMB_DEF;
 
 /* ===== Utilidades ===== */
@@ -634,7 +702,8 @@ const fmtFecha = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullY
 const fmtHM = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; };
 const fmtMin = m => { m = Math.round(m); const neg = m < 0; m = Math.abs(m); const h = Math.floor(m / 60), mi = m % 60; return (neg ? '−' : '') + (h ? h + ' h ' : '') + mi + ' min'; };
-const fmtDias = m => { m = Math.max(0, Math.floor(m)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return `${d} d ${pad(h)} h ${pad(mi)} min`; };
+const fmtDias = m => { m = Math.max(0, Math.floor(m)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return `${d} ${d === 1 ? 'día' : 'días'} ${pad(h)} h ${pad(mi)} min`; };
+const fmtDia = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const soles = v => 'S/ ' + Math.round(v).toLocaleString('es-PE');
 const num = v => Math.round(v).toLocaleString('es-PE');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -659,9 +728,10 @@ function estadoVisible(u, s){
    espacio disponible y se vuelve a encuadrar cuando cambia el tamaño.
    ===================================================================== */
 const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 0, zoomDelta: 0.5, attributionControl: false, preferCanvas: true, zoomControl: false });
-L.control.zoom({ position: 'bottomright' }).addTo(map);
-const B = [[-1.8, -3], [H + 0.8, W + 1.4]];   // retícula y etiquetas de los ejes
-function encuadrar(){ map.invalidateSize({ animate: false }); map.fitBounds(B, { padding: [6, 6], animate: false }); }
+L.control.zoom({ position: 'bottomright', zoomInTitle: 'Acercar', zoomOutTitle: 'Alejar' }).addTo(map);
+/* Retícula y etiquetas de los ejes, con el margen justo (etapa 35: el mapa usa todo el espacio posible, C09 y C10). */
+const B = [[-1.3, -2.2], [H + 0.3, W + 0.4]];
+function encuadrar(){ map.invalidateSize({ animate: false }); map.fitBounds(B, { padding: [2, 2], animate: false }); }
 map.setMaxBounds([[-15, -15], [H + 15, W + 15]]);
 encuadrar();
 new ResizeObserver(() => { if ($('#mapWrap').clientWidth) encuadrar(); }).observe($('#mapWrap'));
@@ -679,37 +749,72 @@ const mAlm = {}, mUni = {}, mPed = {};
 /* Ícono de almacén (techo, muros y puerta), dibujado en SVG */
 const ICONO_ALMACEN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06111F" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5V20H3z"/><path d="M9 20v-6h6v6"/></svg>';
 function iconAlm(a, cls, n){
-  const col = a.codigo === 'AL-CEN' ? COL['alm-central'] : cls === 'bad' ? COL.red : cls === 'warn' ? COL.amber : COL['alm-inter'];
+  // Central: stock ilimitado, color fijo. Intermedios: semáforo de llenado (stock / capacidad), con vacío.
+  const col = a.codigo === 'AL-CEN' ? COL['alm-central'] : colorSem(cls);
   const badge = n ? `<span style="position:absolute;top:-9px;right:-11px;min-width:16px;height:16px;border-radius:8px;background:#fff;color:#0B1220;border:1.5px solid #0B1220;font-size:9px;display:grid;place-items:center;padding:0 3px;font-weight:700;">${n}</span>` : '';
   return L.divIcon({ className: '', html: `<div style="position:relative;width:34px;height:34px;border-radius:8px;background:${col};border:2px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;">${ICONO_ALMACEN}${badge}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 }
+/* Color de relleno y del dibujo de una unidad según su clase (ver claseUnidad). */
+function estiloUnidad(base){
+  if (base.startsWith('av')) return { c: COLOR_AVERIA[base.slice(2)] || COL.av1, g: '#0B1220' };
+  if (base === 'man') return { c: COL['u-mant'], g: '#FFFFFF' };
+  return { c: colorSem(base), g: '#0B1220' };
+}
+/* Ícono de unidad (C24 a C27, D10 a D12): dibujo del vehículo, color según el semáforo de llenado
+   (o el tipo de avería, o mantenimiento), marca con el número del tipo de avería y flecha de dirección. */
 function iconUni(u, cls){
-  const col = u.estado === 'AVERIADA' ? COL.red : u.estado === 'MANTENIMIENTO' ? COL['u-mant'] : cls.startsWith('bad') ? COL.red : cls.startsWith('warn') ? COL.amber
-            : cls.startsWith('idle') ? COL['u-idle'] : u.tipo === 'AUTO' ? COL['u-auto'] : u.tipo === 'MOTO' ? COL['u-moto'] : COL['u-bici'];
-  const outline = cls.endsWith('sel') ? `;outline:3px solid ${COL['ruta-sel']};outline-offset:1px` : '';
-  return L.divIcon({ className: '', html: `<div class="lf-dot" style="background:${col};width:26px;height:26px${outline};">${SIGLA[u.tipo]}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+  const base = cls.split(' ')[0], est = estiloUnidad(base);
+  const marca = base.startsWith('av') ? `<b class="veh-av" title="Avería tipo ${base.slice(2)}">${base.slice(2)}</b>` : base === 'man' ? '<b class="veh-av" title="Mantenimiento">M</b>' : '';
+  return L.divIcon({ className: '', html: `<div class="veh ${cls}" style="--c:${est.c};--g:${est.g}"><i class="veh-d"></i><span class="veh-c">${svgVeh(u.tipo, 'veh-g')}</span>${marca}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+}
+/* Gira el dibujo y la flecha hacia la dirección de avance (C30). Sin dirección nueva conserva la última. */
+function orientar(codigo, dir){
+  if (dir) S.dir[codigo] = dir; const d = S.dir[codigo] || 'E'; const m = mUni[codigo]; const el = m && m.getElement(); if (!el || el._dir === d) return;
+  el._dir = d; const g = el.querySelector('.veh-g'), f = el.querySelector('.veh-d');
+  if (g) g.style.transform = GIRO[d][0]; if (f) f.style.transform = `rotate(${GIRO[d][1]}deg)`;
 }
 function dibujarAlmacenes(s){
   const U = umb();
   for (const a of s.almacenes){
-    const sat = a.capacidad ? 100 * (a.capacidad - a.stock) / a.capacidad : null; const cls0 = sat === null ? '' : sem(sat, U.satA, U.satR, true);
+    const ll = a.capacidad ? 100 * a.stock / a.capacidad : null; const cls0 = ll === null ? '' : semLlenado(ll);
     const aqui = (S.enAlm && S.enAlm[a.codigo]) || []; const cls = cls0 + '|' + aqui.length;
     const nombre = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
-    const tip = `<b>${nombre}</b> (${a.x}, ${a.y})<br>` + (a.capacidad ? `Stock ${num(a.stock)} / ${num(a.capacidad)} · saturación ${sat.toFixed(0)} %` : 'Stock ilimitado') + (aqui.length ? `<br>Unidades aquí: ${aqui.join(', ')}` : '');
+    const tip = `<b>${nombre}</b> (${a.x}, ${a.y})<br>` + (a.capacidad ? `Stock ${num(a.stock)} / ${num(a.capacidad)} · llenado ${ll.toFixed(0)} % · ${NOMBRE_SEM[cls0]}` : 'Stock ilimitado') + (aqui.length ? `<br>Unidades aquí: ${aqui.join(', ')}` : '');
     if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip); mAlm[a.codigo]._cls = cls; }
     else { if (mAlm[a.codigo]._cls !== cls){ mAlm[a.codigo].setIcon(iconAlm(a, cls0, aqui.length)); mAlm[a.codigo]._cls = cls; } mAlm[a.codigo].setTooltipContent(tip); }
   }
 }
 dibujarAlmacenes({ almacenes: ALMACENES.map(a => ({ ...a, stock: a.capacidad })) });
-function claseUnidad(u, s){
-  const U = umb(); if (u.estado !== 'OPERATIVA') return u.estado;
-  if (!u.paradas.length && u.ocupado_hasta_min <= s.reloj.simulado_min && u.carga === 0) return 'idle';
-  return sem(100 * u.carga / u.capacidad, U.ocuA, U.ocuR, true);
+/* Clase de una unidad: 'av1'..'av3' (averiada, por tipo), 'man' (mantenimiento) o el semáforo de llenado ('vacio', 'ok', 'warn', 'bad'). */
+function claseUnidad(u){
+  if (u.estado === 'AVERIADA') return 'av' + (u.averia_tipo || 1);
+  if (u.estado === 'MANTENIMIENTO') return 'man';
+  return semLlenado(100 * u.carga / u.capacidad);
 }
 /* Unidad detenida en un almacén sin tareas: se cuenta en el marcador del almacén. */
 function enAlmacen(u, s){
   if (u.estado === 'AVERIADA' || u.paradas.length || u.camino.length || u.ocupado_hasta_min > s.reloj.simulado_min || S.sel === u.codigo) return null;
   return s.almacenes.find(a => a.x === u.x && a.y === u.y) || null;
+}
+function textoAveria(u, s){
+  if (u.estado !== 'AVERIADA') return '';
+  const lugar = u.averia_en_lugar_hasta_min > s.reloj.simulado_min ? `en el lugar hasta ${fmtFecha(aFecha(s, u.averia_en_lugar_hasta_min))}` : 'ya en el central';
+  return `<br>Avería tipo ${u.averia_tipo}: ${lugar}; disponible desde ${fmtFecha(aFecha(s, u.averia_disponible_min))}`;
+}
+/* Tramo recorrido desde la última parada (C34): se acumula en el cliente a partir de las instantáneas.
+   Entre dos instantáneas la unidad siguió el camino de la anterior, así que se toma ese tramo exacto. */
+function acumularRastro(e, s, prev){
+  const R = S.rastro[e] = S.rastro[e] || {};
+  for (const u of s.unidades){
+    const detenida = u.estado !== 'OPERATIVA' || u.ocupado_hasta_min > s.reloj.simulado_min || !u.camino.length;
+    if (detenida){ R[u.codigo] = [[u.x, u.y]]; continue; }   // en una parada (o sin ruta): empieza un tramo nuevo
+    const r = R[u.codigo] || (R[u.codigo] = [[u.x, u.y]]);
+    const p = prev && prev.unidades.find(v => v.codigo === u.codigo);
+    if (p && (p.x !== u.x || p.y !== u.y)){
+      const i = p.camino.findIndex(c => c[0] === u.x && c[1] === u.y);
+      if (i >= 0) for (let k = 0; k <= i; k++) r.push(p.camino[k]); else r.push([u.x, u.y]);
+    }
+  }
 }
 function dibujarMapa(s){
   S.enAlm = {}; for (const u of s.unidades){ const a = enAlmacen(u, s); if (a) (S.enAlm[a.codigo] = S.enAlm[a.codigo] || []).push(u.codigo); }
@@ -717,20 +822,29 @@ function dibujarMapa(s){
   const vistos = new Set();
   for (const u of s.unidades){
     if (enAlmacen(u, s)) continue; vistos.add(u.codigo);
-    const cls = claseUnidad(u, s) + (S.sel === u.codigo ? ' sel' : '');
+    const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '');
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
-      m.on('click', () => abrirDetalle(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -8] }); mUni[u.codigo] = m; }
+      m.on('click', () => abrirDetalle(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
     m.setLatLng([u.y, u.x]); m._base = { x: u.x, y: u.y };
-    m.setTooltipContent(`<b>${u.codigo}</b> · ${estadoVisible(u, s).t}<br>Carga ${u.carga}/${u.capacidad} · ${u.velocidad} km/h`);
+    orientar(u.codigo, u.camino.length ? direccion(u.x, u.y, u.camino[0][0], u.camino[0][1]) : null);
+    const ll = 100 * u.carga / u.capacidad;
+    m.setTooltipContent(`<b>${u.codigo}</b> · ${estadoVisible(u, s).t}<br>Carga ${u.carga}/${u.capacidad} (${ll.toFixed(0)} %) · ${NOMBRE_SEM[semLlenado(ll)]}<br>${u.velocidad} km/h${textoAveria(u, s)}`);
   }
   for (const k of Object.keys(mUni)) if (!vistos.has(k)){ gUni.removeLayer(mUni[k]); delete mUni[k]; }
-  // rutas vigentes: camino restante de cada unidad (lo que el planificador comprometió)
+  // Rutas: lo que falta recorrer (línea continua) y lo recorrido desde la última parada (punteada y tenue).
+  // Para no llenar el mapa de líneas, lo recorrido se dibuja solo para la unidad elegida, salvo que se pida para todas.
   gRutas.clearLayers();
+  const R = S.rastro[S.tab] || {};
   for (const u of s.unidades){
-    if (u.estado !== 'OPERATIVA' || !u.camino.length) continue; const selc = S.sel === u.codigo;
+    if (u.estado !== 'OPERATIVA') continue; const selc = S.sel === u.codigo;
     if (S.sel && !selc) continue;   // con una unidad elegida, solo su ruta
-    L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: selc ? COL['ruta-sel'] : COL.ruta, weight: selc ? 4 : 2.2, opacity: selc ? 1 : .75, interactive: false }).addTo(gRutas);
+    if (!selc && S.rutas === 'ninguna') continue;
+    const col = selc ? COL['ruta-sel'] : COL.ruta; const rec = R[u.codigo];
+    if ((selc || S.rutas === 'ambas') && rec && rec.length > 1)
+      L.polyline(rec.map(c => [c[1], c[0]]), { color: col, weight: selc ? 3 : 2, opacity: selc ? .65 : .45, dashArray: '3 6', interactive: false }).addTo(gRutas);
+    if (u.camino.length)
+      L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: col, weight: selc ? 4 : 2.2, opacity: selc ? 1 : .75, interactive: false }).addTo(gRutas);
   }
   // bloqueos activos
   gBloq.clearLayers();
@@ -756,7 +870,8 @@ function dibujarMapa(s){
 function limpiarMapa(){ gUni.clearLayers(); gRutas.clearLayers(); gBloq.clearLayers(); gPed.clearLayers(); for (const o of [mUni, mPed]) for (const k of Object.keys(o)) delete o[k];
   dibujarAlmacenes({ almacenes: ALMACENES.map(a => ({ ...a, stock: a.capacidad })) }); }
 
-/* Entre dos instantáneas (1 s) se mueven las unidades a lo largo de su camino para que se vea fluido. */
+/* Entre dos instantáneas (1 s) se mueven las unidades a lo largo de su camino para que se vea fluido,
+   y el ícono gira hacia el tramo que recorre en ese momento. */
 function interpolar(){
   const s = S.vista === 'mon' ? S.snap[S.tab] : null;
   if (s && s.estado_corrida === 'EN_EJECUCION'){
@@ -764,9 +879,10 @@ function interpolar(){
     const dtMin = Math.min(1.5, (performance.now() - S.recv[S.tab]) / 1000) * K / 60; const simNow = s.reloj.simulado_min + dtMin;
     const comiendo = HORAS_ALIMENTACION.includes(aFecha(s, simNow).getHours());
     for (const u of s.unidades){ const m = mUni[u.codigo]; if (!m || u.estado !== 'OPERATIVA' || comiendo || u.ocupado_hasta_min > simNow || !u.camino.length) continue;
-      let d = u.velocidad / 60 * dtMin, x = u.x, y = u.y;
-      for (const [tx, ty] of u.camino){ const r = Math.abs(tx - x) + Math.abs(ty - y); if (r <= d){ x = tx; y = ty; d -= r; } else { x += Math.sign(tx - x) * d; y += Math.sign(ty - y) * d; break; } }
-      m.setLatLng([y, x]); }
+      let d = u.velocidad / 60 * dtMin, x = u.x, y = u.y, dir = null;
+      for (const [tx, ty] of u.camino){ const r = Math.abs(tx - x) + Math.abs(ty - y); dir = direccion(x, y, tx, ty) || dir;
+        if (r <= d){ x = tx; y = ty; d -= r; } else { x += Math.sign(tx - x) * d; y += Math.sign(ty - y) * d; break; } }
+      m.setLatLng([y, x]); orientar(u.codigo, dir); }
   }
   requestAnimationFrame(interpolar);
 }
@@ -789,20 +905,28 @@ function pintarSimulacion(){
   $('#emText').textContent = obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
                                  : 'Vuelve a los escenarios para elegir la fecha de inicio y la flota.';
   $('#pgLbl').textContent = S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día';
-  if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal']) $(id).textContent = '—';
-    $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckTrans').textContent = '';
+  if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal', '#ckTrans']) $(id).textContent = '—';
+    $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--/--/---- --:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckNota').hidden = true;
     $('#pgFill').style.width = '0'; $('#pgPct').textContent = '0 %'; $('#pgTicks').innerHTML = ''; return; }
   const d = aFecha(s, s.reloj.simulado_min); const tc = minCorrida(s); const fin = c.fin_real_ms || s.reloj.real_ms;
   $('#smInicio').textContent = fmtFecha(new Date(c.inicio_ms));
   $('#smFlota').textContent = `${c.autos + c.motos + c.bicicletas} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis`;
   $('#smRitmo').textContent = ritmoTxt(S.tab, c.factor);
-  $('#smReal').textContent = fmtDur(fin - c.inicio_real_ms);
-  $('#smHoraReal').textContent = new Date().toLocaleTimeString('es-PE', { hour12: false });
-  $('#ckHM').textContent = fmtHM(d);
-  const fechaLarga = d.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-  $('#ckDay').textContent = (S.tab === 'DIA_A_DIA' ? '' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' · ') + fechaLarga;
+  // Los cuatro tiempos (C12 a C16), a nivel de minuto. En la operación día a día con ritmo ×1 el tiempo
+  // simulado ES el tiempo real (empieza en la fecha y hora actuales): se rotula así.
+  const dia = S.tab === 'DIA_A_DIA', real = dia && +c.factor === 1;
+  $('#ckLbl').textContent = real ? 'Fecha y hora de la operación (= hora real; día, hora y minuto)' : 'Fecha y hora simulada (día, hora y minuto)';
+  $('#ckTransLbl').textContent = real ? 'Tiempo de operación transcurrido' : 'Tiempo simulado transcurrido';
+  $('#ckHM').innerHTML = `<span class="fe">${fmtDia(d)}</span>${fmtHM(d)}`;
+  const semana = d.toLocaleDateString('es-PE', { weekday: 'long' });
+  $('#ckDay').textContent = (dia ? '' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' de la simulación · ') + semana;
   $('#ckDate').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
-  $('#ckTrans').textContent = 'Transcurrido: ' + fmtDias(tc);
+  $('#ckTrans').textContent = fmtDias(tc);
+  $('#smHoraReal').textContent = fmtFecha(new Date());
+  $('#smReal').textContent = fmtDias((fin - c.inicio_real_ms) / 60000);
+  $('#ckNota').hidden = !dia;
+  $('#ckNota').textContent = real ? 'Operación día a día: el reloj simulado avanza con el reloj real (ritmo ×1), así que la fecha y hora de la operación coinciden con la actual.'
+                                 : `Operación día a día en ritmo de demostración (×${c.factor}): el reloj de la operación avanza ${c.factor} veces más rápido que el real.`;
   // avance dentro del horizonte
   const span = S.tab === 'SIM_5D' ? 5 * 1440 : S.tab === 'COLAPSO' ? Math.max(5, Math.ceil(tc / 1440) + 1) * 1440 : 1440;
   const t0 = S.tab === 'DIA_A_DIA' ? Math.floor(tc / 1440) * 1440 : 0;
@@ -853,11 +977,11 @@ function pintarFlota(s){
     const oper = us.filter(u => u.estado === 'OPERATIVA'); const occ = oper.length ? 100 * oper.reduce((a, u) => a + u.carga / u.capacidad, 0) / oper.length : 0;
     const badges = Object.entries(st).map(([k, v]) => `<span class="v-status st-${v.c === 'ruta' ? 'ruta' : v.c === 'ave' ? 'bad' : v.c === 'ali' ? 'warn' : 'dim'}">${v.n} ${k.toLowerCase()}</span>`).join(' ');
     const filas = us.map(u => { const ocu = 100 * u.carga / u.capacidad;
-      return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span><span class="bar" style="margin:0"><i class="${sem(ocu, U.ocuA, U.ocuR, true)}" style="width:${ocu.toFixed(0)}%"></i></span></button>`; }).join('');
+      return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span><span class="bar" style="margin:0"><i class="${semLlenado(ocu)}" style="width:${ocu.toFixed(0)}%"></i></span><span class="mono uq">${u.carga}/${u.capacidad}</span></button>`; }).join('');
     return `<div class="vehicle-card ${abiertos.has(tp) ? 'open' : ''}" data-tp="${tp}">
-      <div class="vehicle-top"><div class="v-icon" style="background:${COLOR_TIPO[tp]}">${SIGLA[tp]}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${us.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
+      <div class="vehicle-top"><div class="v-icon" style="--c:var(--panel-raised)">${svgVeh(tp)}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${us.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">${badges}</div>
-      <div class="v-occ">Ocupación media<div class="bar"><i class="${sem(occ, U.ocuA, U.ocuR, true)}" style="width:${occ.toFixed(0)}%"></i></div>${occ.toFixed(0)} %</div>
+      <div class="v-occ">Ocupación media<div class="bar"><i class="${semLlenado(occ)}" style="width:${occ.toFixed(0)}%"></i></div>${occ.toFixed(0)} %</div>
       <div class="ulist">${filas}</div></div>`;
   }).join('');
 }
@@ -872,7 +996,7 @@ function abrirDetalle(codigo, centrar){
 $('#drClose').onclick = () => { S.sel = null; $('#drawer').classList.remove('on'); const s = S.snap[S.tab]; if (s){ dibujarMapa(s); pintarFlota(s); } };
 function pintarDetalle(s){
   if (!S.sel) return; const u = s.unidades.find(v => v.codigo === S.sel); if (!u) return; const U = umb();
-  const e = estadoVisible(u, s); $('#drIcon').textContent = SIGLA[u.tipo]; $('#drIcon').style.background = COLOR_TIPO[u.tipo]; $('#drCode').textContent = u.codigo; $('#drState').textContent = e.t;
+  const e = estadoVisible(u, s); const est = estiloUnidad(claseUnidad(u)); $('#drIcon').innerHTML = svgVeh(u.tipo); $('#drIcon').style.background = est.c; $('#drIcon').style.setProperty('--c', est.c); $('#drIcon').querySelector('svg').style.color = est.g; $('#drCode').textContent = u.codigo; $('#drState').textContent = e.t;
   $('#drState').className = 'chip ' + (e.c === 'ave' ? 'col' : e.c === 'ruta' ? 'run' : '');
   let pos = { x: u.x, y: u.y }, t = Math.max(s.reloj.simulado_min, u.ocupado_hasta_min); const v = u.velocidad;
   // paradas consecutivas iguales (dos recargas seguidas en el mismo almacén) se muestran una vez
@@ -885,7 +1009,7 @@ function pintarDetalle(s){
   $('#drBody').innerHTML = `<dl class="kv">
       <dt>Tipo</dt><dd>${TIPOS[u.tipo].nombre.slice(0, -1)} · S/ ${TIPOS[u.tipo].costo} por km</dd>
       <dt>Posición</dt><dd class="mono">(${u.x}, ${u.y})</dd>
-      <dt>Carga</dt><dd>${u.carga} / ${u.capacidad} paq.<div class="bar"><i class="${sem(occ, U.ocuA, U.ocuR, true)}" style="width:${occ}%"></i></div></dd>
+      <dt>Carga</dt><dd>${u.carga} / ${u.capacidad} paq. (${occ.toFixed(0)} %) ${semTag(semLlenado(occ))}<div class="bar"><i class="${semLlenado(occ)}" style="width:${occ}%"></i></div></dd>
       <dt>Velocidad</dt><dd>${u.velocidad} km/h</dd>
       <dt>Ocupado hasta</dt><dd>${u.ocupado_hasta_min > s.reloj.simulado_min ? fmtFecha(aFecha(s, u.ocupado_hasta_min)) : 'Libre'}</dd>
       <dt>Recorrido</dt><dd>${num(u.km)} km</dd></dl>
@@ -894,13 +1018,39 @@ function pintarDetalle(s){
     <p class="help">Hora estimada con la velocidad del tipo y 1 h por entrega; el camino exacto (con bloqueos) es el de la línea de la ruta.</p>`;
 }
 function pintarAlmacenes(s){
-  const U = umb(); const al = s ? s.almacenes : ALMACENES.map(a => ({ ...a, stock: a.capacidad }));
+  const al = s ? s.almacenes : ALMACENES.map(a => ({ ...a, stock: a.capacidad }));
   $('#whs').innerHTML = al.map(a => { const nm = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
-    if (!a.capacidad) return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="help">${a.codigo} (${a.x},${a.y})</span></div><div class="wh-meta"><span>Stock ilimitado</span></div></div>`;
-    const sat = 100 * (a.capacidad - a.stock) / a.capacidad; const c = sem(sat, U.satA, U.satR, true);
-    return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${sat.toFixed(0)} %</span></div><div class="bar"><i class="${c}" style="width:${sat}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div></div>`;
+    if (!a.capacidad) return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="help">${a.codigo} (${a.x},${a.y})</span></div><div class="wh-meta"><span>Stock ilimitado (sin semáforo)</span></div></div>`;
+    const ll = 100 * a.stock / a.capacidad; const c = semLlenado(ll);
+    return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div></div>`;
   }).join('');
 }
+/* Etiqueta del semáforo de llenado (color y nombre). */
+const semTag = c => `<span class="semtag"><i style="background:${colorSem(c)}"></i>${NOMBRE_SEM[c]}</span>`;
+/* Leyenda desplegable (C21, C27, D10 a D12, E03, E19): semáforo con sus rangos, vacío, averías, mantenimiento,
+   bloqueo y rutas. Se arma con las mismas constantes que usa el mapa. */
+function pintarLeyenda(){
+  const el = $('#leyenda'); if (el.hidden) return; const U = umb();
+  const fila = (sw, txt) => `<div class="lg-row">${sw}<span>${txt}</span></div>`;
+  const sw = c => `<i class="lg-sw" style="background:${c}"></i>`;
+  const veh = tp => `<span class="u-badge" style="--c:var(--panel-raised);width:24px;height:24px">${svgVeh(tp)}</span>`;
+  el.innerHTML = `<h4>Semáforo de llenado (unidades y almacenes)</h4>
+    <p class="help">Llenado = carga / capacidad en las unidades y stock / capacidad en los almacenes intermedios. ${SENTIDO_SEMAFORO === 'jp' ? 'Verde = lleno; rojo = llegando a cero.' : 'Verde = poca carga; rojo = lleno.'}</p>
+    ${rangosSemaforo().map(([c, r]) => fila(sw(colorSem(c)), `<b>${NOMBRE_SEM[c]}</b> · ${r}`)).join('')}
+    <h4>Unidades</h4>
+    ${fila(veh('AUTO'), '<b>Auto</b> · 24 paq. · 40 km/h')}${fila(veh('MOTO'), '<b>Moto</b> · 8 paq. · 25 km/h')}${fila(veh('BICICLETA'), '<b>Bicicleta</b> · 4 paq. · 12 km/h')}
+    ${[1, 2, 3].map(k => fila(sw(COLOR_AVERIA[k]), `<b>Avería ${k}</b> (marca «${k}») · ${TEXTO_AVERIA[k].split(' · ')[1]}`)).join('')}
+    ${fila(sw(COL['u-mant']), '<b>Mantenimiento</b> preventivo (marca «M»)')}
+    ${fila('<span style="width:16px;text-align:center;color:#fff">▶</span>', 'La flecha indica hacia dónde avanza la unidad')}
+    <h4>Mapa</h4>
+    ${fila(`<i class="lg-alm" style="background:${COL['alm-central']}"></i>`, '<b>Almacén central</b> · stock ilimitado')}
+    ${fila(`<i class="lg-alm" style="background:${colorSem('ok')}"></i>`, '<b>Almacén intermedio</b> · color del semáforo; el número son las unidades detenidas allí')}
+    ${fila('<i class="lg-rt"></i>', '<b>Ruta pendiente</b> (lo que falta recorrer)')}
+    ${fila('<i class="lg-rt rec"></i>', '<b>Ruta recorrida</b> desde la última parada')}
+    ${fila('<i class="lg-ln"></i>', '<b>Bloqueo</b> activo')}
+    ${fila(`<span style="display:flex;gap:2px">${['ped-ok', 'ped-warn', 'ped-bad'].map(k => `<i class="lg-dot" style="background:${COL[k]}"></i>`).join('')}</span>`, `<b>Pedido</b> según su holgura: verde ≥ ${U.holgV} min, ámbar ≥ ${U.holgA} min, rojo menos`)}`;
+}
+const MODOS_RUTAS = { pend: 'Rutas: pendientes', ambas: 'Rutas: pendientes y recorridas', ninguna: 'Rutas: ocultas' };
 function pintarRiesgo(s){
   const el = $('#risk'); const U = umb();
   if (!s){ el.innerHTML = '<p class="help">Se calcula con la instantánea en curso.</p>'; return; }
@@ -958,7 +1108,7 @@ $$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').datase
 function render(){
   if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
   const s = S.snap[S.tab]; pintarSimulacion(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
-  if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog();
+  if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog(); pintarLeyenda();
 }
 
 /* =====================================================================
@@ -973,10 +1123,10 @@ async function actualizar(e){
   conexion(true, 'Conectado al planificador');
   const s = r.estado; s.estado_corrida = r.corrida.estado; s.reloj.inicio_corrida_ms = r.corrida.inicio_ms;
   const prev = S.snap[e];
-  if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; }   // otra corrida
+  if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; S.rastro[e] = {}; }   // otra corrida
   if (prev && prev.reloj.inicio_corrida_ms === s.reloj.inicio_corrida_ms){ const dr = s.reloj.real_ms - prev.reloj.real_ms;
     if (dr > 0 && s.reloj.simulado_min > prev.reloj.simulado_min) S.K[e] = (s.reloj.simulado_min - prev.reloj.simulado_min) * 60000 / dr; }
-  S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s);
+  S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
   try { const ev = await api('GET', `/api/corridas/${e}/eventos?desde=${S.desde[e] || 0}`); ev.eventos.forEach(x => agregarLog(e, x)); S.desde[e] = ev.total; } catch (err){ /* se reintenta */ }
   if (e === S.tab && S.vista === 'mon') render();
   if (s.estado_corrida !== 'EN_EJECUCION' && !S.reportado[e]){ S.reportado[e] = true; if (e === S.tab && S.vista === 'mon') setTimeout(() => abrirReporte(e), 600); }
@@ -1004,8 +1154,9 @@ function elegirEscenario(e){
   const info = ESC_INFO[e]; $('#mdIniT').textContent = info.titulo; $('#ciAyuda').textContent = info.ayuda; $('#ciMsg').innerHTML = '';
   $('#ciRitmo').innerHTML = info.ritmos.map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
   const dia = e === 'DIA_A_DIA'; const ini = dia ? localISO(new Date()) : INICIO_SUGERIDO[e];
-  $('#ciInicio').value = ini; $('#ciInicio').readOnly = dia; $('#ciInicio').classList.toggle('ro', dia); archivosDe(ini);
+  ponerInicio(ini); for (const id of ['#ciFecha', '#ciHora']){ $(id).readOnly = dia; $(id).classList.toggle('ro', dia); } archivosDe(ini);
   if (S.datos && S.datos.desde) $('#ciRango').textContent = `Hay datos oficiales de ${S.datos.desde} a ${S.datos.hasta}.`;
+  $('#uAyuda').textContent = `Sentido del semáforo: ${SENTIDO_SEMAFORO === 'jp' ? 'llenado bajo = rojo, medio = ámbar, alto = verde' : 'llenado bajo = verde, medio = ámbar, alto = rojo'}; 0 % = vacío. Rige igual para unidades y almacenes.`;
   pintarPaso2(); actualizarEscenarios();
 }
 /* Paso 2: según haya o no una corrida del escenario, se ofrece iniciarla o verla. */
@@ -1035,6 +1186,9 @@ $('#regVolver').onclick = () => S.lista.DIA_A_DIA ? mostrarEscenario('DIA_A_DIA'
 $('#emBtn').onclick = () => elegirEscenario(S.tab);
 $('#tgSide').onclick = () => { const st = $('#stage'); st.classList.toggle('noside'); $('#tgSide').textContent = st.classList.contains('noside') ? '‹' : '›'; };
 $('#tgFit').onclick = encuadrar;
+$('#tgRutas').onclick = () => { S.rutas = S.rutas === 'pend' ? 'ambas' : S.rutas === 'ambas' ? 'ninguna' : 'pend'; $('#tgRutas').textContent = MODOS_RUTAS[S.rutas];
+  const s = S.snap[S.tab]; if (s) dibujarMapa(s); };
+$('#tgLey').onclick = () => { const el = $('#leyenda'); el.hidden = !el.hidden; $('#tgLey').setAttribute('aria-pressed', !el.hidden); pintarLeyenda(); };
 $$('.role-btn').forEach(b => b.onclick = () => { S.rol = S.rol === 'control' ? 'observador' : 'control'; document.body.classList.toggle('observer', S.rol !== 'control');
   $$('.roleTxt').forEach(t => t.textContent = S.rol === 'control' ? 'Control' : 'Observador'); if (S.esc) pintarPaso2(); render(); });
 function abrirModal(id){ $('#' + id).classList.add('on'); } function cerrarModales(){ $$('.modal.on').forEach(m => m.classList.remove('on')); }
@@ -1047,10 +1201,20 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModale
    ===================================================================== */
 function localISO(d){ return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function archivosDe(iso){ const y = iso.slice(0, 4), m = iso.slice(5, 7); $('#ciVentas').value = `ventas.${y}${m}.txt`; $('#ciBloq').value = `bloqueo.${y.slice(2)}${m}.txt`; }
-$('#ciInicio').addEventListener('input', () => archivosDe($('#ciInicio').value));
+/* Fecha y hora de inicio en campos propios (dd/mm/aaaa y hh:mm de 24 h). leerInicio devuelve aaaa-mm-ddThh:mm o null. */
+function ponerInicio(iso){ $('#ciFecha').value = `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; $('#ciHora').value = iso.slice(11, 16); }
+function leerInicio(){
+  const f = $('#ciFecha').value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/), h = $('#ciHora').value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!f || !h) return null; const [d, m, a, hh, mi] = [+f[1], +f[2], +f[3], +h[1], +h[2]];
+  const fecha = new Date(a, m - 1, d, hh, mi); if (fecha.getDate() !== d || fecha.getMonth() !== m - 1 || hh > 23 || mi > 59) return null;
+  return `${a}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}`;
+}
+$('#ciFecha').addEventListener('input', () => { const iso = leerInicio(); if (iso) archivosDe(iso); });
 $('#ciGo').onclick = async () => {
-  const e = S.esc; const iso = $('#ciInicio').value; if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica la fecha de inicio.</span>'; return; }
-  S.umbrales[e] = { ...UMB_DEF, holgV: +$('#uHv').value, holgA: +$('#uHa').value, satA: +$('#uSa').value };
+  const e = S.esc; const iso = leerInicio(); if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica una fecha válida (dd/mm/aaaa) y una hora válida (hh:mm, de 00:00 a 23:59).</span>'; return; }
+  const l1 = Math.round(+$('#uL1').value), l2 = Math.round(+$('#uL2').value);
+  if (!(l1 >= 1 && l2 > l1 && l2 <= 100)){ $('#ciMsg').innerHTML = '<span class="bad-t">Los límites de llenado deben cumplir 1 ≤ bajo &lt; alto ≤ 100.</span>'; return; }
+  S.umbrales[e] = { ...UMB_DEF, holgV: +$('#uHv').value, holgA: +$('#uHa').value, ll1: l1, ll2: l2 };
   $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Cargando datos oficiales y armando el primer plan…</span>';
   try {
     await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime(), factor: $('#ciRitmo').value,

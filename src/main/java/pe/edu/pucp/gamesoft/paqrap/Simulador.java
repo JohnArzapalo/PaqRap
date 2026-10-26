@@ -1625,7 +1625,9 @@ class Simulador {
                  .valor("carga", carga).valor("capacidad", un.u.tipo.capacidadMaxima)
                  .valor("velocidad", velocidad(un.u.tipo)).valor("ocupado_hasta_min", un.ocupadoHasta)
                  .valor("km", un.km);
-                if (un.estado == EstadoUnidad.AVERIADA && un.averia != null) j.valor("averia_tipo", un.averia.tipo);
+                if (un.estado == EstadoUnidad.AVERIADA && un.averia != null)
+                    j.valor("averia_tipo", un.averia.tipo).valor("averia_en_lugar_hasta_min", un.averia.enLugarHastaMin())
+                     .valor("averia_disponible_min", un.averia.disponibleDesdeMin());
                 else j.valor("averia_tipo", (String) null);
                 j.abrirArreglo("a_bordo");
                 for (String id : un.aBordo) j.valor(null, id);
