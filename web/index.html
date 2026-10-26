@@ -239,6 +239,33 @@ textarea{font-family:var(--font-mono);font-size:11.5px;resize:vertical;}
 .ro{background:var(--panel);color:var(--text-dim);}
 .act-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:9px;border:1.5px solid var(--red);border-radius:9px;background:none;color:var(--red);font-weight:600;font-size:13px;font-family:var(--font-display);}
 .act-btn:hover{background:var(--red-dim);}
+/* herramientas de orden y filtro (flota, almacenes y envíos) */
+.ftools{display:grid;gap:8px;border:1px solid var(--border-soft);border-radius:11px;padding:9px 10px;}
+.ftools-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.dist-row{display:grid;grid-template-columns:1fr 46px 64px;gap:6px;}
+.fchip i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+.ulist.plana{display:block;border-top:0;padding-top:0;}
+.urow .ud{grid-column:1/-1;font-size:10.5px;color:var(--text-faint);white-space:normal;line-height:1.35;}
+.urow .ud b{color:var(--text-dim);font-weight:600;}
+.urow .uc svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;color:var(--text-dim);}
+/* almacenes y envíos */
+.wh-card.sel{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);}
+.wh-card{cursor:pointer;}
+.wh-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.wh-tab{border:1px solid var(--border);background:var(--panel);border-radius:8px;padding:3px 8px;font-size:11px;color:var(--text-dim);}
+.wh-tab[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
+.mini{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+.mini th{text-align:left;color:var(--text-faint);font-weight:600;padding:3px 4px;border-bottom:1px solid var(--border-soft);}
+.mini td{padding:3px 4px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+.env{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;display:grid;gap:5px;}
+.env-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+.env-h b{font-family:var(--font-mono);font-size:12px;}
+.env-m{font-size:11px;color:var(--text-dim);}
+.parte{border-left:3px solid var(--border);padding:4px 0 4px 8px;display:grid;gap:2px;font-size:11px;cursor:pointer;border-radius:0 6px 6px 0;}
+.parte:hover{background:var(--panel-raised);}
+.parte.en_curso{border-left-color:var(--green);} .parte.asignado{border-left-color:var(--brand);} .parte.pendiente{border-left-color:var(--amber);}
+.parte.entregado{border-left-color:var(--text-faint);} .parte.en_averiada{border-left-color:var(--av2);}
+.parte .r{color:var(--text-faint);}
 /* sección Bitácora */
 .fchips{display:flex;gap:5px;flex-wrap:wrap;}
 .fchip{border:1px solid var(--border);background:var(--panel-alt);border-radius:14px;padding:2px 9px;font-size:11px;color:var(--text-dim);}
@@ -474,7 +501,6 @@ body.observer .ctrl-only{display:none !important;}
         <div class="acc-b">
           <div class="kpi-grid" id="kpis"></div>
           <div class="panel"><div class="panel-head"><h2>Riesgo de colapso</h2><small>alerta temprana</small></div><div id="risk"></div></div>
-          <div class="panel"><div class="panel-head"><h2>Almacenes</h2><small>llenado = stock / capacidad</small></div><div id="whs" style="display:grid;gap:6px;"></div></div>
           <div class="panel"><div class="panel-head"><h2>Evolución</h2><small id="evoCap">entregas por día</small></div><svg id="evo" viewBox="0 0 300 100" style="width:100%;height:100px;"></svg></div>
           <div class="panel ctrl-only">
             <div class="panel-head"><h2>Acciones de operación</h2></div>
@@ -491,7 +517,76 @@ body.observer .ctrl-only{display:none !important;}
 
       <section class="acc" data-acc="flota">
         <button class="acc-h" aria-expanded="false">Flota <small id="fleetTot">—</small><i class="chev"></i></button>
-        <div class="acc-b"><div id="fleet" style="display:grid;gap:8px;"></div></div>
+        <div class="acc-b">
+          <!-- Ordenar, filtrar y buscar unidades (E06 a E17); los filtros se reflejan en el mapa (F16, F18) -->
+          <div class="ftools" id="flTools">
+            <div class="row2">
+              <label class="fl">Ordenar por<select id="flOrden">
+                <option value="">— (agrupar por tipo)</option>
+                <option value="ocupacion">Ocupación (%)</option>
+                <option value="salida">Hora de salida</option>
+                <option value="llegada">Hora de llegada</option>
+                <option value="por_recorrer">Distancia por recorrer (km)</option>
+                <option value="recorrida">Distancia recorrida (km)</option>
+                <option value="min_destino">Minutos a la llegada al destino</option>
+                <option value="min_origen">Minutos desde la salida del origen</option>
+              </select></label>
+              <label class="fl">Sentido<select id="flSentido"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
+            </div>
+            <div class="fl">Tipo<div class="fchips" id="flTipo"><button class="fchip" data-v="AUTO" aria-pressed="true">Autos</button><button class="fchip" data-v="MOTO" aria-pressed="true">Motos</button><button class="fchip" data-v="BICICLETA" aria-pressed="true">Bicicletas</button></div></div>
+            <div class="fl">Semáforo de llenado<div class="fchips" id="flSem"></div></div>
+            <div class="row2">
+              <label class="fl">Origen (almacén de la última recarga)<select id="flOrigen"><option value="">Todos</option><option value="AL-CEN">Central</option><option value="AL-NO">Nor-Oeste</option><option value="AL-ES">Este</option></select></label>
+              <label class="fl">Estado<select id="flEstado"><option value="">Todos</option><option value="ruta">En ruta o atendiendo</option><option value="libre">Disponible</option><option value="AVERIADA">Averiada</option><option value="MANTENIMIENTO">Mantenimiento</option></select></label>
+            </div>
+            <div class="fl">Buscar por distancia
+              <div class="dist-row"><select id="flDistM">
+                <option value="">— (sin búsqueda)</option>
+                <option value="min_destino">Minutos a la llegada al destino</option>
+                <option value="min_salida">Minutos a la salida hacia el destino</option>
+                <option value="min_origen">Minutos desde la salida del origen</option>
+                <option value="min_origen_lleg">Minutos desde la llegada al origen</option>
+                <option value="km_destino">Km al destino</option>
+                <option value="km_origen">Km desde el origen</option>
+              </select><select id="flDistOp"><option value="le">≤</option><option value="ge">≥</option></select><input type="number" id="flDistV" value="30" min="0"></div>
+            </div>
+            <p class="help"><b>Origen</b>: la última parada a la que llegó la unidad (almacén, cliente o trasvase). <b>Destino</b>: su próxima parada en el plan. <b>Salida</b>: hora en que parte del origen hacia el destino; <b>llegada</b>: hora estimada en que llega al destino. Minutos y km siguen el camino real, con los desvíos por bloqueos.</p>
+            <div class="ftools-foot"><span class="help" id="flRes"></span><button class="link-btn" id="flLimpiar">Quitar filtros</button></div>
+          </div>
+          <div id="fleet" style="display:grid;gap:8px;"></div>
+        </div>
+      </section>
+
+      <section class="acc" data-acc="alm">
+        <button class="acc-h" aria-expanded="false">Almacenes <small>llenado = stock / capacidad</small><i class="chev"></i></button>
+        <div class="acc-b">
+          <!-- Lista de almacenes (E18 a E22); los filtros se reflejan en el mapa (F15, F17) -->
+          <div class="ftools">
+            <div class="fl">Semáforo de llenado<div class="fchips" id="whSem"></div></div>
+            <div class="row2">
+              <label class="fl">Tipo<select id="whTipo"><option value="">Todos</option><option value="central">Central</option><option value="intermedio">Intermedios</option></select></label>
+              <label class="fl">Ventana X (horas)<select id="whX"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option><option>24</option></select></label>
+            </div>
+          </div>
+          <div id="whs" style="display:grid;gap:8px;"></div>
+        </div>
+      </section>
+
+      <section class="acc" data-acc="env">
+        <button class="acc-h" aria-expanded="false">Envíos <small id="envTot">—</small><i class="chev"></i></button>
+        <div class="acc-b">
+          <!-- Lista de envíos (E31 a E33): cada pedido con TODAS sus partes (reparto por productos, SI-28) -->
+          <input id="envBuscar" placeholder="Buscar por pedido, parte o unidad" autocomplete="off">
+          <div class="fchips" id="envFiltro">
+            <button class="fchip" data-f="vigentes" aria-pressed="true">Vigentes</button>
+            <button class="fchip" data-f="por_entregar" aria-pressed="false">Por entregar en X h</button>
+            <button class="fchip" data-f="entregados" aria-pressed="false">Entregados en las últimas X h</button>
+            <button class="fchip" data-f="sin_unidad" aria-pressed="false">Sin unidad</button>
+          </div>
+          <label class="fl">X (horas)<select id="envX"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option><option>24</option></select></label>
+          <p class="help">Cada producto se identifica con el id de su parte y su número (p. ej., <span class="mono">c1234-L55+3·p2</span>). Un pedido repartido entre unidades muestra cada parte con su unidad, su ruta y sus horas.</p>
+          <div id="envList" style="display:grid;gap:8px;"></div>
+        </div>
       </section>
 
       <section class="acc" data-acc="log">
@@ -685,8 +780,9 @@ function direccion(x, y, tx, ty){ return tx > x ? 'E' : tx < x ? 'O' : ty > y ? 
 /* ===== Estado del cliente ===== */
 const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
   logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
-  filtro: 'ALL', acc: { sim: true, res: false, flota: false, log: false }, reportado: {}, registrados: [], datos: null,
-  dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null };
+  filtro: 'ALL', acc: { sim: true, res: false, flota: false, alm: false, env: false, log: false }, reportado: {}, registrados: [], datos: null,
+  dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null,
+  fl: null, wh: { sem: null, tipo: '', x: 4, abierto: {}, sel: null }, env: { filtro: 'vigentes', x: 4, q: '' } };
 /* ll1 / ll2: límites de las bandas de llenado (bajo < ll1 ≤ medio < ll2 ≤ alto), iguales para unidades y almacenes. */
 const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, ll1: 40, ll2: 75, rP: 15, rF: 20, rC: 30, rI: 60 };
 const umb = () => S.umbrales[S.tab] || UMB_DEF;
@@ -782,6 +878,7 @@ function dibujarAlmacenes(s){
     const tip = `<b>${nombre}</b> (${a.x}, ${a.y})<br>` + (a.capacidad ? `Stock ${num(a.stock)} / ${num(a.capacidad)} · llenado ${ll.toFixed(0)} % · ${NOMBRE_SEM[cls0]}` : 'Stock ilimitado') + (aqui.length ? `<br>Unidades aquí: ${aqui.join(', ')}` : '');
     if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip); mAlm[a.codigo]._cls = cls; }
     else { if (mAlm[a.codigo]._cls !== cls){ mAlm[a.codigo].setIcon(iconAlm(a, cls0, aqui.length)); mAlm[a.codigo]._cls = cls; } mAlm[a.codigo].setTooltipContent(tip); }
+    mAlm[a.codigo].setOpacity(!S.wh || !S.wh.sem || pasaFiltroAlmacen(a) ? 1 : .25);   // filtros de almacenes del panel (F15, F17)
   }
 }
 dibujarAlmacenes({ almacenes: ALMACENES.map(a => ({ ...a, stock: a.capacidad })) });
@@ -822,7 +919,8 @@ function dibujarMapa(s){
   const vistos = new Set();
   for (const u of s.unidades){
     if (enAlmacen(u, s)) continue; vistos.add(u.codigo);
-    const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '');
+    const pasa = !S.fl || S.sel === u.codigo || pasaFiltroUnidad(u, s);   // filtros del panel reflejados en el mapa (F16, F18)
+    const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '') + (pasa ? '' : ' atenuada');
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
       m.on('click', () => abrirDetalle(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
@@ -840,7 +938,7 @@ function dibujarMapa(s){
   for (const u of s.unidades){
     if (u.estado !== 'OPERATIVA') continue; const selc = S.sel === u.codigo;
     if (S.sel && !selc) continue;   // con una unidad elegida, solo su ruta
-    if (!selc && S.rutas === 'ninguna') continue;
+    if (!selc && (S.rutas === 'ninguna' || (S.fl && !pasaFiltroUnidad(u, s)))) continue;
     const col = selc ? COL['ruta-sel'] : COL.ruta; const rec = R[u.codigo];
     if ((selc || S.rutas === 'ambas') && rec && rec.length > 1)
       L.polyline(rec.map(c => [c[1], c[0]]), { color: col, weight: selc ? 3 : 2, opacity: selc ? .65 : .45, dashArray: '3 6', interactive: false }).addTo(gRutas);
@@ -1027,28 +1125,201 @@ function pintarKpis(s){
     ['Averías · trasvases', `${I.averias} · ${I.trasvases}`, I.pedidos_inentregables_bloqueo ? `${I.pedidos_inentregables_bloqueo} no evaluables por bloqueo` : 'sin pedidos no evaluables']
   ].map(([l, v, sub, c]) => `<div class="kpi ${c ? 'sem ' + c : ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s" title="${sub}">${sub}</div></div>`).join('');
 }
+/* =====================================================================
+   PANEL DE FLOTA (etapa 35, E02 y E06 a E17): orden, filtros (tipo, semáforo con vacío, origen y estado)
+   y búsqueda por distancia en minutos o km al destino y al origen. Los filtros también se reflejan en
+   el mapa (F16, F18): lo que no los cumple se atenúa.
+   ===================================================================== */
+const SEM_UNI = [['vacio', 'Vacío'], ['bad', 'Rojo'], ['warn', 'Ámbar'], ['ok', 'Verde'], ['av', 'Averiada'], ['man', 'Mantenimiento']];
+const SEM_ALM = [['vacio', 'Vacío'], ['bad', 'Rojo'], ['warn', 'Ámbar'], ['ok', 'Verde'], ['central', 'Sin semáforo (central)']];
+const ahoraDe = s => s.reloj.ahora_min ?? s.reloj.simulado_min;
+/* Hora (hh:mm) de un minuto de la corrida; con la fecha si no es del día que se muestra. */
+function hora(s, min){ if (min === null || min === undefined) return '—'; const d = aFecha(s, min), h = aFecha(s, ahoraDe(s));
+  return d.toDateString() === h.toDateString() ? fmtHM(d) : `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${fmtHM(d)}`; }
+/* Valores de una unidad para ordenar y buscar. null = no aplica (p. ej., sin destino). */
+function metricasUnidad(u, t){
+  const o = u.origen || {}, d = u.destino;
+  return {
+    ocupacion: 100 * u.carga / u.capacidad,
+    salida: d && d.salida_min !== null ? d.salida_min : o.salida_min ?? null,
+    llegada: d ? d.llegada_min : null,
+    por_recorrer: u.km_por_recorrer ?? null,
+    recorrida: u.km,
+    min_destino: d ? d.llegada_min - t : null,
+    min_salida: d && d.salida_min !== null ? d.salida_min - t : null,
+    min_origen: o.salida_min !== null && o.salida_min !== undefined ? t - o.salida_min : null,
+    min_origen_lleg: o.llegada_min !== null && o.llegada_min !== undefined ? t - o.llegada_min : null,
+    km_destino: d ? d.km : null,
+    km_origen: o.salida_min !== null && o.salida_min !== undefined ? o.km : null
+  };
+}
+/* Clase del semáforo de una unidad para el filtro: vacío, rojo, ámbar, verde, averiada o mantenimiento. */
+function semFiltroUnidad(u){ const c = claseUnidad(u); return c.startsWith('av') ? 'av' : c; }
+function pasaFiltroUnidad(u, s){
+  const F = S.fl; if (!F.tipos.has(u.tipo) || !F.sem.has(semFiltroUnidad(u))) return false;
+  if (F.origen && u.ultima_recarga !== F.origen) return false;
+  if (F.estado){ const e = estadoVisible(u, s);
+    if (F.estado === 'ruta' ? e.c !== 'ruta' && e.c !== 'ali' : F.estado === 'libre' ? !(u.estado === 'OPERATIVA' && e.c === '') : u.estado !== F.estado) return false; }
+  if (F.distM){ const v = metricasUnidad(u, ahoraDe(s))[F.distM]; if (v === null || v === undefined) return false;
+    if (F.distOp === 'le' ? v > F.distV : v < F.distV) return false; }
+  return true;
+}
+function filaUnidad(u, s, t){
+  const ocu = 100 * u.carga / u.capacidad, d = u.destino, o = u.origen || {}, det = [];
+  if (d) det.push(`→ <b>${esc(d.lugar)}</b>${d.salida_min !== null && d.salida_min > t ? ` · sale ${hora(s, d.salida_min)} (en ${fmtMin(d.salida_min - t)})` : ''} · llega ${hora(s, d.llegada_min)} (en ${fmtMin(d.llegada_min - t)}, ${d.km} km)`);
+  if (o.lugar) det.push(`desde <b>${esc(o.lugar)}</b>${o.salida_min !== null && o.salida_min !== undefined ? ` · salió ${hora(s, o.salida_min)} (hace ${fmtMin(t - o.salida_min)}, ${num(o.km)} km)` : o.llegada_min !== null && o.llegada_min !== undefined ? ` · llegó ${hora(s, o.llegada_min)}` : ''}`);
+  det.push(`recorridos ${num(u.km)} km · por recorrer ${u.km_por_recorrer ?? 0} km · última recarga ${u.ultima_recarga || '—'}`);
+  return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${svgVeh(u.tipo)}${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span>`
+    + `<span class="bar" style="margin:0"><i class="${semLlenado(ocu)}" style="width:${ocu.toFixed(0)}%"></i></span><span class="mono uq">${u.carga}/${u.capacidad}</span><span class="ud">${det.join('<br>')}</span></button>`;
+}
 const abiertos = new Set(['AUTO']);
 function pintarFlota(s){
   const el = $('#fleet'); if (!s){ el.innerHTML = '<p class="help">La flota aparece al iniciar la corrida.</p>'; $('#fleetTot').textContent = '—'; return; }
-  const U = umb(); $('#fleetTot').textContent = s.unidades.length + ' unidades';
+  const t = ahoraDe(s), F = S.fl; const us = s.unidades.filter(u => pasaFiltroUnidad(u, s));
+  $('#fleetTot').textContent = s.unidades.length + ' unidades';
+  $('#flRes').textContent = `${us.length} de ${s.unidades.length} unidades cumplen los filtros`;
+  if (!S.acc.flota) return;
+  if (F.orden){   // con un orden activo, una sola lista (deja de agruparse por tipo)
+    const v = u => metricasUnidad(u, t)[F.orden], sg = F.sentido === 'asc' ? 1 : -1;
+    us.sort((a, b) => { const x = v(a), y = v(b); if (x === null || x === undefined) return 1; if (y === null || y === undefined) return -1; return sg * (x - y) || a.codigo.localeCompare(b.codigo); });
+    el.innerHTML = us.length ? `<div class="ulist plana">${us.map(u => filaUnidad(u, s, t)).join('')}</div>` : '<p class="help">Ninguna unidad cumple los filtros.</p>';
+    return;
+  }
   el.innerHTML = Object.keys(TIPOS).map(tp => {
-    const us = s.unidades.filter(u => u.tipo === tp); if (!us.length) return '';
-    const st = {}; us.forEach(u => { const e = estadoVisible(u, s); const k = e.c === 'ruta' ? 'En ruta' : e.t.startsWith('Averiada') ? 'Averiada' : e.t; st[k] = st[k] || { n: 0, c: e.c }; st[k].n++; });
-    const oper = us.filter(u => u.estado === 'OPERATIVA'); const occ = oper.length ? 100 * oper.reduce((a, u) => a + u.carga / u.capacidad, 0) / oper.length : 0;
+    const todas = s.unidades.filter(u => u.tipo === tp); if (!todas.length) return ''; const sel = us.filter(u => u.tipo === tp);
+    const st = {}; todas.forEach(u => { const e = estadoVisible(u, s); const k = e.c === 'ruta' ? 'En ruta' : e.t.startsWith('Averiada') ? 'Averiada' : e.t; st[k] = st[k] || { n: 0, c: e.c }; st[k].n++; });
+    const oper = todas.filter(u => u.estado === 'OPERATIVA'); const carga = oper.reduce((a, u) => a + u.carga, 0), cap = oper.reduce((a, u) => a + u.capacidad, 0); const occ = cap ? 100 * carga / cap : 0;
     const badges = Object.entries(st).map(([k, v]) => `<span class="v-status st-${v.c === 'ruta' ? 'ruta' : v.c === 'ave' ? 'bad' : v.c === 'ali' ? 'warn' : 'dim'}">${v.n} ${k.toLowerCase()}</span>`).join(' ');
-    const filas = us.map(u => { const ocu = 100 * u.carga / u.capacidad;
-      return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span><span class="bar" style="margin:0"><i class="${semLlenado(ocu)}" style="width:${ocu.toFixed(0)}%"></i></span><span class="mono uq">${u.carga}/${u.capacidad}</span></button>`; }).join('');
     return `<div class="vehicle-card ${abiertos.has(tp) ? 'open' : ''}" data-tp="${tp}">
-      <div class="vehicle-top"><div class="v-icon" style="--c:var(--panel-raised)">${svgVeh(tp)}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${us.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
+      <div class="vehicle-top"><div class="v-icon" style="--c:var(--panel-raised)">${svgVeh(tp)}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${sel.length} de ${todas.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">${badges}</div>
-      <div class="v-occ">Ocupación media<div class="bar"><i class="${semLlenado(occ)}" style="width:${occ.toFixed(0)}%"></i></div>${occ.toFixed(0)} %</div>
-      <div class="ulist">${filas}</div></div>`;
+      <div class="v-occ">Ocupación<div class="bar"><i class="${semLlenado(occ)}" style="width:${occ.toFixed(0)}%"></i></div>${carga}/${cap} · ${occ.toFixed(0)} %</div>
+      <div class="ulist">${sel.length ? sel.map(u => filaUnidad(u, s, t)).join('') : '<p class="help">Ninguna cumple los filtros.</p>'}</div></div>`;
   }).join('');
 }
 $('#fleet').addEventListener('click', e => {
   const r = e.target.closest('.urow'); if (r){ abrirDetalle(r.dataset.u, true); return; }
   const c = e.target.closest('.vehicle-card'); if (c){ const tp = c.dataset.tp; abiertos.has(tp) ? abiertos.delete(tp) : abiertos.add(tp); pintarFlota(S.snap[S.tab]); }
 });
+/* Chips de semáforo (con el color de cada estado) para la flota y los almacenes. */
+function chipsSemaforo(id, lista, conjunto){
+  const color = k => k === 'av' ? COL.av1 : k === 'man' ? COL['u-mant'] : k === 'central' ? COL['alm-central'] : colorSem(k);
+  $(id).innerHTML = lista.map(([k, n]) => `<button class="fchip" data-v="${k}" aria-pressed="${conjunto.has(k)}"><i style="background:${color(k)}"></i>${n}</button>`).join('');
+}
+function refiltrar(){ const s = S.snap[S.tab]; pintarFlota(s); pintarAlmacenes(s); if (s) dibujarMapa(s); }
+function alternarChip(conjunto, b){ const k = b.dataset.v; conjunto.has(k) ? conjunto.delete(k) : conjunto.add(k); b.setAttribute('aria-pressed', conjunto.has(k)); refiltrar(); }
+$('#flTipo').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.tipos, b); });
+$('#flSem').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.sem, b); });
+$('#whSem').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.wh.sem, b); });
+[['#flOrden', 'orden'], ['#flSentido', 'sentido'], ['#flOrigen', 'origen'], ['#flEstado', 'estado'], ['#flDistM', 'distM'], ['#flDistOp', 'distOp']].forEach(([id, k]) => $(id).onchange = () => { S.fl[k] = $(id).value; refiltrar(); });
+$('#flDistV').oninput = () => { S.fl.distV = +$('#flDistV').value || 0; refiltrar(); };
+$('#flLimpiar').onclick = () => { S.fl = filtrosFlotaIniciales(); for (const [id, k] of [['#flOrden', 'orden'], ['#flSentido', 'sentido'], ['#flOrigen', 'origen'], ['#flEstado', 'estado'], ['#flDistM', 'distM'], ['#flDistOp', 'distOp']]) $(id).value = S.fl[k];
+  $$('#flTipo .fchip').forEach(b => b.setAttribute('aria-pressed', true)); chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); refiltrar(); };
+$('#whTipo').onchange = () => { S.wh.tipo = $('#whTipo').value; refiltrar(); };
+$('#whX').onchange = () => { S.wh.x = +$('#whX').value; pintarAlmacenes(S.snap[S.tab]); };
+function filtrosFlotaIniciales(){ return { orden: '', sentido: 'asc', tipos: new Set(Object.keys(TIPOS)), sem: new Set(SEM_UNI.map(x => x[0])), origen: '', estado: '', distM: '', distOp: 'le', distV: 30 }; }
+
+/* =====================================================================
+   ALMACENES (E18 a E22): llenado en número y %, semáforo con vacío, y desde cada tarjeta los envíos
+   y paquetes en camino que salieron de él, los que salen en las próximas X horas y los entregados en
+   las últimas X horas (X configurable, 4 h por defecto).
+   ===================================================================== */
+function semAlmacen(a){ return a.capacidad ? semLlenado(100 * a.stock / a.capacidad) : 'central'; }
+function pasaFiltroAlmacen(a){ return S.wh.sem.has(semAlmacen(a)) && (!S.wh.tipo || (S.wh.tipo === 'central') === !a.capacidad); }
+/* Envíos de un almacén: en camino, por salir en X h y entregados en las últimas X h. */
+function enviosDeAlmacen(s, codigo){
+  const t = ahoraDe(s), X = S.wh.x * 60;
+  return {
+    camino: s.pedidos.filter(p => p.origen === codigo && (p.estado === 'en_curso' || p.estado === 'en_averiada')),
+    salir: s.pedidos.filter(p => p.origen === codigo && p.estado === 'asignado' && p.salida_min !== null && p.salida_min <= t + X),
+    entregados: (s.entregados || []).filter(p => p.origen === codigo && p.entregado_min >= t - X)
+  };
+}
+function tablaEnvios(s, lista, col){
+  if (!lista.length) return '<p class="help" style="margin-top:6px">Ninguno.</p>';
+  return `<table class="mini"><thead><tr><th>Envío</th><th>Paq.</th><th>Unidad</th><th>Destino</th><th>${col[0]}</th></tr></thead><tbody>${lista.slice(0, 60).map(p =>
+    `<tr><td class="mono">${esc(p.id)}</td><td>${p.cantidad}</td><td class="mono">${p.unidad || '—'}</td><td>(${p.x},${p.y})</td><td>${hora(s, p[col[1]])}</td></tr>`).join('')}</tbody></table>`
+    + (lista.length > 60 ? `<p class="help">y ${lista.length - 60} más</p>` : '');
+}
+function pintarAlmacenes(s){
+  const al = s ? s.almacenes : ALMACENES.map(a => ({ ...a, stock: a.capacidad }));
+  if (!S.acc.alm) return;
+  const vis = al.filter(pasaFiltroAlmacen);
+  $('#whs').innerHTML = vis.length ? vis.map(a => { const nm = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
+    const det = s ? enviosDeAlmacen(s, a.codigo) : { camino: [], salir: [], entregados: [] }; const pq = l => l.reduce((x, p) => x + p.cantidad, 0);
+    const tab = S.wh.abierto[a.codigo]; const aqui = (S.enAlm && S.enAlm[a.codigo]) || [];
+    const llenado = a.capacidad ? (() => { const ll = 100 * a.stock / a.capacidad; const c = semLlenado(ll);
+        return `<div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div>`; })()
+      : `<div class="wh-top"><span class="wh-name">${nm}</span><span class="help">stock ilimitado (sin semáforo)</span></div>`;
+    const X = S.wh.x;
+    return `<div class="wh-card${S.wh.sel === a.codigo ? ' sel' : ''}" data-alm="${a.codigo}">${llenado}
+      <div class="wh-meta"><span>${a.codigo} · (${a.x}, ${a.y})</span><span>${aqui.length} unidad${aqui.length === 1 ? '' : 'es'} detenida${aqui.length === 1 ? '' : 's'}</span></div>
+      <div class="wh-tabs">
+        <button class="wh-tab" data-tab="camino" aria-pressed="${tab === 'camino'}">En camino · ${det.camino.length} envíos, ${pq(det.camino)} paq.</button>
+        <button class="wh-tab" data-tab="salir" aria-pressed="${tab === 'salir'}">Por salir en ${X} h · ${det.salir.length}, ${pq(det.salir)} paq.</button>
+        <button class="wh-tab" data-tab="entregados" aria-pressed="${tab === 'entregados'}">Entregados en ${X} h · ${det.entregados.length}, ${pq(det.entregados)} paq.</button>
+      </div>
+      ${tab === 'camino' ? tablaEnvios(s, det.camino, ['Salió', 'salida_min']) : tab === 'salir' ? tablaEnvios(s, det.salir, ['Sale', 'salida_min']) : tab === 'entregados' ? tablaEnvios(s, det.entregados, ['Entregado', 'entregado_min']) : ''}
+    </div>`; }).join('') : '<p class="help">Ningún almacén cumple los filtros.</p>';
+}
+$('#whs').addEventListener('click', e => {
+  const b = e.target.closest('.wh-tab'); const c = e.target.closest('.wh-card'); if (!c) return;
+  if (b){ const k = c.dataset.alm; S.wh.abierto[k] = S.wh.abierto[k] === b.dataset.tab ? null : b.dataset.tab; pintarAlmacenes(S.snap[S.tab]); return; }
+  enfocarAlmacen(c.dataset.alm, false);
+});
+/* Selecciona un almacén: lo resalta en el panel y lo enfoca en el mapa. */
+function enfocarAlmacen(codigo, desdeMapa){
+  S.wh.sel = codigo; const a = ALMACENES.find(v => v.codigo === codigo);
+  if (desdeMapa){ S.acc.alm = true; pintarSecciones(); }
+  pintarAlmacenes(S.snap[S.tab]);
+  if (a) map.flyTo([a.y, a.x], Math.max(map.getZoom(), 3.5), { duration: .6 });
+  if (desdeMapa){ const el = document.querySelector(`.wh-card[data-alm="${codigo}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+}
+
+/* =====================================================================
+   ENVÍOS (E31 a E33): cada pedido con sus partes (reparto por productos, SI-28): destino, productos,
+   unidad, ruta, horas de salida y de llegada, hora límite y estado. Filtros de vigentes, por entregar
+   en las próximas X horas, entregados en las últimas X horas y sin unidad.
+   ===================================================================== */
+const ESTADO_PARTE = { pendiente: 'sin unidad', asignado: 'asignada', en_curso: 'en camino', en_averiada: 'en unidad averiada', entregado: 'entregada' };
+const productos = (id, n) => n === 1 ? `${id}·p1` : `${id}·p1 a ·p${n}`;
+/* Ruta de una parte: la unidad, sus paradas hasta la entrega de esa parte (marcada con ★). */
+function rutaParte(s, p){
+  if (p.estado === 'entregado') return `${p.origen || '—'} → ${p.unidad || '—'} → cliente (${p.x},${p.y}), entregada ${hora(s, p.entregado_min)}`;
+  if (!p.unidad) return 'todavía sin unidad asignada';
+  const u = s.unidades.find(v => v.codigo === p.unidad); if (!u) return p.unidad;
+  const pasos = [`${u.codigo} en (${u.x},${u.y})`];
+  for (const pa of u.paradas){ const objetivo = pa.tipo === 'ENTREGA' && pa.id === p.id;
+    pasos.push(pa.tipo === 'RECARGA' ? pa.id.replace('RECARGA@', '') : pa.tipo === 'TRASVASE' ? 'trasvase' : objetivo ? `★ cliente (${pa.x},${pa.y})` : `(${pa.x},${pa.y})`);
+    if (objetivo) break; }
+  return pasos.length > 7 ? [...pasos.slice(0, 3), '…', ...pasos.slice(-3)].join(' → ') : pasos.join(' → ');
+}
+function pintarEnvios(s){
+  if (!s){ $('#envList').innerHTML = '<p class="help">Los envíos aparecen al iniciar la corrida.</p>'; $('#envTot').textContent = '—'; return; }
+  const t = ahoraDe(s), X = S.env.x * 60, q = S.env.q.trim().toLowerCase(), f = S.env.filtro;
+  const partes = [...s.pedidos.map(p => ({ ...p })), ...(s.entregados || []).map(p => ({ ...p, estado: 'entregado', llegada_min: p.entregado_min }))];
+  const grupos = new Map(); for (const p of partes){ if (!grupos.has(p.pedido)) grupos.set(p.pedido, []); grupos.get(p.pedido).push(p); }
+  $('#envTot').textContent = `${grupos.size} pedidos`;
+  if (!S.acc.env) return;
+  const pasa = p => f === 'vigentes' ? p.estado !== 'entregado' : f === 'por_entregar' ? p.estado !== 'entregado' && p.llegada_min !== null && p.llegada_min <= t + X
+    : f === 'entregados' ? p.estado === 'entregado' && p.entregado_min >= t - X : f === 'sin_unidad' ? p.estado === 'pendiente' : true;
+  const busca = (ped, ps) => !q || ped.toLowerCase().includes(q) || ps.some(p => p.id.toLowerCase().includes(q) || (p.unidad || '').toLowerCase().includes(q));
+  const lista = [...grupos.entries()].filter(([ped, ps]) => ps.some(pasa) && busca(ped, ps)).sort((a, b) => Math.min(...a[1].map(p => p.limite_min)) - Math.min(...b[1].map(p => p.limite_min)));
+  const MAX = 120;
+  $('#envList').innerHTML = (lista.length ? lista.slice(0, MAX).map(([ped, ps]) => {
+    ps.sort((a, b) => a.id.localeCompare(b.id)); const total = ps.reduce((a, p) => a + p.cantidad, 0), p0 = ps[0];
+    const cuenta = {}; ps.forEach(p => cuenta[p.estado] = (cuenta[p.estado] || 0) + 1);
+    const holg = Math.min(...ps.filter(p => p.estado !== 'entregado').map(p => p.limite_min)) - t;
+    return `<div class="env"><div class="env-h"><b>${esc(ped)}</b><span class="env-m">${total} prod. · ${ps.length} parte${ps.length === 1 ? '' : 's'}</span></div>
+      <div class="env-m">Destino (${p0.x}, ${p0.y}) · plazo ${p0.plazo_h} h · límite ${hora(s, p0.limite_min)}${isFinite(holg) ? ` · holgura ${fmtMin(holg)}` : ''} · ${Object.entries(cuenta).map(([k, n]) => `${n} ${ESTADO_PARTE[k]}`).join(', ')}</div>
+      ${ps.map(p => `<div class="parte ${p.estado}" data-parte="${esc(p.id)}" title="Ver en el mapa"><div><b class="mono">${esc(p.id)}</b> · ${p.cantidad} prod. (<span class="mono">${esc(productos(p.id, p.cantidad))}</span>) · ${p.unidad ? `<span class="mono">${p.unidad}</span>` : 'sin unidad'} · ${ESTADO_PARTE[p.estado] || p.estado}</div>
+        <div class="r">Salida ${p.origen ? 'de ' + p.origen + ' ' : ''}${hora(s, p.salida_min)} · llegada ${p.estado === 'entregado' ? hora(s, p.entregado_min) : (p.llegada_min !== null ? '≈ ' + hora(s, p.llegada_min) : '—')}</div>
+        <div class="r">Ruta: ${esc(rutaParte(s, p))}</div></div>`).join('')}</div>`; }).join('')
+    : '<p class="help">Ningún envío cumple el filtro.</p>') + (lista.length > MAX ? `<p class="help">Se muestran los ${MAX} con la hora límite más próxima de ${lista.length}; usa la búsqueda para ver otros.</p>` : '');
+}
+$$('#envFiltro .fchip').forEach(b => b.onclick = () => { $$('#envFiltro .fchip').forEach(x => x.setAttribute('aria-pressed', x === b)); S.env.filtro = b.dataset.f; pintarEnvios(S.snap[S.tab]); });
+$('#envX').onchange = () => { S.env.x = +$('#envX').value; pintarEnvios(S.snap[S.tab]); };
+$('#envBuscar').oninput = () => { S.env.q = $('#envBuscar').value; pintarEnvios(S.snap[S.tab]); };
 function abrirDetalle(codigo, centrar){
   S.sel = codigo; $('#drawer').classList.add('on'); const s = S.snap[S.tab]; if (s){ pintarDetalle(s); dibujarMapa(s); pintarFlota(s); }
   if (centrar && mUni[codigo]) map.flyTo(mUni[codigo].getLatLng(), Math.max(map.getZoom(), 3.5), { duration: .6 });
@@ -1061,7 +1332,8 @@ function pintarDetalle(s){
   let pos = { x: u.x, y: u.y }, t = Math.max(s.reloj.simulado_min, u.ocupado_hasta_min); const v = u.velocidad;
   // paradas consecutivas iguales (dos recargas seguidas en el mismo almacén) se muestran una vez
   const lista = u.paradas.filter((p, i) => i === 0 || p.tipo !== 'RECARGA' || p.id !== u.paradas[i - 1].id);
-  const paradas = lista.map(p => { t += man(pos, p) / v * 60; pos = p; const eta = t; if (p.tipo === 'ENTREGA') t += 60; if (p.tipo === 'TRASVASE') t += 30;
+  const paradas = lista.map(p => { t += man(pos, p) / v * 60; pos = p; const eta = p.llegada_min ?? t; if (p.tipo === 'ENTREGA') t += 60; if (p.tipo === 'TRASVASE') t += 30;
+    if (p.fin_min !== null && p.fin_min !== undefined) t = p.fin_min;   // hora exacta del plan (etapa 35)
     const ped = s.pedidos.find(q => q.id === p.id);
     const nombre = ped ? ped.pedido + (ped.id !== ped.pedido ? ' (parte)' : '') : p.id.replace('RECARGA@', '');
     return `<li><span class="k ${p.tipo[0]}">${p.tipo[0]}</span><span>${p.tipo === 'ENTREGA' ? 'Entrega ' : p.tipo === 'RECARGA' ? 'Recarga ' : 'Trasvase '}<span class="mono">${esc(nombre)}</span>${ped ? ' · ' + ped.cantidad + ' paq.' : ''}<br><span class="t">(${p.x}, ${p.y})${ped ? ' · límite ' + fmtHM(aFecha(s, ped.limite_min)) : ''}</span></span><span class="t">≈ ${fmtHM(aFecha(s, eta))}</span></li>`; }).join('');
@@ -1075,15 +1347,7 @@ function pintarDetalle(s){
       <dt>Recorrido</dt><dd>${num(u.km)} km</dd></dl>
     <div><div class="sec-t">Productos a bordo</div><div class="tags">${u.a_bordo.length ? u.a_bordo.map(a => `<span>${esc(a)}</span>`).join('') : '<span class="help">Ninguno</span>'}</div></div>
     <div><div class="sec-t">Paradas del plan (${lista.length})</div><ul class="stops">${paradas || '<li style="display:block" class="t">Sin paradas asignadas</li>'}</ul></div>
-    <p class="help">Hora estimada con la velocidad del tipo y 1 h por entrega; el camino exacto (con bloqueos) es el de la línea de la ruta.</p>`;
-}
-function pintarAlmacenes(s){
-  const al = s ? s.almacenes : ALMACENES.map(a => ({ ...a, stock: a.capacidad }));
-  $('#whs').innerHTML = al.map(a => { const nm = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
-    if (!a.capacidad) return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="help">${a.codigo} (${a.x},${a.y})</span></div><div class="wh-meta"><span>Stock ilimitado (sin semáforo)</span></div></div>`;
-    const ll = 100 * a.stock / a.capacidad; const c = semLlenado(ll);
-    return `<div class="wh-card"><div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div></div>`;
-  }).join('');
+    <p class="help">Hora estimada de llegada según el plan vigente: camino real (con desvíos por bloqueos), alimentación y 1 h por entrega.</p>`;
 }
 /* Etiqueta del semáforo de llenado (color y nombre). */
 const semTag = c => `<span class="semtag"><i style="background:${colorSem(c)}"></i>${NOMBRE_SEM[c]}</span>`;
@@ -1163,11 +1427,11 @@ $$('#logFiltros .fchip').forEach(b => b.onclick = () => { $$('#logFiltros .fchip
 
 /* Secciones desplegables: cada nombre abre o cierra su sección. */
 function pintarSecciones(){ $$('.acc').forEach(a => { const on = !!S.acc[a.dataset.acc]; a.classList.toggle('open', on); a.querySelector('.acc-h').setAttribute('aria-expanded', on); }); }
-$$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').dataset.acc; S.acc[k] = !S.acc[k]; pintarSecciones(); if (k === 'log' && S.acc.log) pintarLog(); });
+$$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').dataset.acc; S.acc[k] = !S.acc[k]; pintarSecciones(); if (k === 'log' && S.acc.log) pintarLog(); if (S.acc[k]) render(); });
 
 function render(){
   if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
-  const s = S.snap[S.tab]; pintarSimulacion(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
+  const s = S.snap[S.tab]; pintarSimulacion(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
   if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog(); pintarLeyenda();
 }
 
@@ -1237,7 +1501,7 @@ function pintarPaso2(){
   $('#lnVer').className = corre || obs ? 'btn-play' : 'btn-secondary';
 }
 function mostrarEscenario(e){
-  S.tab = e; mostrarVista('mon'); S.acc = { sim: true, res: false, flota: false, log: false }; pintarSecciones();
+  S.tab = e; mostrarVista('mon'); S.acc = { sim: true, res: false, flota: false, alm: false, env: false, log: false }; pintarSecciones();
   S.sel = null; $('#drawer').classList.remove('on'); limpiarMapa(); render(); pintarLog(); setTimeout(encuadrar, 60); actualizar(e);
 }
 function mostrarRegistro(){ S.tab = 'REGISTRO'; mostrarVista('reg'); pintarRegistro(); actualizar('DIA_A_DIA'); }
@@ -1388,6 +1652,8 @@ $('#btnValidar').onclick = async () => {
 };
 
 /* ===== Arranque: primero se elige el escenario ===== */
+S.fl = filtrosFlotaIniciales(); S.wh.sem = new Set(SEM_ALM.map(x => x[0]));
+chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem);
 render(); pintarRegistro(); mostrarInicio();
 api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
 </script>

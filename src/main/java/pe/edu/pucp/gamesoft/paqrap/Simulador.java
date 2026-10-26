@@ -207,6 +207,13 @@ class Simulador {
         boolean averiaDejoLugar;
         int viajes;
         double km;   // recorridos por esta unidad (para el visualizador y el reporte)
+        // Seguimiento para el visualizador (Etapa 35, panel E06 a E17): no influye en la planificación.
+        // Origen = última parada (almacén, cliente o trasvase) a la que llegó; salida = cuándo partió de ahí.
+        String origenLugar = Compartido.ALMACEN_CENTRAL.codigo;
+        int origenX = Compartido.ALMACEN_CENTRAL.x, origenY = Compartido.ALMACEN_CENTRAL.y;
+        double origenLlegadaMin = Double.NaN, salidaMin = Double.NaN, kmEnSalida;
+        /** Almacén de la última recarga con productos (filtro por origen, E11). */
+        String ultimaRecarga = Compartido.ALMACEN_CENTRAL.codigo;
 
         Unidad(UnidadTransporte u) {
             this.u = u;
@@ -228,6 +235,13 @@ class Simulador {
             c.averiaDejoLugar = averiaDejoLugar;
             c.viajes = viajes;
             c.km = km;
+            c.origenLugar = origenLugar;
+            c.origenX = origenX;
+            c.origenY = origenY;
+            c.origenLlegadaMin = origenLlegadaMin;
+            c.salidaMin = salidaMin;
+            c.kmEnSalida = kmEnSalida;
+            c.ultimaRecarga = ultimaRecarga;
             return c;
         }
     }
@@ -275,6 +289,11 @@ class Simulador {
     private final Map<String, String> estado = new HashMap<>();
     private final Map<String, Double> entregadaEn = new HashMap<>();
     private final Map<String, List<String>> partesDe = new LinkedHashMap<>();
+    // Seguimiento de productos para el visualizador (Etapa 35, E20 a E22, E31, F02): almacén donde se cargó cada
+    // entrega, cuándo, qué unidad la entregó y sus escalas. No influye en la planificación; la copia proyectada no los llena.
+    private final Map<String, String> origenDe = new HashMap<>();
+    private final Map<String, Double> cargadoEn = new HashMap<>();
+    private final Map<String, String> entregadoPor = new HashMap<>();
     /** Entregas cuyo plazo ya venció sin entregarse (siguen planificándose, tarde). */
     private final Set<String> vencidas = new java.util.HashSet<>();
     /** Pedidos originales inentregables por bloqueo (regla NO_EVALUABLE). */
@@ -935,6 +954,8 @@ class Simulador {
                 res.costoAcumulado += un.u.tipo.costoPorKilometro;
                 break;
             case SALIDA:
+                un.salidaMin = e.min;   // sale del origen (seguimiento, etapa 35)
+                un.kmEnSalida = un.km;
                 registrar(e, un.u.codigo, "hacia (" + e.cantidad / 1000 + "," + e.cantidad % 1000 + ")");
                 break;
             case ENTREGA:
@@ -942,11 +963,13 @@ class Simulador {
                     if (!("U:" + un.u.codigo).equals(estado.get(id))) continue;
                     estado.put(id, "E");
                     entregadaEn.put(id, e.min);
+                    if (!proyeccion) entregadoPor.put(id, un.u.codigo);
                     un.aBordo.remove(id);
                     if (e.min > entregas.get(id).horaLimite() * 60 + TOLERANCIA_MIN) res.entregasTarde++;
                 }
                 un.ocupadoHasta = e.finMin;
                 un.rutaVigente.remove(e.parada);
+                llegoA(un, "cliente (" + e.x + "," + e.y + ")", e);
                 registrar(e, un.u.codigo, "");
                 break;
             case RECARGA: {
@@ -956,12 +979,20 @@ class Simulador {
                     estado.put(id, "U:" + un.u.codigo);
                     un.aBordo.add(id);
                     cargados += entregas.get(id).cantidad;
+                    if (!proyeccion) {
+                        origenDe.put(id, e.parada.almacen.codigo);
+                        cargadoEn.put(id, e.min);
+                    }
                 }
                 int a = indiceAlmacen(e.parada.almacen);
                 if (a > 0) stock[a] = Math.max(0, stock[a] - cargados);
-                if (cargados > 0) un.viajes++;
+                if (cargados > 0) {
+                    un.viajes++;
+                    un.ultimaRecarga = e.parada.almacen.codigo;
+                }
                 un.ocupadoHasta = e.finMin;
                 un.rutaVigente.remove(e.parada);
+                llegoA(un, e.parada.almacen.codigo, e);
                 registrar(e, un.u.codigo, e.parada.almacen.codigo + " carga " + cargados);
                 break;
             }
@@ -978,6 +1009,7 @@ class Simulador {
                 if (movidos > 0) res.trasvases++;
                 un.ocupadoHasta = e.finMin;
                 un.rutaVigente.remove(e.parada);
+                llegoA(un, "trasvase de " + e.parada.unidadAveriada, e);
                 registrar(e, un.u.codigo, "desde " + e.parada.unidadAveriada + ": " + movidos + " paquetes");
                 break;
             }
@@ -985,11 +1017,28 @@ class Simulador {
                 un.x = e.x;
                 un.y = e.y;
                 un.ocupadoHasta = e.min;
+                Almacen alm = almacenEn(e.x, e.y);
+                llegoA(un, alm != null ? alm.codigo : "(" + e.x + "," + e.y + ")", e);
                 registrar(e, un.u.codigo, "llega al almacén");
                 break;
             default:
                 break;
         }
+    }
+
+    /** Seguimiento (etapa 35): la unidad llegó a una parada, que pasa a ser su origen; aún no sale de ella. */
+    private static void llegoA(Unidad un, String lugar, Evt e) {
+        un.origenLugar = lugar;
+        un.origenX = e.x;
+        un.origenY = e.y;
+        un.origenLlegadaMin = e.min;
+        un.salidaMin = Double.NaN;
+    }
+
+    private static Almacen almacenEn(int x, int y) {
+        for (Almacen a : new Almacen[]{Compartido.ALMACEN_CENTRAL, Compartido.ALMACEN_NOROESTE, Compartido.ALMACEN_ESTE})
+            if (a.x == x && a.y == y) return a;
+        return null;
     }
 
     private static int indiceAlmacen(Almacen a) {
@@ -1702,6 +1751,14 @@ class Simulador {
             }
             j.cerrarArreglo();
             Map<String, String> asignadaA = new HashMap<>();   // entregas en almacén que ya tienen unidad en el plan
+            // Etapa 35 (E20, E21, E31): lo que dice el plan vigente de cada entrega: de qué almacén y cuándo
+            // sale (su RECARGA) y cuándo llega al cliente (su ENTREGA)
+            Map<String, Evt> saleEn = new HashMap<>(), llegaEn = new HashMap<>();
+            for (Unidad un : unidades)
+                for (Evt e : un.eventos) {
+                    if (e.tipo == Evt.T.RECARGA) for (String id : e.entregas) saleEn.putIfAbsent(id, e);
+                    if (e.tipo == Evt.T.ENTREGA) for (String id : e.entregas) llegaEn.putIfAbsent(id, e);
+                }
             j.abrirArreglo("unidades");
             for (Unidad un : unidades) {
                 int carga = 0;
@@ -1712,18 +1769,27 @@ class Simulador {
                  .valor("estado", un.estado.name()).valor("x", un.x).valor("y", un.y)
                  .valor("carga", carga).valor("capacidad", un.u.tipo.capacidadMaxima)
                  .valor("velocidad", velocidad(un.u.tipo)).valor("ocupado_hasta_min", un.ocupadoHasta)
-                 .valor("km", un.km);
+                 .valor("km", un.km).valor("ultima_recarga", un.ultimaRecarga);
                 if (un.estado == EstadoUnidad.AVERIADA && un.averia != null)
                     j.valor("averia_tipo", un.averia.tipo).valor("averia_en_lugar_hasta_min", un.averia.enLugarHastaMin())
                      .valor("averia_disponible_min", un.averia.disponibleDesdeMin());
                 else j.valor("averia_tipo", (String) null);
+                escribirOrigenYDestino(j, un, t);
                 j.abrirArreglo("a_bordo");
                 for (String id : un.aBordo) j.valor(null, id);
                 j.cerrarArreglo();
+                // Paradas del plan con su hora estimada exacta (la de la línea de tiempo, con bloqueos y alimentación)
+                Map<ParadaAlg, Evt> evtDe = new java.util.IdentityHashMap<>();
+                for (Evt e : un.eventos) if (e.parada != null) evtDe.putIfAbsent(e.parada, e);
                 j.abrirArreglo("paradas");
-                for (ParadaAlg pa : un.rutaVigente)
+                for (ParadaAlg pa : un.rutaVigente) {
+                    Evt e = evtDe.get(pa);
                     j.abrirObjeto(null).valor("tipo", pa.tipo.name()).valor("id", pa.id())
-                     .valor("x", pa.x()).valor("y", pa.y()).cerrarObjeto();
+                     .valor("x", pa.x()).valor("y", pa.y())
+                     .valor("llegada_min", e != null ? e.min : Double.NaN).valor("fin_min", e != null ? e.finMin : Double.NaN);
+                    if (pa.tipo == TipoParada.ENTREGA) j.valor("pedido", pa.pedido.idOriginal).valor("cantidad", pa.pedido.cantidad);
+                    j.cerrarObjeto();
+                }
                 j.cerrarArreglo();
                 j.abrirArreglo("camino");
                 for (Evt e : un.eventos) if (e.tipo == Evt.T.NODO) j.punto(e.x, e.y);
@@ -1751,10 +1817,27 @@ class Simulador {
                 String unidad = est.length() > 2 ? est.substring(2) : asignadaA.get(p.id);
                 String situacion = est.startsWith("U:") ? "en_curso" : est.startsWith("A:") ? "en_averiada"
                         : unidad != null ? "asignado" : "pendiente";
+                Evt sale = saleEn.get(p.id), llega = llegaEn.get(p.id);
                 j.abrirObjeto(null).valor("id", p.id).valor("pedido", p.idOriginal).valor("x", p.x).valor("y", p.y)
                  .valor("cantidad", p.cantidad).valor("limite_min", p.horaLimite() * 60).valor("estado", situacion)
                  .valor("unidad", unidad).valor("vencida", vencidas.contains(p.id))
-                 .valor("plazo_h", p.plazoMaximoHoras).cerrarObjeto();
+                 .valor("plazo_h", p.plazoMaximoHoras).valor("registro_min", p.horaRegistro * 60)
+                 // Etapa 35: almacén de origen (ya cargado, o el de la recarga planificada) y horas de salida y llegada
+                 .valor("origen", origenDe.containsKey(p.id) ? origenDe.get(p.id) : sale != null ? sale.parada.almacen.codigo : null)
+                 .valor("salida_min", cargadoEn.containsKey(p.id) ? cargadoEn.get(p.id) : sale != null ? sale.min : Double.NaN)
+                 .valor("llegada_min", llega != null ? llega.min : Double.NaN).cerrarObjeto();
+            }
+            j.cerrarArreglo();
+            // Etapa 35 (E22, E32): entregas hechas en las últimas 24 h, con su origen, unidad y hora
+            j.abrirArreglo("entregados");
+            for (Map.Entry<String, Double> e : entregadaEn.entrySet()) {
+                if (e.getValue() < t - 1440) continue;
+                Pedido p = entregas.get(e.getKey());
+                j.abrirObjeto(null).valor("id", p.id).valor("pedido", p.idOriginal).valor("x", p.x).valor("y", p.y)
+                 .valor("cantidad", p.cantidad).valor("limite_min", p.horaLimite() * 60).valor("plazo_h", p.plazoMaximoHoras)
+                 .valor("unidad", entregadoPor.get(p.id)).valor("origen", origenDe.get(p.id))
+                 .valor("salida_min", cargadoEn.containsKey(p.id) ? cargadoEn.get(p.id) : Double.NaN)
+                 .valor("entregado_min", e.getValue()).cerrarObjeto();
             }
             j.cerrarArreglo();
             j.abrirObjeto("indicadores").valor("entregas_realizadas", entregadaEn.size())
@@ -1789,6 +1872,45 @@ class Simulador {
         } finally {
             cerrojo.unlock();
         }
+    }
+
+    /**
+     * Origen y destino de una unidad para el panel (Etapa 35, E06 a E09 y E14 a E17):
+     *  - origen: la última parada a la que llegó (almacén, cliente o trasvase), cuándo llegó, cuándo salió de
+     *    ella (null si aún no sale) y los km recorridos desde entonces;
+     *  - destino: la próxima parada del plan, cuándo sale hacia ella (si aún no salió), cuándo llega y los km
+     *    del camino que falta (con los desvíos por bloqueos);
+     *  - km_por_recorrer: todo lo que le queda del plan, incluido el regreso al almacén.
+     */
+    private void escribirOrigenYDestino(EscritorJson j, Unidad un, double t) {
+        boolean salio = !Double.isNaN(un.salidaMin);
+        j.abrirObjeto("origen").valor("lugar", un.origenLugar).valor("x", un.origenX).valor("y", un.origenY)
+         .valor("llegada_min", un.origenLlegadaMin).valor("salida_min", un.salidaMin)
+         .valor("km", salio ? un.km - un.kmEnSalida : 0).cerrarObjeto();
+        Evt destino = null;
+        int km = 0, kmTotal = 0;
+        double salida = salio ? un.salidaMin : Double.NaN;
+        for (Evt e : un.eventos) {
+            if (e.tipo == Evt.T.NODO) {
+                kmTotal++;
+                if (destino == null) km++;
+            } else if (e.tipo == Evt.T.SALIDA) {
+                if (destino == null && km == 0) salida = e.min;   // todavía no sale hacia el destino
+            } else if (destino == null && (km > 0 || e.x != un.x || e.y != un.y)) {
+                destino = e;   // primera parada que no es la actividad en curso aquí mismo
+            }
+        }
+        if (destino == null) j.valor("destino", (String) null);
+        else {
+            String lugar = destino.tipo == Evt.T.ENTREGA ? "cliente (" + destino.x + "," + destino.y + ")"
+                    : destino.tipo == Evt.T.TRASVASE ? "trasvase de " + destino.parada.unidadAveriada
+                    : destino.parada != null && destino.parada.almacen != null ? destino.parada.almacen.codigo
+                    : almacenEn(destino.x, destino.y) != null ? almacenEn(destino.x, destino.y).codigo : "(" + destino.x + "," + destino.y + ")";
+            j.abrirObjeto("destino").valor("tipo", destino.tipo == Evt.T.FIN ? "REGRESO" : destino.tipo.name()).valor("lugar", lugar)
+             .valor("x", destino.x).valor("y", destino.y).valor("salida_min", salida).valor("llegada_min", destino.min)
+             .valor("km", km).cerrarObjeto();
+        }
+        j.valor("km_por_recorrer", kmTotal);
     }
 
     // ============================ Trayectorias por bloques (Etapa 35) ============================
