@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
  *   POST /api/corridas/{ESC}                 inicia (inicio=aaaa-mm-ddThh:mm, inicio_ms, factor, autos, motos, bicicletas)
  *   GET  /api/corridas/{ESC}/estado          instantánea (el visualizador la consulta cada segundo)
  *   GET  /api/corridas/{ESC}/eventos?desde=n bitácora desde el evento n
+ *   GET  /api/corridas/{ESC}/historial?id=X  escalas y tramos recorridos de un pedido, parte o producto (etapa 35)
  *   GET  /api/corridas/{ESC}/bloques         trayectorias del bloque en curso y del siguiente (etapa 35)
  *   GET  /api/corridas/{ESC}/reporte         resumen de cierre
  *   POST /api/corridas/{ESC}/finalizacion    detiene la corrida
@@ -102,6 +103,12 @@ public final class ServidorWeb {
                 case "GET eventos":
                     responder(ex, 200, c.eventosJson(entero(datos, "desde", 0)));
                     break;
+                case "GET historial": {
+                    String h = c.historialJson(requerido(datos, "id"));
+                    if (h == null) error(ex, 404, "No hay un pedido, parte o producto con ese identificador");
+                    else responder(ex, 200, h);
+                    break;
+                }
                 case "GET bloques":
                     responder(ex, 200, c.bloquesJson());
                     break;

@@ -25,7 +25,7 @@
   --u-auto:#10B981; --u-moto:#6366F1; --u-bici:#F59E0B; --u-idle:#475569; --u-mant:#64748B;
   /* etapa 35: semáforo de llenado (unidades y almacenes), vacío y averías por tipo (colores fuera del semáforo) */
   --sem-ok:#34D399; --sem-warn:#FBBF24; --sem-bad:#F87171; --sem-vacio:#F1F5F9;
-  --av1:#A78BFA; --av2:#E879F9; --av3:#22D3EE;
+  --av1:#A78BFA; --av2:#E879F9; --av3:#22D3EE; --rec:#C084FC;
   --alm-central:#EAB308; --alm-inter:#3B82F6;
   --ped-ok:#22C55E; --ped-warn:#F59E0B; --ped-bad:#EF4444;
   --font-display:'Space Grotesk', sans-serif; --font-body:'Inter', sans-serif; --font-mono:'JetBrains Mono', monospace;
@@ -122,6 +122,21 @@ button{cursor:pointer;}
 .lg-ln{width:22px;height:0;border-top:3px dashed var(--bloqueo);display:inline-block;flex-shrink:0;}
 .lg-rt{width:22px;height:0;border-top:2.5px solid var(--ruta);display:inline-block;flex-shrink:0;}
 .lg-rt.rec{border-top:2.5px dashed var(--ruta);opacity:.55;}
+/* Buscador y ficha de un envío (etapa 35, F01 a F04) */
+.buscador{position:relative;}
+.buscador input{width:250px;padding:5px 10px;font-size:11.5px;background:rgba(18,27,43,.92);border-radius:7px;}
+.buscar-res{position:absolute;top:calc(100% + 4px);left:0;width:320px;max-width:calc(100vw - 30px);background:var(--panel);border:1px solid var(--border);border-radius:9px;box-shadow:0 12px 28px -12px rgba(0,0,0,.7);overflow:hidden;z-index:970;}
+.buscar-res button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--border-soft);padding:7px 10px;font-size:12px;color:var(--text);}
+.buscar-res button:hover,.buscar-res button:focus{background:var(--panel-raised);outline:none;}
+.buscar-res small{display:block;color:var(--text-faint);font-size:10.5px;}
+.ficha-envio{position:absolute;z-index:945;left:10px;bottom:10px;width:min(360px,calc(100% - 20px));max-height:48%;overflow:auto;background:rgba(18,27,43,.97);border:1px solid var(--border);border-radius:11px;padding:10px 12px;box-shadow:0 12px 28px -12px rgba(0,0,0,.7);display:grid;gap:7px;font-size:11.5px;}
+.ficha-envio .fe-h{display:flex;align-items:center;gap:8px;} .ficha-envio .fe-h b{font-family:var(--font-mono);font-size:13px;}
+.ficha-envio .fe-h .x{margin-left:auto;background:none;border:0;color:var(--text-dim);font-size:18px;width:26px;height:26px;border-radius:5px;}
+.ficha-envio ol{list-style:none;display:grid;gap:2px;margin:3px 0 0;}
+.ficha-envio li{display:grid;grid-template-columns:76px 1fr;gap:6px;color:var(--text-dim);}
+.ficha-envio li b{color:var(--text);font-weight:600;}
+.fe-parte{border-left:3px solid var(--rec);padding-left:8px;display:grid;gap:3px;}
+.tags span.lnk{cursor:pointer;} .tags span.lnk:hover{border-color:var(--brand);color:var(--brand);}
 /* Ícono de unidad (etapa 35): dibujo SVG del vehículo, color según su estado y flecha hacia donde avanza */
 .veh{position:relative;width:30px;height:30px;}
 .veh-c{position:absolute;inset:2px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.55);display:grid;place-items:center;}
@@ -434,7 +449,11 @@ body.observer .ctrl-only{display:none !important;}
         <button class="map-btn" id="tgFit" title="Encuadrar la retícula completa">Encuadrar</button>
         <button class="map-btn" id="tgRutas" title="Rutas en el mapa: pendientes, pendientes y recorridas, u ocultas">Rutas: pendientes</button>
         <button class="map-btn" id="tgLey" aria-pressed="false" title="Mostrar u ocultar la leyenda">Leyenda</button>
+        <!-- Buscador (F01, F03): unidad, pedido, parte o producto -->
+        <div class="buscador"><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div>
       </div>
+      <!-- Ficha de un envío: escalas y ruta anterior (F02 a F04, F09) -->
+      <div class="ficha-envio" id="fichaEnvio" hidden></div>
       <div class="ov ov-tr" id="hud"></div>
       <div class="leyenda" id="leyenda" hidden></div>
       <button class="side-toggle" id="tgSide" title="Mostrar u ocultar la barra lateral">›</button>
@@ -744,7 +763,7 @@ const COL = {};
 ['map-bg', 'grid', 'grid-strong', 'grid-border', 'ruta', 'ruta-sel', 'bloqueo', 'u-auto', 'u-moto', 'u-bici', 'u-idle', 'u-mant',
  'alm-central', 'alm-inter', 'ped-ok', 'ped-warn', 'ped-bad', 'red', 'amber', 'text', 'text-dim', 'text-faint', 'brand', 'border'].forEach(k => COL[k] = cssVar('--' + k));
 const COLOR_TIPO = { AUTO: COL['u-auto'], MOTO: COL['u-moto'], BICICLETA: COL['u-bici'] };
-['sem-ok', 'sem-warn', 'sem-bad', 'sem-vacio', 'av1', 'av2', 'av3'].forEach(k => COL[k] = cssVar('--' + k));
+['sem-ok', 'sem-warn', 'sem-bad', 'sem-vacio', 'av1', 'av2', 'av3', 'rec'].forEach(k => COL[k] = cssVar('--' + k));
 
 /* =====================================================================
    SEMÁFORO DE LLENADO (etapa 35, SI-31): el MISMO sentido y los MISMOS umbrales
@@ -828,11 +847,11 @@ L.control.zoom({ position: 'bottomright', zoomInTitle: 'Acercar', zoomOutTitle: 
 /* Retícula y etiquetas de los ejes, con el margen justo (etapa 35: el mapa usa todo el espacio posible, C09 y C10). */
 const B = [[-1.3, -2.2], [H + 0.3, W + 0.4]];
 function encuadrar(){ map.invalidateSize({ animate: false }); map.fitBounds(B, { padding: [2, 2], animate: false }); }
-map.setMaxBounds([[-15, -15], [H + 15, W + 15]]);
+map.setMaxBounds([[-40, -40], [H + 40, W + 40]]);   // margen amplio: al enfocar algo cerca del borde, queda centrado (F05, F07, F09)
 encuadrar();
 new ResizeObserver(() => { if ($('#mapWrap').clientWidth) encuadrar(); }).observe($('#mapWrap'));
 const gGrid = L.layerGroup().addTo(map), gRutas = L.layerGroup().addTo(map), gBloq = L.layerGroup().addTo(map),
-      gPed = L.layerGroup().addTo(map), gAlm = L.layerGroup().addTo(map), gUni = L.layerGroup().addTo(map);
+      gEnvio = L.layerGroup().addTo(map), gPed = L.layerGroup().addTo(map), gAlm = L.layerGroup().addTo(map), gUni = L.layerGroup().addTo(map);
 (function dibujarReticula(){
   const fino = { color: COL.grid, weight: 1, interactive: false }, grueso = { color: COL['grid-strong'], weight: 1.3, interactive: false };
   for (let x = 0; x <= W; x++) L.polyline([[0, x], [H, x]], x % 10 ? fino : grueso).addTo(gGrid);
@@ -876,7 +895,8 @@ function dibujarAlmacenes(s){
     const aqui = (S.enAlm && S.enAlm[a.codigo]) || []; const cls = cls0 + '|' + aqui.length;
     const nombre = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
     const tip = `<b>${nombre}</b> (${a.x}, ${a.y})<br>` + (a.capacidad ? `Stock ${num(a.stock)} / ${num(a.capacidad)} · llenado ${ll.toFixed(0)} % · ${NOMBRE_SEM[cls0]}` : 'Stock ilimitado') + (aqui.length ? `<br>Unidades aquí: ${aqui.join(', ')}` : '');
-    if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip); mAlm[a.codigo]._cls = cls; }
+    if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip); mAlm[a.codigo]._cls = cls;
+      mAlm[a.codigo].on('click', () => enfocarAlmacen(a.codigo, true)); }
     else { if (mAlm[a.codigo]._cls !== cls){ mAlm[a.codigo].setIcon(iconAlm(a, cls0, aqui.length)); mAlm[a.codigo]._cls = cls; } mAlm[a.codigo].setTooltipContent(tip); }
     mAlm[a.codigo].setOpacity(!S.wh || !S.wh.sem || pasaFiltroAlmacen(a) ? 1 : .25);   // filtros de almacenes del panel (F15, F17)
   }
@@ -922,7 +942,7 @@ function dibujarMapa(s){
     const pasa = !S.fl || S.sel === u.codigo || pasaFiltroUnidad(u, s);   // filtros del panel reflejados en el mapa (F16, F18)
     const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '') + (pasa ? '' : ' atenuada');
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
-      m.on('click', () => abrirDetalle(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
+      m.on('click', () => unidadDesdeMapa(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
     // Con trayectorias, la posición la da la reproducción (cada cuadro); la instantánea solo ubica a las demás
     const T = S.tray[S.tab]; if (!(T && u.estado === 'OPERATIVA' && T.unidades[u.codigo])) m.setLatLng([u.y, u.x]);
@@ -1324,6 +1344,7 @@ function abrirDetalle(codigo, centrar){
   S.sel = codigo; $('#drawer').classList.add('on'); const s = S.snap[S.tab]; if (s){ pintarDetalle(s); dibujarMapa(s); pintarFlota(s); }
   if (centrar && mUni[codigo]) map.flyTo(mUni[codigo].getLatLng(), Math.max(map.getZoom(), 3.5), { duration: .6 });
 }
+$('#drBody').addEventListener('click', e => { const t = e.target.closest('[data-env]'); if (t) seleccionarEnvio(t.dataset.env, true); });
 $('#drClose').onclick = () => { S.sel = null; $('#drawer').classList.remove('on'); const s = S.snap[S.tab]; if (s){ dibujarMapa(s); pintarFlota(s); } };
 function pintarDetalle(s){
   if (!S.sel) return; const u = s.unidades.find(v => v.codigo === S.sel); if (!u) return; const U = umb();
@@ -1345,7 +1366,7 @@ function pintarDetalle(s){
       <dt>Velocidad</dt><dd>${u.velocidad} km/h</dd>
       <dt>Ocupado hasta</dt><dd>${u.ocupado_hasta_min > s.reloj.simulado_min ? fmtFecha(aFecha(s, u.ocupado_hasta_min)) : 'Libre'}</dd>
       <dt>Recorrido</dt><dd>${num(u.km)} km</dd></dl>
-    <div><div class="sec-t">Productos a bordo</div><div class="tags">${u.a_bordo.length ? u.a_bordo.map(a => `<span>${esc(a)}</span>`).join('') : '<span class="help">Ninguno</span>'}</div></div>
+    <div><div class="sec-t">Productos a bordo (clic: ruta del envío)</div><div class="tags" id="drABordo">${u.a_bordo.length ? u.a_bordo.map(a => `<span class="lnk" data-env="${esc(a)}">${esc(a)}</span>`).join('') : '<span class="help">Ninguno</span>'}</div></div>
     <div><div class="sec-t">Paradas del plan (${lista.length})</div><ul class="stops">${paradas || '<li style="display:block" class="t">Sin paradas asignadas</li>'}</ul></div>
     <p class="help">Hora estimada de llegada según el plan vigente: camino real (con desvíos por bloqueos), alimentación y 1 h por entrega.</p>`;
 }
@@ -1412,6 +1433,93 @@ function llenarSelectUnidades(s){
   if (sel.dataset.k === ops.join()) return; const cur = sel.value; sel.dataset.k = ops.join(); sel.innerHTML = ops.map(c => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
 }
 
+/* =====================================================================
+   VINCULACIÓN MAPA-PANEL (etapa 35, sección F)
+   - Buscador (F01, F03): por unidad, pedido, parte o producto (id de la parte y ·pN).
+   - Envío seleccionado (F02 a F04, F09): su ruta anterior (tramos recorridos con sus escalas, punteada),
+     lo que le falta (camino de su unidad hasta el cliente) y una ficha con las escalas de cada parte.
+   - Almacén y unidad: del mapa al panel (F06, F08) y del panel al mapa (F05, F07).
+   Todo esto es local a cada navegador (C06, G06): solo las acciones que cambian la operación
+   (avería, velocidad, finalización, pedidos) llegan al planificador y las ven todos.
+   ===================================================================== */
+const TIPO_ESCALA = { REGISTRO: 'Registro', CARGA: 'Carga', TRASVASE: 'Trasvase', AVERIA: 'Avería', DEVUELTO: 'Devuelto', ENTREGA: 'Entrega' };
+const ESTADO_HIST = { entregado: 'entregada', en_curso: 'en camino', en_averiada: 'en unidad averiada', en_almacen: 'en almacén' };
+async function seleccionarEnvio(id, enfocar, enfocarParte){
+  let h; try { h = await api('GET', `/api/corridas/${S.tab}/historial?id=${encodeURIComponent(id)}`); } catch (err){ toast(err.message, true); return; }
+  S.envSel = { id, h, recibido: performance.now() }; pintarEnvioSel(enfocar, enfocarParte);
+}
+function cerrarEnvio(){ S.envSel = null; gEnvio.clearLayers(); $('#fichaEnvio').hidden = true; }
+/* Camino que le falta a una parte: el de su unidad hasta llegar al cliente. */
+function caminoPendiente(s, unidad, x, y){
+  const u = s.unidades.find(v => v.codigo === unidad); if (!u || !u.camino.length) return null;
+  const pts = [[u.x, u.y]]; for (const c of u.camino){ pts.push(c); if (c[0] === x && c[1] === y) break; } return { u, pts };
+}
+function pintarEnvioSel(enfocar, enfocarParte){
+  const E = S.envSel, s = S.snap[S.tab]; if (!E || !s) return; const h = E.h;
+  gEnvio.clearLayers(); const lim = [[h.y, h.x]];
+  L.circleMarker([h.y, h.x], { radius: 11, color: COL['ruta-sel'], weight: 3, fill: false }).addTo(gEnvio).bindTooltip(`<b>Destino de ${esc(h.pedido)}</b> (${h.x}, ${h.y})<br>Hora límite ${fmtFecha(aFecha(s, h.limite_min))}`);
+  for (const p of h.partes){
+    for (const t of p.tramos){ const ll = t.puntos.map(c => [c[1], c[0]]); lim.push(...ll);
+      L.polyline(ll, { color: COL.rec, weight: p.seleccionada ? 4 : 3, opacity: .9, dashArray: '6 6', interactive: false }).addTo(gEnvio); }
+    for (const e of p.escalas) if (e.tipo !== 'REGISTRO')
+      L.circleMarker([e.y, e.x], { radius: 5, color: '#0B1220', weight: 1.5, fillColor: e.tipo === 'ENTREGA' ? COL['sem-ok'] : e.tipo === 'AVERIA' ? COL.av2 : COL.rec, fillOpacity: 1 }).addTo(gEnvio)
+        .bindTooltip(`<b>${TIPO_ESCALA[e.tipo]}</b> de ${esc(p.id)}<br>${fmtFecha(aFecha(s, e.min))} · ${esc(e.lugar)}${e.unidad ? ' · ' + e.unidad : ''}`);
+    const ped = s.pedidos.find(q => q.id === p.id); const unidad = p.estado === 'entregado' ? null : p.unidad || (ped && ped.unidad);
+    const pend = unidad && caminoPendiente(s, unidad, h.x, h.y);
+    if (pend){ const ll = pend.pts.map(c => [c[1], c[0]]); lim.push(...ll); L.polyline(ll, { color: COL['ruta-sel'], weight: 4, opacity: .95, interactive: false }).addTo(gEnvio); }
+  }
+  $('#fichaEnvio').hidden = false;
+  $('#fichaEnvio').innerHTML = `<div class="fe-h"><b>${esc(h.pedido)}</b><span class="help">${h.partes.reduce((a, p) => a + p.cantidad, 0)} prod. · ${h.partes.length} parte${h.partes.length === 1 ? '' : 's'}</span><button class="x" id="feCerrar" title="Cerrar">×</button></div>
+    <div class="help">Destino (${h.x}, ${h.y}) · registro ${fmtFecha(aFecha(s, h.registro_min))} · límite ${fmtFecha(aFecha(s, h.limite_min))}</div>
+    <div class="help"><i class="lg-rt rec" style="border-color:${COL.rec};opacity:1"></i> recorrido · <i class="lg-rt" style="border-color:${COL['ruta-sel']}"></i> falta recorrer</div>
+    ${h.partes.map(p => `<div class="fe-parte"><div><b class="mono">${esc(p.id)}</b> · ${p.cantidad} prod. · ${ESTADO_HIST[p.estado] || p.estado}${p.unidad ? ` · <button class="link-btn" data-fe-u="${p.unidad}">${p.unidad}</button>` : ''}</div>
+      <ol>${p.escalas.map(e => `<li><span class="mono">${hora(s, e.min)}</span><span><b>${TIPO_ESCALA[e.tipo]}</b> · ${esc(e.lugar)}${e.unidad ? ' · ' + e.unidad : ''}</span></li>`).join('')}</ol></div>`).join('')}`;
+  $('#feCerrar').onclick = cerrarEnvio;
+  $$('#fichaEnvio [data-fe-u]').forEach(b => b.onclick = () => abrirDetalle(b.dataset.feU, true));
+  if (enfocarParte){   // F09: la unidad de la parte, o el destino si todavía no tiene unidad
+    const p = h.partes.find(q => q.id === enfocarParte); const m = p && p.estado !== 'entregado' && p.unidad && mUni[p.unidad];
+    map.flyTo(m ? m.getLatLng() : [h.y, h.x], Math.max(map.getZoom(), 3.5), { duration: .6 });
+  } else if (enfocar) map.flyToBounds(L.latLngBounds(lim).pad(.15), { duration: .6, maxZoom: 4 });
+}
+/* Buscador: coincidencias entre unidades, pedidos, partes y productos de la instantánea. */
+function buscarEnCorrida(q){
+  const s = S.snap[S.tab]; q = q.trim().toLowerCase(); if (!s || !q) return [];
+  const base = q.replace(/[·.]p\d+$/, ''), res = [];
+  for (const u of s.unidades) if (u.codigo.toLowerCase().includes(q)) res.push({ tipo: 'u', id: u.codigo, t: `Unidad ${u.codigo}`, d: `${TIPOS[u.tipo].nombre.slice(0, -1)} · ${estadoVisible(u, s).t} · carga ${u.carga}/${u.capacidad}` });
+  const grupos = new Map(); for (const p of [...s.pedidos, ...(s.entregados || [])]){ if (!grupos.has(p.pedido)) grupos.set(p.pedido, []); grupos.get(p.pedido).push(p); }
+  for (const [ped, ps] of grupos){
+    if (ped.toLowerCase().includes(base)) res.push({ tipo: 'e', id: ped, t: `Pedido ${ped}`, d: `${ps.reduce((a, p) => a + p.cantidad, 0)} prod. · ${ps.length} parte${ps.length === 1 ? '' : 's'} · destino (${ps[0].x}, ${ps[0].y})` });
+    else for (const p of ps) if (p.id.toLowerCase().includes(base)) res.push({ tipo: 'e', id: q !== base ? q : p.id, t: q !== base ? `Producto ${q}` : `Parte ${p.id}`, d: `de ${ped} · ${p.cantidad} prod. · ${p.unidad || 'sin unidad'}` });
+  }
+  return res.slice(0, 8);
+}
+function mostrarResultados(){
+  const q = $('#buscar').value, res = buscarEnCorrida(q), el = $('#buscarRes');
+  if (!q.trim()){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = res.length ? res.map((r, i) => `<button data-i="${i}">${esc(r.t)}<small>${esc(r.d)}</small></button>`).join('')
+    : `<button data-i="-1">Buscar «${esc(q.trim())}» en toda la corrida<small>pedidos entregados hace más de 24 h, partes o productos</small></button>`;
+  el._res = res;
+}
+function elegirResultado(r){
+  $('#buscarRes').hidden = true;
+  if (!r){ seleccionarEnvio($('#buscar').value.trim(), true); return; }
+  if (r.tipo === 'u'){ abrirDetalle(r.id, true); return; }
+  seleccionarEnvio(r.id, true);
+}
+$('#buscar').addEventListener('input', mostrarResultados);
+$('#buscar').addEventListener('keydown', e => { if (e.key === 'Enter'){ const res = $('#buscarRes')._res || []; elegirResultado(res[0]); } if (e.key === 'Escape') $('#buscarRes').hidden = true; });
+$('#buscarRes').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; elegirResultado(i >= 0 ? $('#buscarRes')._res[i] : null); });
+document.addEventListener('click', e => { if (!e.target.closest('.buscador')) $('#buscarRes').hidden = true; });
+/* F08: clic en el ícono de una unidad → su ficha, y en el panel se abre Flota con su fila a la vista. */
+function unidadDesdeMapa(codigo){
+  const s = S.snap[S.tab]; const u = s && s.unidades.find(v => v.codigo === codigo);
+  if (u) abiertos.add(u.tipo); S.acc.flota = true; pintarSecciones(); abrirDetalle(codigo);
+  const fila = document.querySelector(`#fleet .urow[data-u="${codigo}"]`); if (fila) fila.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+/* F09: clic en una parte de la lista de envíos → su ruta en el mapa, enfocando su unidad (o el destino). */
+$('#envList').addEventListener('click', e => { const p = e.target.closest('.parte'); if (p) seleccionarEnvio(p.dataset.parte, false, p.dataset.parte); });
+
 /* ===== Bitácora ===== */
 const GRUPO = { AVERIA: 'AVERIA', FIN: 'RECARGA', BLOQUEO: 'BLOQUEO', REPLANIFICACION: 'REPLANIFICACION', ENTREGA: 'ENTREGA', RECARGA: 'RECARGA', TRASVASE: 'RECARGA', COLAPSO: 'COLAPSO', SISTEMA: 'SISTEMA' };
 const ETQ = { AVERIA: 'Avería', FIN: 'Regreso', BLOQUEO: 'Bloqueo', REPLANIFICACION: 'Planificación', ENTREGA: 'Entrega', RECARGA: 'Recarga', TRASVASE: 'Trasvase', COLAPSO: 'Colapso', SISTEMA: 'Sistema' };
@@ -1433,6 +1541,7 @@ function render(){
   if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
   const s = S.snap[S.tab]; pintarSimulacion(); pintarHud(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
   if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog(); pintarLeyenda();
+  if (S.envSel){ if (performance.now() - S.envSel.recibido > 5000) seleccionarEnvio(S.envSel.id, false); else pintarEnvioSel(false); }
 }
 
 /* =====================================================================
@@ -1502,7 +1611,7 @@ function pintarPaso2(){
 }
 function mostrarEscenario(e){
   S.tab = e; mostrarVista('mon'); S.acc = { sim: true, res: false, flota: false, alm: false, env: false, log: false }; pintarSecciones();
-  S.sel = null; $('#drawer').classList.remove('on'); limpiarMapa(); render(); pintarLog(); setTimeout(encuadrar, 60); actualizar(e);
+  S.sel = null; $('#drawer').classList.remove('on'); cerrarEnvio(); limpiarMapa(); render(); pintarLog(); setTimeout(encuadrar, 60); actualizar(e);
 }
 function mostrarRegistro(){ S.tab = 'REGISTRO'; mostrarVista('reg'); pintarRegistro(); actualizar('DIA_A_DIA'); }
 $$('.ln-card').forEach(c => c.onclick = () => elegirEscenario(c.dataset.esc));

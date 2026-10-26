@@ -57,6 +57,11 @@ final class ServicioSimulacion {
         return simulador.eventosJson(desde);
     }
 
+    /** Historial (escalas y tramos recorridos) de un pedido, parte o producto (Etapa 35; GET /historial); null si no existe. */
+    String historial(String id) {
+        return simulador.historialJson(id);
+    }
+
     /** Trayectorias del bloque en curso y del siguiente (Etapa 35; GET /bloques). */
     String bloques() {
         return simulador.bloquesJson();

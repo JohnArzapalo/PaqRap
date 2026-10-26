@@ -143,6 +143,10 @@ final class CorridaWeb {
         return servicio.eventos(desde);
     }
 
+    String historialJson(String id) {
+        return servicio.historial(id);
+    }
+
     String bloquesJson() {
         return servicio.bloques();
     }

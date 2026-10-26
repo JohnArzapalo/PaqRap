@@ -214,6 +214,20 @@ class Simulador {
         double origenLlegadaMin = Double.NaN, salidaMin = Double.NaN, kmEnSalida;
         /** Almacén de la última recarga con productos (filtro por origen, E11). */
         String ultimaRecarga = Compartido.ALMACEN_CENTRAL.codigo;
+        /** Recorrido de la unidad (minuto y nodo de cada paso) para la ruta anterior de un envío (F02, F04).
+         *  Solo lo llena el simulador real; la copia proyectada empieza vacía. */
+        double[] rastroMin = new double[64];
+        int[] rastroNodo = new int[64];
+        int nRastro;
+
+        void pisar(double min, int x, int y) {
+            if (nRastro == rastroMin.length) {
+                rastroMin = java.util.Arrays.copyOf(rastroMin, nRastro * 2);
+                rastroNodo = java.util.Arrays.copyOf(rastroNodo, nRastro * 2);
+            }
+            rastroMin[nRastro] = min;
+            rastroNodo[nRastro++] = MapaVial.nodo(x, y);
+        }
 
         Unidad(UnidadTransporte u) {
             this.u = u;
@@ -294,6 +308,28 @@ class Simulador {
     private final Map<String, String> origenDe = new HashMap<>();
     private final Map<String, Double> cargadoEn = new HashMap<>();
     private final Map<String, String> entregadoPor = new HashMap<>();
+    /** Escalas de cada entrega (carga, trasvase, avería, devolución y entrega) para su ruta anterior (F02, F04). */
+    private final Map<String, List<Escala>> escalasDe = new HashMap<>();
+
+    /** Una escala de un envío: qué le pasó, cuándo, dónde y con qué unidad (Etapa 35). */
+    private static final class Escala {
+        final double min;
+        final String tipo, lugar, unidad;
+        final int x, y;
+
+        Escala(double min, String tipo, String lugar, String unidad, int x, int y) {
+            this.min = min;
+            this.tipo = tipo;
+            this.lugar = lugar;
+            this.unidad = unidad;
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    private void escala(String id, double min, String tipo, String lugar, Unidad un, int x, int y) {
+        if (!proyeccion) escalasDe.computeIfAbsent(id, k -> new ArrayList<>()).add(new Escala(min, tipo, lugar, un.u.codigo, x, y));
+    }
     /** Entregas cuyo plazo ya venció sin entregarse (siguen planificándose, tarde). */
     private final Set<String> vencidas = new java.util.HashSet<>();
     /** Pedidos originales inentregables por bloqueo (regla NO_EVALUABLE). */
@@ -670,7 +706,10 @@ class Simulador {
                     reactivar(un, t, true);
                 } else {
                     // pasa "instantáneamente" al central; lo no trasvasado vuelve al stock del central
-                    for (String id : new ArrayList<>(un.aBordo)) estado.put(id, "P");
+                    for (String id : new ArrayList<>(un.aBordo)) {
+                        estado.put(id, "P");
+                        escala(id, t, "DEVUELTO", Compartido.ALMACEN_CENTRAL.codigo, un, Compartido.ALMACEN_CENTRAL.x, Compartido.ALMACEN_CENTRAL.y);
+                    }
                     un.aBordo.clear();
                     un.x = Compartido.ALMACEN_CENTRAL.x;
                     un.y = Compartido.ALMACEN_CENTRAL.y;
@@ -952,6 +991,7 @@ class Simulador {
                 un.km += 1;
                 res.kmAcumulados += 1;
                 res.costoAcumulado += un.u.tipo.costoPorKilometro;
+                if (!proyeccion) un.pisar(e.min, e.x, e.y);
                 break;
             case SALIDA:
                 un.salidaMin = e.min;   // sale del origen (seguimiento, etapa 35)
@@ -964,6 +1004,7 @@ class Simulador {
                     estado.put(id, "E");
                     entregadaEn.put(id, e.min);
                     if (!proyeccion) entregadoPor.put(id, un.u.codigo);
+                    escala(id, e.min, "ENTREGA", "cliente (" + e.x + "," + e.y + ")", un, e.x, e.y);
                     un.aBordo.remove(id);
                     if (e.min > entregas.get(id).horaLimite() * 60 + TOLERANCIA_MIN) res.entregasTarde++;
                 }
@@ -983,6 +1024,7 @@ class Simulador {
                         origenDe.put(id, e.parada.almacen.codigo);
                         cargadoEn.put(id, e.min);
                     }
+                    escala(id, e.min, "CARGA", e.parada.almacen.codigo, un, e.x, e.y);
                 }
                 int a = indiceAlmacen(e.parada.almacen);
                 if (a > 0) stock[a] = Math.max(0, stock[a] - cargados);
@@ -1004,6 +1046,7 @@ class Simulador {
                     estado.put(id, "U:" + un.u.codigo);
                     un.aBordo.add(id);
                     if (averiada != null) averiada.aBordo.remove(id);
+                    escala(id, e.min, "TRASVASE", "desde " + e.parada.unidadAveriada, un, e.x, e.y);
                     movidos += entregas.get(id).cantidad;
                 }
                 if (movidos > 0) res.trasvases++;
@@ -1122,7 +1165,10 @@ class Simulador {
         un.eventos.clear();
         un.encuentroMin = Double.POSITIVE_INFINITY;
         un.rutaVigente.clear();
-        for (String id : un.aBordo) estado.put(id, "A:" + un.u.codigo);
+        for (String id : un.aBordo) {
+            estado.put(id, "A:" + un.u.codigo);
+            escala(id, t, "AVERIA", "avería tipo " + a.tipo, un, un.x, un.y);
+        }
         res.averiasAplicadas++;
         registrar(new Evt(Evt.T.AVERIA, t, un.x, un.y, new ArrayList<>(un.aBordo), null, t, 0), un.u.codigo,
                 "tipo " + a.tipo + ", en el lugar hasta " + formatear(a.enLugarHastaMin())
@@ -1911,6 +1957,59 @@ class Simulador {
              .valor("km", km).cerrarObjeto();
         }
         j.valor("km_por_recorrer", kmTotal);
+    }
+
+    // ============================ Ruta anterior de un envío (Etapa 35, F02 a F04) ============================
+
+    /**
+     * Historial de un pedido (o de la parte o el producto indicados, p. ej. «c1234-L5+3·p2»): sus partes con
+     * su estado, sus escalas (registro, carga en un almacén, trasvase, avería, devolución y entrega) y los
+     * tramos que recorrió cada parte a bordo de cada unidad, nodo a nodo. null si no se conoce el id.
+     * Seguro desde otro hilo.
+     */
+    String historialJson(String consulta) {
+        cerrojo.lock();
+        try {
+            String id = consulta.trim().replaceFirst("[·.]p\\d+$", "");
+            String original = partesDe.containsKey(id) ? id : entregas.containsKey(id) ? entregas.get(id).idOriginal : null;
+            if (original == null || partesDe.get(original).isEmpty()) return null;
+            List<String> ids = partesDe.get(original);
+            Pedido base = entregas.get(ids.get(0));
+            EscritorJson j = new EscritorJson().abrirObjeto(null).valor("consulta", consulta).valor("pedido", original)
+                    .valor("x", base.x).valor("y", base.y).valor("registro_min", base.horaRegistro * 60)
+                    .valor("limite_min", base.horaLimite() * 60).valor("ahora_min", tActual).abrirArreglo("partes");
+            for (String pid : ids) {
+                Pedido p = entregas.get(pid);
+                String est = estado.getOrDefault(pid, "");
+                List<Escala> es = escalasDe.getOrDefault(pid, List.of());
+                j.abrirObjeto(null).valor("id", pid).valor("cantidad", p.cantidad).valor("seleccionada", pid.equals(id))
+                 .valor("estado", est.equals("E") ? "entregado" : est.startsWith("U:") ? "en_curso" : est.startsWith("A:") ? "en_averiada" : "en_almacen")
+                 .valor("unidad", est.length() > 2 ? est.substring(2) : entregadoPor.get(pid)).abrirArreglo("escalas");
+                j.abrirObjeto(null).valor("min", p.horaRegistro * 60).valor("tipo", "REGISTRO").valor("lugar", "pedido registrado")
+                 .valor("unidad", (String) null).valor("x", p.x).valor("y", p.y).cerrarObjeto();
+                for (Escala e : es)
+                    j.abrirObjeto(null).valor("min", e.min).valor("tipo", e.tipo).valor("lugar", e.lugar).valor("unidad", e.unidad)
+                     .valor("x", e.x).valor("y", e.y).cerrarObjeto();
+                j.cerrarArreglo().abrirArreglo("tramos");
+                // Cada vez que sube a una unidad (carga o trasvase), el tramo va hasta la siguiente escala (o hasta ahora)
+                for (int k = 0; k < es.size(); k++) {
+                    Escala e = es.get(k);
+                    if (!e.tipo.equals("CARGA") && !e.tipo.equals("TRASVASE")) continue;
+                    double hasta = k + 1 < es.size() ? es.get(k + 1).min : tActual;
+                    Unidad un = unidadPorCodigo.get(e.unidad);
+                    j.abrirObjeto(null).valor("unidad", e.unidad).valor("desde_min", e.min).valor("hasta_min", hasta).abrirArreglo("puntos");
+                    j.punto(e.x, e.y);
+                    for (int i = 0; i < un.nRastro; i++)
+                        if (un.rastroMin[i] > e.min && un.rastroMin[i] <= hasta)
+                            j.punto(MapaVial.x(un.rastroNodo[i]), MapaVial.y(un.rastroNodo[i]));
+                    j.cerrarArreglo().cerrarObjeto();
+                }
+                j.cerrarArreglo().cerrarObjeto();
+            }
+            return j.cerrarArreglo().cerrarObjeto().toString();
+        } finally {
+            cerrojo.unlock();
+        }
     }
 
     // ============================ Trayectorias por bloques (Etapa 35) ============================
