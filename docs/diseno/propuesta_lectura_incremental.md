@@ -48,7 +48,7 @@ El archivo del mes está ordenado por hora de registro (se verifica al leer; si 
 
 ### 3.3 Bloqueos y mantenimientos: se leen por mes, completos
 
-- Los bloqueos son **planificados y conocidos de antemano** (enunciado; `CLAUDE.md` §2). Tabú los necesita **hacia adelante**: la hora límite efectiva (SI-23) mira si el destino estará bloqueado en la hora límite (hasta 36 h después), y cada tramo evita los bloqueos que empiecen antes de su llegada estimada (SI-02).
+- Los bloqueos son **planificados y conocidos de antemano** (enunciado; SI-01). Tabú los necesita **hacia adelante**: la hora límite efectiva (SI-23) mira si el destino estará bloqueado en la hora límite (hasta 36 h después), y cada tramo evita los bloqueos que empiecen antes de su llegada estimada (SI-02).
 - `MapaVial` precalcula los intervalos con bloqueos constantes y guarda en caché las distancias por intervalo. Agregar bloqueos a mitad de la corrida obligaría a rehacer los intervalos e invalidar la caché mientras el planificador la usa desde otro hilo: más código delicado, sin beneficio real (un mes son unas 560 líneas, unos 25 KB).
 - **Propuesta:** se siguen leyendo los archivos de bloqueos de los meses que cubre la corrida (como hoy), y lo mismo el mantenimiento. Son datos de planificación conocidos de antemano, como el mapa y la flota; A22 se refiere al consumo de los **pedidos**.
 - **Alternativa (si el equipo la prefiere):** leer los bloqueos del mes siguiente cuando falten 48 h para que empiece, armando un `MapaVial` nuevo y cambiándolo entre bloques. Es más código en el núcleo y la recomiendo solo si el profesor lo pide expresamente.
