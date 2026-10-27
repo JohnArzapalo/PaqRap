@@ -497,8 +497,10 @@ class Simulador {
     private void leerPedidos(double hastaMin) {
         if (fuente == null) return;
         for (Pedido p : fuente.leerHasta(hastaMin)) {
-            porLlegar.add(p);
-            if (esUrgente(p, p.horaRegistro * 60)) llegadasUrgentes.add(p.horaRegistro * 60);
+            // En su lugar por hora, no al final: puede haber un pedido de la carga masiva programado más
+            // adelante, y si quedara delante retendría a los del archivo hasta su hora (revisión de la etapa 35)
+            insertarPorLlegar(p);
+            if (esUrgente(p, p.horaRegistro * 60)) insertarUrgente(p.horaRegistro * 60);
             if (fuente.originalesTotales() < 0 && originalesLeidos.add(p.idOriginal)) res.pedidosOriginalesTotal++;
         }
         if (siguiente > 256) {   // los que ya llegaron no hacen falta aquí (quedan en «entregas»)
@@ -576,19 +578,29 @@ class Simulador {
         if (h != null) h.interrupt();   // para recalcular el próximo instante con el pedido nuevo
     }
 
+    /** Pone el pedido entre los que faltan llegar, en su lugar por hora de registro (después de los de la misma
+     *  hora, así una lista ya ordenada queda igual). porLlegar debe seguir ordenada: preparar lee hasta el corte
+     *  y se detiene en el primero que llega después. */
+    private void insertarPorLlegar(Pedido p) {
+        int i = porLlegar.size();
+        while (i > siguiente && porLlegar.get(i - 1).horaRegistro > p.horaRegistro) i--;
+        porLlegar.add(i, p);
+    }
+
+    /** Igual con el minuto de llegada de un pedido urgente (llegadasUrgentes también debe seguir ordenada). */
+    private void insertarUrgente(double llegada) {
+        int k = llegadasUrgentes.size();
+        while (k > siguienteUrgente && llegadasUrgentes.get(k - 1) > llegada) k--;
+        llegadasUrgentes.add(k, llegada);
+    }
+
     /** Pone el pedido programado entre los que faltan llegar, en su lugar por hora de registro. */
     private void programar(Pedido p, double t) {
         if (p.horaRegistro * 60 < t) p.horaRegistro = t / 60.0;   // no puede llegar en el pasado
         idsProgramados.add(p.id);
-        int i = porLlegar.size();
-        while (i > siguiente && porLlegar.get(i - 1).horaRegistro > p.horaRegistro) i--;
-        porLlegar.add(i, p);
+        insertarPorLlegar(p);
         double llegada = p.horaRegistro * 60;
-        if (esUrgente(p, llegada)) {
-            int k = llegadasUrgentes.size();
-            while (k > siguienteUrgente && llegadasUrgentes.get(k - 1) > llegada) k--;
-            llegadasUrgentes.add(k, llegada);
-        }
+        if (esUrgente(p, llegada)) insertarUrgente(llegada);
         registrar(new Evt(Evt.T.REPLANIFICACION, t, p.x, p.y, List.of(p.id), null, t, p.cantidad), "",
                 "pedido " + p.idOriginal + " programado para " + formatear(llegada) + ": " + p.cantidad + " paq. a (" + p.x + ","
                         + p.y + "), plazo " + p.plazoMaximoHoras + " h");
@@ -723,9 +735,7 @@ class Simulador {
                 // Se suma a los pedidos por llegar con su hora de registro. Sin bloques se planifica ahora
                 // mismo; con bloques (también en la operación día a día, etapa 35), solo si es urgente;
                 // si no, entra al plan del bloque siguiente (o se inserta al empezar, si llegó después del corte)
-                int i = porLlegar.size();
-                while (i > siguiente && porLlegar.get(i - 1).horaRegistro > nuevo.horaRegistro) i--;
-                porLlegar.add(i, nuevo);
+                insertarPorLlegar(nuevo);
                 registrar(new Evt(Evt.T.REPLANIFICACION, t, nuevo.x, nuevo.y, List.of(nuevo.id), null, t, nuevo.cantidad), "",
                         "pedido " + nuevo.idOriginal + " registrado: " + nuevo.cantidad + " paq. a (" + nuevo.x + ","
                                 + nuevo.y + "), plazo " + nuevo.plazoMaximoHoras + " h");

@@ -57,7 +57,7 @@ Qué se configuró y por qué: **[docs/configuracion_5_dias.md](docs/configuraci
 
 Todos los comandos se ejecutan en la raíz del proyecto.
 
-**Compilar y correr las pruebas** (116 pruebas JUnit):
+**Compilar y correr las pruebas** (117 pruebas JUnit):
 
 ```bash
 mvn test

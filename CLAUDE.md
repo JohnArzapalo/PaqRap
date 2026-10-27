@@ -99,7 +99,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - en la web, las unidades sin tareas vuelven al almacén más cercano con stock (SI-34);
   - operación día a día completa (SI-35): pedidos del operador por bloques, carga masiva en su hora y «Cerrar operaciones»;
   - indicadores globales con semáforo (ocupación de la flota y llenado de los almacenes) y reporte de la última planificación estable en los tres escenarios;
-  - diagramas A22 y A23 actualizados; `exec.mainClass` = `ServidorWeb`. Hay 116 pruebas.
+  - diagramas A22 y A23 actualizados; `exec.mainClass` = `ServidorWeb`. Hay 117 pruebas.
 - **Despliegue vigente: máquina virtual del curso** (21-oct-2026; pasos en `docs/despliegue_aws.md`, §2):
   - **http://1inf54-982-5e.inf.pucp.edu.pe/** (200.16.7.154). Usuario SSH `1inf54.982.5e`; la contraseña la tiene el equipo y **nunca se escribe en el repositorio**.
   - Ubuntu 24.04, 2 núcleos, 3.8 GB y OpenJDK 21. Solo están abiertos los puertos 22, 80 y 443, y Tomcat ocupa el 8080.

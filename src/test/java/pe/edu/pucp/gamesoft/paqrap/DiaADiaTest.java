@@ -45,6 +45,36 @@ class DiaADiaTest {
         assertTrue(r.pedidosEnPlazo == 2, "ambos en plazo");
     }
 
+    /** Un pedido de la carga masiva programado para más adelante (minuto 400) no retiene a los del archivo que se
+     *  leen después y llegan antes (minuto 100): ambos entran en su orden. Antes se agregaban al final de la cola,
+     *  detrás del programado, y el del minuto 100 esperaba hasta el 400; si era urgente, tampoco replanificaba. */
+    @Test
+    void unProgramadoFuturoNoRetieneALosDelArchivo() {
+        Simulador.Config c = SimuladorTest.config(60);
+        c.horizonteMin = 600;
+        c.bloqueMin = 60;
+        c.adelantoMin = 30;
+        c.urgenteMin = 300;   // con plazo de 4 h, ambos pedidos son urgentes: su llegada replanifica en el instante
+        Simulador[] s = new Simulador[1];
+        boolean[] cargado = {false};
+        c.reloj = t -> {
+            if (t >= 10 && !cargado[0]) {   // el operador sube el archivo a los 10 min, antes de leer al del minuto 100
+                cargado[0] = true;
+                s[0].programarPedido(new Pedido("c1-R1", "c1-R1", 30, 14, 4, 4, 400 / 60.0));
+            }
+            return true;
+        };
+        s[0] = Simulador.crear(List.of(new Pedido("A", "A", 40, 20, 5, 36, 0.0), new Pedido("B", "B", 30, 16, 3, 4, 100 / 60.0)),
+                List.of(new UnidadTransporte("TA01", TipoUnidad.AUTO)), Planificador.tabu(8), c);
+        Simulador.Resultado r = s[0].ejecutar();
+        double entregaB = r.registro.stream().filter(e -> e.tipo == Simulador.Evt.T.ENTREGA && e.entregas.contains("B"))
+                .mapToDouble(e -> e.min).findFirst().orElse(Double.NaN);
+        assertTrue(entregaB < 400, "B (registrado en el minuto 100) se entregó en el minuto " + entregaB);
+        assertTrue(r.registro.stream().anyMatch(e -> e.tipo == Simulador.Evt.T.REPLANIFICACION && Math.abs(e.min - 100) < 1e-6
+                && e.detalle.contains("entregas")), "la llegada urgente de B replanifica en el minuto 100");
+        assertTrue(r.pedidosEnPlazo == 3, "los tres en plazo");
+    }
+
     /** Carga masiva en una operación día a día real (datos oficiales, 10/11/2026 08:00): se aceptan las líneas
      *  futuras en su fecha y hora, y se rechazan con su motivo las pasadas, las de fecha inválida, las de fuera
      *  del mapa y las de formato inválido. */
