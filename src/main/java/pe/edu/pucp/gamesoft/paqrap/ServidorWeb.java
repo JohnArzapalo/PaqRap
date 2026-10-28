@@ -35,11 +35,14 @@ import java.util.concurrent.Executors;
  *   POST /api/corridas/{ESC}                 inicia (inicio=aaaa-mm-ddThh:mm, inicio_ms, factor, autos, motos, bicicletas)
  *   GET  /api/corridas/{ESC}/estado          instantánea (el visualizador la consulta cada segundo)
  *   GET  /api/corridas/{ESC}/eventos?desde=n bitácora desde el evento n
+ *   GET  /api/corridas/{ESC}/historial?id=X  escalas y tramos recorridos de un pedido, parte o producto (etapa 35)
+ *   GET  /api/corridas/{ESC}/bloques         trayectorias del bloque en curso y del siguiente (etapa 35)
  *   GET  /api/corridas/{ESC}/reporte         resumen de cierre
  *   POST /api/corridas/{ESC}/finalizacion    detiene la corrida
  *   POST /api/corridas/{ESC}/averias         unidad, tipo (1, 2 o 3)
  *   POST /api/corridas/{ESC}/velocidades     tipo (AUTO, MOTO, BICICLETA), kmh
  *   POST /api/corridas/DIA_A_DIA/pedidos     cliente, x, y, cantidad, plazo
+ *   POST /api/corridas/DIA_A_DIA/pedidos/lote texto (líneas ##d##h##m:x,y,cliente,cantidad,plazo; etapa 35)
  *
  * Uso: java -cp target/classes pe.edu.pucp.gamesoft.paqrap.ServidorWeb [puerto]
  * (o la variable de entorno PORT; por defecto web.puerto = 8080). Se ejecuta
@@ -85,7 +88,7 @@ public final class ServidorWeb {
             if (p.length == 3) { responder(ex, 200, resumenJson()); return; }
             Simulador.Escenario esc = escenario(p[3]);
             CorridaWeb c = CORRIDAS.get(esc);
-            String accion = p.length > 4 ? p[4] : "";
+            String accion = p.length > 5 ? p[4] + "/" + p[5] : p.length > 4 ? p[4] : "";
             if (accion.isEmpty() && metodo.equals("POST")) {
                 if (c != null && c.enCurso()) { error(ex, 409, "Ya hay una corrida de " + esc + " en ejecución; finalícela primero"); return; }
                 c = iniciar(esc, datos);
@@ -100,6 +103,15 @@ public final class ServidorWeb {
                     break;
                 case "GET eventos":
                     responder(ex, 200, c.eventosJson(entero(datos, "desde", 0)));
+                    break;
+                case "GET historial": {
+                    String h = c.historialJson(requerido(datos, "id"));
+                    if (h == null) error(ex, 404, "No hay un pedido, parte o producto con ese identificador");
+                    else responder(ex, 200, h);
+                    break;
+                }
+                case "GET bloques":
+                    responder(ex, 200, c.bloquesJson());
                     break;
                 case "GET reporte":
                     responder(ex, 200, c.reporteJson());
@@ -116,6 +128,9 @@ public final class ServidorWeb {
                     c.cambiarVelocidad(TipoUnidad.valueOf(requerido(datos, "tipo").toUpperCase(Locale.ROOT)),
                             Double.parseDouble(requerido(datos, "kmh")));
                     responder(ex, 200, "{\"ok\":true}");
+                    break;
+                case "POST pedidos/lote":   // carga masiva del día a día (etapa 35): cada línea en su fecha y hora
+                    responder(ex, 200, c.registrarLote(requerido(datos, "texto")));
                     break;
                 case "POST pedidos": {
                     int plazo = entero(datos, "plazo", 36);
@@ -140,6 +155,8 @@ public final class ServidorWeb {
     private static CorridaWeb iniciar(Simulador.Escenario esc, Map<String, String> d) throws IOException {
         LocalDateTime inicio = LocalDateTime.parse(requerido(d, "inicio"));   // aaaa-mm-ddThh:mm
         long inicioMs = Long.parseLong(d.getOrDefault("inicio_ms", "0"));
+        // Sin inicio_ms (p. ej., una corrida iniciada por la API), la fecha en la zona del servidor (etapa 35)
+        if (inicioMs == 0) inicioMs = inicio.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
         double porDefecto = esc == Simulador.Escenario.SIM_5D ? 5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 60)
                 : esc == Simulador.Escenario.COLAPSO ? Parametros.decimal("web.factor_colapso", 600) : 1;
         double factor = d.containsKey("factor") ? Double.parseDouble(d.get("factor")) : porDefecto;

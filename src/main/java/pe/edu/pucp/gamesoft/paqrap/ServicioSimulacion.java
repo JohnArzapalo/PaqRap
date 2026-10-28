@@ -30,7 +30,12 @@ final class ServicioSimulacion {
 
     ServicioSimulacion(List<Pedido> pedidos, List<UnidadTransporte> flota, Planificador planificador,
                        Simulador.Config cfg) {
-        this.simulador = Simulador.crear(pedidos, flota, planificador, cfg);
+        this(FuentePedidos.deLista(pedidos), flota, planificador, cfg);
+    }
+
+    /** Con otra fuente de pedidos (Etapa 35: lectura incremental de los archivos oficiales). */
+    ServicioSimulacion(FuentePedidos fuente, List<UnidadTransporte> flota, Planificador planificador, Simulador.Config cfg) {
+        this.simulador = Simulador.crear(fuente, flota, planificador, cfg);
     }
 
     /** Arranca la simulación en un hilo propio. */
@@ -57,14 +62,34 @@ final class ServicioSimulacion {
         return simulador.eventosJson(desde);
     }
 
+    /** Historial (escalas y tramos recorridos) de un pedido, parte o producto (Etapa 35; GET /historial); null si no existe. */
+    String historial(String id) {
+        return simulador.historialJson(id);
+    }
+
+    /** Trayectorias del bloque en curso y del siguiente (Etapa 35; GET /bloques). */
+    String bloques() {
+        return simulador.bloquesJson();
+    }
+
     /** Resumen para el reporte de cierre (por tipo de unidad y plan vigente). */
     String reporte() {
         return simulador.reporteJson();
     }
 
+    /** Pedido de la carga masiva (operación día a día, etapa 35): llega en su hora de registro. */
+    void programarPedido(Pedido p) {
+        simulador.programarPedido(p);
+    }
+
     /** Pedido registrado desde el visualizador (operación día a día): llega en el instante actual. */
     void registrarPedido(Pedido p) {
         simulador.inyectarPedido(p);
+    }
+
+    /** Minuto que marca el reloj de la corrida ahora (Etapa 35): para registrar pedidos en la hora actual. */
+    double minutoDelReloj() {
+        return simulador.minutoDelReloj();
     }
 
     /** Minuto simulado actual. */

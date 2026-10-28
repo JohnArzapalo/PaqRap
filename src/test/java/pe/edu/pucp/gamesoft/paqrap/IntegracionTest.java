@@ -69,6 +69,27 @@ class IntegracionTest {
         assertTrue(r.registro.stream().anyMatch(e -> e.tipo == Simulador.Evt.T.AVERIA && e.unidad.equals("TA01")));
     }
 
+    /** Etapa 35 (D10 a D13): la instantánea de una unidad averiada trae su tipo y hasta cuándo dura la
+     *  avería, para que el visualizador la muestre con el color de su tipo el tiempo que le corresponde.
+     *  Tipo 2 en el minuto 0: en el lugar hasta las 04:00 (4 h) y disponible al terminar el turno siguiente (15:00). */
+    @Test
+    void instantaneaTraeTipoYDuracionDeLaAveria() {
+        Simulador.Config c = SimuladorTest.config(60);
+        c.horizonteMin = 60;
+        Simulador s = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), c);
+        s.inyectarAveria("TA01", 2);
+        s.ejecutar();
+        String json = s.instantaneaJson();
+        int i = json.indexOf("\"codigo\":\"TA01\"");
+        String ta01 = json.substring(i, json.indexOf("\"codigo\":\"TM01\""));
+        assertTrue(ta01.contains("\"estado\":\"AVERIADA\""), ta01);
+        assertTrue(ta01.contains("\"averia_tipo\":2"), ta01);
+        assertTrue(ta01.contains("\"averia_en_lugar_hasta_min\":240.000"), ta01);
+        assertTrue(ta01.contains("\"averia_disponible_min\":900.000"), ta01);
+        String tm01 = json.substring(json.indexOf("\"codigo\":\"TM01\""));
+        assertTrue(tm01.contains("\"averia_tipo\":null") && !tm01.substring(0, tm01.indexOf("\"a_bordo\"")).contains("averia_disponible_min"));
+    }
+
     /** El cambio de velocidad rige desde la siguiente replanificación (P16), solo en
      *  esa simulación: la velocidad configurada del tipo no cambia (Etapa 24). */
     @Test

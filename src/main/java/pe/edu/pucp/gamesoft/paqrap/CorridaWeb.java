@@ -91,17 +91,22 @@ final class CorridaWeb {
         // adelanto en tiempo real (Ta < adelanto: si no, el bloque llega tarde y el reloj espera).
         cfg.bloqueMin = Parametros.decimal("bloque.min", 60);
         cfg.adelantoEnParalelo = true;
+        cfg.regresoSinTareas = true;   // Etapa 35 (SI-34): las unidades sin tareas vuelven a un almacén con stock
         double adelantoRealMs = cfg.adelantoMin / factor * 60_000;
         if (cfg.bloqueMin > 0 && cfg.taMs >= adelantoRealMs)
             throw new IllegalArgumentException(String.format(java.util.Locale.US,
                     "Con este ritmo el adelanto dura %.0f ms reales y el planificador necesita %d ms (Ta): elija un ritmo menor",
                     adelantoRealMs, cfg.taMs));
+        cfg.factorReloj = factor;
         cfg.taBloqueMs = taBloqueMs(cfg.taMs, adelantoRealMs, Parametros.decimal("bloque.fraccion_ta", 0.5),
                 Parametros.entero("bloque.ta_max_ms", 10_000));
-        DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin);
+        // Etapa 35 (A22, SI-33): los pedidos se leen por partes, línea a línea, hasta el bloque siguiente;
+        // los bloqueos y mantenimientos (conocidos de antemano) se cargan por mes, como antes.
+        DatosOficiales datos = DatosOficiales.cargar(YearMonth.from(inicio), cfg.inicioMin, cfg.horizonteMin, false);
         cfg.mapa = new MapaVial(datos.bloqueos);
         cfg.mantenimientos = datos.mantenimientos;
-        ServicioSimulacion servicio = new ServicioSimulacion(datos.pedidos, flota(autos, motos, bicicletas),
+        FuentePedidos pedidos = new LectorVentasIncremental(YearMonth.from(inicio), cfg.inicioMin, cfg.inicioMin + cfg.horizonteMin);
+        ServicioSimulacion servicio = new ServicioSimulacion(pedidos, flota(autos, motos, bicicletas),
                 Planificador.tabu((int) Parametros.entero("tabu.duracion", 8)), cfg);
         CorridaWeb c = new CorridaWeb(esc, inicio, inicioMs, factor, autos, motos, bicicletas, servicio);
         servicio.iniciar();
@@ -142,6 +147,14 @@ final class CorridaWeb {
         return servicio.eventos(desde);
     }
 
+    String historialJson(String id) {
+        return servicio.historial(id);
+    }
+
+    String bloquesJson() {
+        return servicio.bloques();
+    }
+
     String reporteJson() {
         return servicio.reporte();
     }
@@ -171,7 +184,58 @@ final class CorridaWeb {
         return id;
     }
 
+    /**
+     * Carga masiva de la operación día a día (Etapa 35, Tarea 6; B13): cada línea con el formato del profesor
+     * (##d##h##m:x,y,cliente,cantidad,plazo) se registra en SU fecha y hora: ##d es el día del mes en curso de
+     * la operación. Las líneas con hora ya pasada, fecha inválida, destino fuera del mapa o formato inválido
+     * se rechazan con su motivo. Devuelve {"aceptados": [...], "rechazados": [...]}.
+     */
+    synchronized String registrarLote(String texto) {
+        if (escenario != Simulador.Escenario.DIA_A_DIA)
+            throw new IllegalArgumentException("Solo la operación día a día admite pedidos nuevos");
+        double ahora = servicio.minutoDelReloj();
+        // Los minutos de la corrida se cuentan desde el día 1 a las 00:00 del mes de inicio
+        LocalDateTime base = inicio.toLocalDate().withDayOfMonth(1).atStartOfDay();
+        YearMonth mes = YearMonth.from(base.plusSeconds(Math.round(ahora * 60)));
+        double inicioMes = java.time.Duration.between(base, mes.atDay(1).atStartOfDay()).toMinutes();
+        EscritorJson acept = new EscritorJson().abrirArreglo(null), rech = new EscritorJson().abrirArreglo(null);
+        String[] lineas = texto.split("\\r?\\n");
+        for (int n = 1; n <= lineas.length; n++) {
+            String linea = lineas[n - 1].trim();
+            if (linea.isEmpty()) continue;
+            LectorPedidos.Registro r = LectorPedidos.leerLinea(linea, n);
+            String motivo = r == null ? "Formato inválido (##d##h##m:x,y,cliente,cantidad,plazo)"
+                    : !lineaValida(linea, mes) ? "Fecha u hora inválida para " + mes
+                    : r.x < 0 || r.x >= MapaVial.ANCHO || r.y < 0 || r.y >= MapaVial.ALTO ? "Destino fuera del mapa"
+                    : r.cantidad < 1 ? "La cantidad debe ser mayor que cero" : r.hl < 1 ? "Plazo inválido" : null;
+            double minuto = r == null ? 0 : inicioMes + r.llegadaHoras * 60;
+            if (motivo == null && minuto < ahora - 1e-9) motivo = "Hora anterior a la actual de la operación";
+            if (motivo != null) {
+                rech.abrirObjeto(null).valor("linea", n).valor("texto", linea).valor("motivo", motivo).cerrarObjeto();
+                continue;
+            }
+            String id = r.cliente + "-R" + (++pedidosRegistrados);
+            List<Pedido> partes = LectorPedidos.entregas(r, minuto / 60.0);   // más de 24 productos: en partes, como el archivo
+            for (int k = 0; k < partes.size(); k++) {
+                Pedido p = partes.get(k);
+                p.idOriginal = id;
+                p.id = id + (partes.size() > 1 ? "-" + (k + 1) : "");
+                servicio.programarPedido(p);
+            }
+            acept.abrirObjeto(null).valor("linea", n).valor("id", id).valor("x", r.x).valor("y", r.y).valor("cantidad", r.cantidad)
+                 .valor("plazo", r.hl).valor("registro_min", minuto).valor("limite_min", minuto + r.hl * 60).valor("ahora_min", ahora).cerrarObjeto();
+        }
+        return "{\"aceptados\":" + acept.cerrarArreglo() + ",\"rechazados\":" + rech.cerrarArreglo() + "}";
+    }
+
+    /** Día, hora y minuto de la línea dentro de rango para el mes. */
+    private static boolean lineaValida(String linea, YearMonth mes) {
+        int d = Integer.parseInt(linea.substring(0, linea.indexOf('d'))), h = Integer.parseInt(linea.substring(linea.indexOf('d') + 1, linea.indexOf('h'))),
+                m = Integer.parseInt(linea.substring(linea.indexOf('h') + 1, linea.indexOf('m')));
+        return d >= 1 && d <= mes.lengthOfMonth() && h <= 23 && m <= 59;
+    }
+
     double minutoActual() {
-        return servicio.minutoActual();
+        return servicio.minutoDelReloj();   // el minuto del reloj (el último evento procesado puede ir atrás)
     }
 }

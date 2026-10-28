@@ -105,10 +105,8 @@ class BloquesTest {
                 && e.detalle.contains("entregas")), "plan nuevo a los 61 min");
     }
 
-    /** En la operación día a día (ritmo real), un pedido que registra el operador a la hora 1 se
-     *  planifica al registrarse, sin esperar al bloque de las 2 h: lo lleva el auto libre. */
-    @Test
-    void enLaOperacionDiaADiaElPedidoRegistradoSePlanificaAlRegistrarse() {
+    /** Corre la operación día a día con bloques y registra un pedido del operador cuando el reloj llega a la hora 1. */
+    private static Simulador.Resultado diaADiaConPedidoALaHora1(int plazoHoras) {
         Simulador.Config c = conBloques();
         c.escenario = Simulador.Escenario.DIA_A_DIA;
         c.horizonteMin = 600;
@@ -117,17 +115,33 @@ class BloquesTest {
         c.reloj = t -> {   // el operador registra el pedido cuando el reloj llega a la hora 1
             if (t >= 60 && !registrado[0]) {
                 registrado[0] = true;
-                s[0].inyectarPedido(new Pedido("W-R1", "W-R1", 27, 17, 3, 36, 0));
+                s[0].inyectarPedido(new Pedido("W-R1", "W-R1", 27, 17, 3, plazoHoras, 0));
             }
             return true;
         };
         s[0] = Simulador.crear(List.of(new Pedido("A", "A", 40, 20, 5, 36, 0.0)),
                 List.of(new UnidadTransporte("TA01", TipoUnidad.AUTO), new UnidadTransporte("TA02", TipoUnidad.AUTO)),
                 Planificador.tabu(8), c);
-        Simulador.Resultado r = s[0].ejecutar();
-        double entregaW = r.registro.stream().filter(e -> e.tipo == Simulador.Evt.T.ENTREGA && e.entregas.contains("W-R1"))
+        return s[0].ejecutar();
+    }
+
+    private static double entregaDe(Simulador.Resultado r, String id) {
+        return r.registro.stream().filter(e -> e.tipo == Simulador.Evt.T.ENTREGA && e.entregas.contains(id))
                 .mapToDouble(e -> e.min).findFirst().orElseThrow();
-        assertTrue(entregaW < 120, "se entregó antes del bloque de las 2 h: " + entregaW);
+    }
+
+    /** Etapa 35 (Tarea 6, SI-35): en la operación día a día también se planifica por bloques. Un pedido normal
+     *  que registra el operador a la hora 1 no replanifica en el instante: entra al plan del bloque de las 2 h.
+     *  Uno urgente (plazo de 2 h: al empezar el bloque le quedaría 1 h) sí replanifica al llegar. */
+    @Test
+    void enLaOperacionDiaADiaElPedidoDelOperadorEntraPorBloques() {
+        Simulador.Resultado normal = diaADiaConPedidoALaHora1(36);
+        assertEquals(0, normal.replanPorEvento, "un pedido normal no corta el bloque");
+        assertTrue(entregaDe(normal, "W-R1") >= 120, "se entrega con el plan del bloque de las 2 h: " + entregaDe(normal, "W-R1"));
+
+        Simulador.Resultado urgente = diaADiaConPedidoALaHora1(2);
+        assertTrue(urgente.replanPorEvento >= 1, "un pedido urgente replanifica al llegar");
+        assertTrue(entregaDe(urgente, "W-R1") < 120, "y se entrega antes del bloque siguiente: " + entregaDe(urgente, "W-R1"));
     }
 
     /** En otro hilo el resultado es el mismo que en el hilo de la simulación (parada por evaluaciones). */
@@ -185,6 +199,39 @@ class BloquesTest {
         assertEquals(3_750, CorridaWeb.taBloqueMs(2_000, 7_500, 0.5, 10_000));    // 5 días en 30 min
         assertEquals(2_000, CorridaWeb.taBloqueMs(2_000, 3_000, 0.5, 10_000));    // nunca menos que Ta
         assertEquals(10_000, CorridaWeb.taBloqueMs(2_000, 1_800_000, 0.5, 10_000));   // día a día: tope
+    }
+
+    /** Unidades que terminaron lejos de un almacén (al final de la corrida): sin destino y fuera de los tres almacenes. */
+    private static List<String> varadas(Simulador s) {
+        List<String> r = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{\"codigo\":\"(\\w+)\",\"tipo\":\"\\w+\",\"estado\":\"OPERATIVA\",\"x\":(\\d+),\"y\":(\\d+)").matcher(s.instantaneaJson());
+        while (m.find()) {
+            int x = Integer.parseInt(m.group(2)), y = Integer.parseInt(m.group(3));
+            boolean enAlmacen = (x == 27 && y == 14) || (x == 12 && y == 38) || (x == 57 && y == 27);
+            if (!enAlmacen) r.add(m.group(1) + "(" + x + "," + y + ")");
+        }
+        return r;
+    }
+
+    /** Etapa 35 (SI-34, decisión del equipo): en la web, una unidad que queda sin ruta vuelve al almacén más
+     *  cercano con stock. Sin esa opción (experimento), el plan siguiente cancelaba su regreso y quedaba
+     *  detenida a mitad de camino. Un día después del último pedido, con la opción, todas están en un almacén. */
+    @Test
+    void lasUnidadesSinTareasVuelvenAUnAlmacen() {
+        Simulador.Config sin = conBloques();
+        sin.horizonteMin = 1440;
+        Simulador s1 = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), sin);
+        Simulador.Resultado r1 = s1.ejecutar();
+        Simulador.Config con = conBloques();
+        con.horizonteMin = 1440;
+        con.regresoSinTareas = true;
+        Simulador s2 = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), con);
+        Simulador.Resultado r2 = s2.ejecutar();
+        assertEquals(12, r1.pedidosEnPlazo);
+        assertEquals(12, r2.pedidosEnPlazo, "volver al almacén no quita plazos");
+        assertTrue(!varadas(s1).isEmpty(), "sin la opción alguna unidad queda varada (el problema): " + varadas(s1));
+        assertEquals(List.of(), varadas(s2), "con la opción todas vuelven a un almacén");
+        assertEquals(0, r2.saltos);
     }
 
     @Test

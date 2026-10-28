@@ -516,3 +516,73 @@ Pedido del equipo para aprovechar el espacio que piden los profesores. Solo camb
   - con 1440 × 860, el mapa mide 1100 × 860 px con la barra lateral y 1440 × 860 sin ella, y la retícula ocupa el 93-94 % del lado que la limita;
   - en pantalla angosta (700 px), las tarjetas se apilan y el mapa queda arriba, con las secciones debajo.
 - **Ojo con la Guía del software en vivo:** el criterio 33 pide un mecanismo para mostrar u ocultar la línea de la ruta. Al quitar el botón Rutas, la ruta solo se aísla al elegir una unidad (se muestra solo la suya).
+
+## Etapa 35: formulario de evaluación del software en «Conforme»
+
+Encargo del equipo: dejar en «Conforme» los 126 ítems que aplican del formulario de evaluación del software (hoja `91.EvaSw`), incluidos los opcionales y las secciones F y G. Todo va en la rama `feature/etapa35-eval-sw`, un commit por tarea. Las reglas del planificador y del evaluador (`Compartido`, `Contexto`, `BusquedaTabu`) **no cambiaron**. El frontend sigue sin dependencias externas: los íconos son SVG en el mismo archivo. Las capturas de la verificación están en `salidas/capturas_etapa35/` (local).
+
+**Decisiones del equipo:**
+
+| Tema | Decisión |
+|---|---|
+| Sentido del semáforo de llenado | El que pidió la JP el 21-oct: bajo = rojo, medio = ámbar, alto = verde; vacío aparte (SI-31) |
+| Unidades sin tareas | Vuelven al almacén más cercano con stock, solo en la web (SI-34) |
+| Lectura de pedidos por bloques (A22) | Diseño aprobado tal cual (`docs/diseno/propuesta_lectura_incremental.md`, SI-33) |
+| Operación día a día | Plan aprobado tal cual (`docs/diseno/propuesta_dia_a_dia.md`, SI-35) |
+| Clase principal del proyecto (`pom.xml`) | `ServidorWeb`, en lugar de la plantilla `PaqRap` |
+
+**Tarea 1, mapa (sección C y D):**
+- íconos SVG de auto, moto y bicicleta que giran hacia donde avanza la unidad, con flecha de dirección;
+- averías con un color por tipo y la marca del número; la instantánea trae hasta cuándo dura cada una;
+- un solo semáforo de llenado para unidades y almacenes, con el estado vacío y el sentido en una constante (`SENTIDO_SEMAFORO`, SI-31);
+- leyenda desplegable y botón de rutas (pendientes, recorridas u ocultas; criterio 33 de la Guía);
+- cuatro relojes al minuto (fecha y hora simulada, tiempo simulado transcurrido, hora real y tiempo real transcurrido) y el tramo recorrido desde la última parada, punteado;
+- fecha de inicio con campos propios (dd/mm/aaaa y hh:mm), que no dependen del idioma del navegador.
+
+**Tarea 2, reloj y trayectorias (SI-32):**
+- mientras la simulación espera al planificador, el reloj se pausa (`Reloj.pausa`) y al seguir no salta;
+- una excepción descarta el plan adelantado sin esperarlo (antes lo esperaba hasta 7.5 s);
+- `GET /api/corridas/{ESC}/bloques` da la línea de tiempo nodo a nodo del bloque en curso y del siguiente, y el visualizador la reproduce con su propio reloj en vez de interpolar entre fotos;
+- medido en el navegador (20 s de SIM_5D): de unos 60 saltos de hasta 1.4 km a **ninguno**, también con una avería (la pausa dura de 1.5 a 2 s).
+
+**Tarea 3, panel (sección E):**
+- flota: carga en número, orden por ocupación, horas de salida y llegada y distancia por recorrer y recorrida; filtros combinables por tipo, semáforo (con vacío), origen y estado; búsqueda por minutos y km al destino y al origen;
+- almacenes en su propia sección: llenado, semáforo y, por almacén, los envíos en camino, por salir en X horas y entregados en las últimas X horas;
+- envíos: cada pedido con todas sus partes, unidad, ruta, horas, hora límite y estado, con filtros;
+- lo que no cumple los filtros se atenúa en el mapa (F15 a F18).
+
+**Tarea 4, vinculación mapa-panel (sección F):**
+- buscador por unidad, pedido, parte o producto;
+- ruta anterior de un envío, a pedido, con sus escalas y los tramos recorridos a bordo de cada unidad (`GET …/historial?id=`);
+- clic en el mapa abre la tarjeta o la fila del panel, y clic en el panel enfoca el mapa (almacenes, unidades y envíos);
+- dos navegadores sobre la misma corrida: selección, filtros y orden son de cada uno; una avería registrada en uno la ven ambos (C06, G06).
+
+**Tarea 5, lectura incremental (A22, SI-33):**
+- `FuentePedidos` y `LectorVentasIncremental`: el simulador lee los pedidos línea a línea, solo hasta el bloque siguiente; nunca más de 1 h simulada por delante del reloj;
+- el experimento sigue pasando listas: con 2 ventanas de MEDIA, TABU y AG, periódico y por bloques, **el CSV da idéntico** en las 59 columnas de resultados (`salidas/verificacion_etapa35/`).
+
+**Unidades sin tareas (SI-34):** en la web, una unidad que queda sin ruta vuelve al almacén más cercano con stock. Antes, cada plan nuevo cancelaba su regreso y quedaba varada a mitad de camino.
+
+**Tarea 6, operación día a día (SI-35):**
+- el pedido del operador entra al plan del bloque siguiente; solo uno urgente replanifica al llegar;
+- carga masiva (`POST …/DIA_A_DIA/pedidos/lote`, formato del profesor): cada línea se registra en su fecha y hora; las que ya pasaron o son inválidas se rechazan con su motivo;
+- «Cerrar operaciones» y reporte de cierre con la **última planificación estable**: cada parada de cada unidad, con su carga y su hora estimada, el regreso al almacén, los pendientes y los pedidos que esperan el bloque. También va en el CSV;
+- **corrección (revisión de la rama):** la lectura incremental agregaba los pedidos del archivo al final de la cola. Si la carga masiva había programado un pedido para más adelante, los del archivo que llegaban antes quedaban detrás de él y no entraban al plan hasta su hora (en la prueba, un pedido del minuto 100 con plazo de 4 h no se entregaba y la corrida colapsaba); los urgentes tampoco replanificaban. Ahora `Simulador.leerPedidos` inserta cada pedido, y su llegada urgente, en su lugar por hora (`insertarPorLlegar`, `insertarUrgente`), igual que la carga masiva. Con una lista ya ordenada (el experimento) el resultado no cambia. Prueba: `DiaADiaTest.unProgramadoFuturoNoRetieneALosDelArchivo`.
+
+**Tarea 7, indicadores y cierre (sección G):**
+- **indicadores globales con semáforo (G01 a G04):** ocupación de toda la flota operativa (suma de las cargas sobre la suma de las capacidades) y llenado de los almacenes intermedios en conjunto, en los indicadores sobre el mapa. Pasan a una segunda fila, o debajo de los botones, cuando no caben;
+- el reporte con la última planificación estable se abre al terminar la SIM_5D, al cerrar el día a día y al llegar al colapso (G08 a G10);
+- **corrección:** al terminar una corrida, su reloj seguía avanzando con el tiempo real, y la barra lateral mostraba una hora posterior al fin (por ejemplo, el día 7 de una SIM_5D). Ahora el reloj se detiene en el último instante (`Simulador.minutoDelReloj`; prueba `TrayectoriasTest.alTerminarElRelojSeDetiene`);
+- **verificado en corridas reales** (datos oficiales, ritmo ×800; capturas `t7_03` a `t7_06`):
+
+| Corrida | Resultado | Última planificación estable en el reporte |
+|---|---|---|
+| SIM_5D desde el 10/11/2026 | Sin colapso: 1 116 entregas, 100 % en plazo, S/ 176 129 | Aplicada el 14/11 a las 23:00: 22 unidades con ruta, 179 paradas |
+| COLAPSO desde el 01/06/2027 (unos 357 pedidos por día) | Colapsó el 02/06/2027 a las 02:21 (26.4 h; causa: destino bloqueado) | Aplicada a las 02:00: 32 unidades con ruta, 262 paradas |
+| COLAPSO desde el 01/01/2027 | **No colapsó en 30 días:** 5 016 entregas, 100 % en plazo, S/ 789 239 | Sin paradas pendientes al cierre |
+| Día a día (×60, unas 2.5 h) | «Cerrar operaciones» | 6 unidades con ruta, 29 paradas |
+
+- **Ojo con la fecha del escenario hasta el colapso.** Cada archivo mensual trae 5 000 pedidos, que cubren cada vez menos días: enero de 2027 llega hasta el día 20, y el horizonte de 30 días no alcanza a febrero. Desde el 01/01/2027 (la fecha anotada en B14), la solución actual entrega todo y no colapsa. Para mostrar el colapso conviene empezar en un mes con más demanda, por ejemplo el 01/06/2027;
+- **G05** (permanencia mínima de las maletas en los aeropuertos) es del dominio aéreo. Lo más cercano en PaqRap es la hora de acondicionamiento en el cliente, que ya se cumple: `entrega.horas = 1` (`Compartido.HORAS_ENTREGA`) no cuenta dentro del plazo, pero retrasa las entregas siguientes de la unidad, y cada parada trae su hora de llegada y de fin. No se agregó ninguna regla.
+
+**Pruebas:** 18 nuevas: `TrayectoriasTest` (7), `PanelTest` (2), `VinculacionTest` (1), `LecturaIncrementalTest` (2), `DiaADiaTest` (4), `IntegracionTest` (1) y `BloquesTest` (1). La prueba del día a día de `BloquesTest` cambió a la regla nueva. **Total: 117 pruebas, todas pasan.** Los cambios del visualizador se verificaron en Chromium (Playwright), con capturas.
