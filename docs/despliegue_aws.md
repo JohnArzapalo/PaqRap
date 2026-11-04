@@ -50,6 +50,13 @@ La sección de Ingeniería Informática asignó al equipo una máquina virtual: 
 - La memoria disponible es de unos 2.6 GB, así que el servidor se arranca con `-Xmx1500m` en vez de `-Xmx3g`.
 - El proyecto se copia como carpeta (`tar.gz`), sin git.
 
+**Versiones desplegadas:**
+
+| Fecha | Versión | Cómo se hizo |
+|---|---|---|
+| 21-oct-2026 | Etapa 34 (commit `7bdde4f`) | Instalación (abajo) |
+| 28-oct-2026 | Etapa 35 (`main` en `d9674a6`) | Actualización (abajo). Se comprobó desde fuera que la página servida trae las funciones de la etapa 35 y que la API responde |
+
 **Instalación (hecha el 21-oct-2026):**
 1. En la PC, generar el paquete desde el último commit. Los archivos internos del repositorio marcados con `export-ignore` en `.gitattributes` quedan fuera solos; además se excluyen los ZIP de entregas anteriores:
    ```bash

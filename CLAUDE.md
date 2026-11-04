@@ -48,7 +48,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 34)
+## 3. Estado del código (etapa 35)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -91,7 +91,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - las cachés de `MapaVial` están sincronizadas. La parte del visualizador (API `/bloques` y reproducción de trayectorias) se hizo en la etapa 35. Hay 99 pruebas.
   - **Datos oficiales (MEDIA, 12 ventanas, Ta = 500 ms):** el periódico colapsa en 4 de 12; bloques de 2 h con inserción, en 11 de 12; bloques de 1 h (adelanto de 30 min) con inserción, en 3 de 12. Lo que decide es cuánto espera un pedido nuevo para entrar al plan (hasta un bloque). **Decisión del equipo: bloques de 1 h** (`docs/avance_sem07.md`, etapa 33). Para volver a 2 h: `bloque.min=120`, `bloque.adelanto_min=60` y reiniciar el servidor.
 - **Etapa 34, rediseño del visualizador** (`web/index.html`): pantalla de inicio para elegir el escenario e iniciarlo; sin barras superiores, el mapa ocupa todo el espacio que deja la barra lateral; barra lateral con cuatro secciones desplegables (Simulación, Resumen, Flota y Bitácora); paleta oscura con retícula blanca; sin emojis. Detalle en `docs/avance_sem07.md`.
-- **Etapa 35, formulario de evaluación del software** (rama `feature/etapa35-eval-sw`, sin fusionar; detalle en `docs/avance_sem07.md`):
+- **Etapa 35, formulario de evaluación del software** (rama `feature/etapa35-eval-sw`, fusionada a `main` el 28-oct-2026 en `d9674a6`; detalle en `docs/avance_sem07.md`):
   - mapa: íconos SVG por tipo que giran hacia donde avanzan, averías por tipo, un solo semáforo de llenado con estado vacío (SI-31: bajo = rojo, medio = ámbar, alto = verde, pedido de la JP), leyenda desplegable, botón de rutas y cuatro relojes;
   - el reloj se pausa mientras la simulación espera al planificador (SI-32) y el visualizador reproduce las trayectorias del bloque (`GET /bloques`): ya no hay saltos;
   - panel de flota, almacenes y envíos con orden, filtros y búsqueda; vinculación mapa-panel, buscador y ruta anterior de un envío (`GET /historial`);
@@ -100,11 +100,11 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - operación día a día completa (SI-35): pedidos del operador por bloques, carga masiva en su hora y «Cerrar operaciones»;
   - indicadores globales con semáforo (ocupación de la flota y llenado de los almacenes) y reporte de la última planificación estable en los tres escenarios;
   - diagramas A22 y A23 actualizados; `exec.mainClass` = `ServidorWeb`. Hay 117 pruebas.
-- **Despliegue vigente: máquina virtual del curso** (21-oct-2026; pasos en `docs/despliegue_aws.md`, §2):
+- **Despliegue vigente: máquina virtual del curso** (instalada el 21-oct-2026 y actualizada el 28-oct-2026 con la etapa 35; pasos en `docs/despliegue_aws.md`, §2):
   - **http://1inf54-982-5e.inf.pucp.edu.pe/** (200.16.7.154). Usuario SSH `1inf54.982.5e`; la contraseña la tiene el equipo y **nunca se escribe en el repositorio**.
   - Ubuntu 24.04, 2 núcleos, 3.8 GB y OpenJDK 21. Solo están abiertos los puertos 22, 80 y 443, y Tomcat ocupa el 8080.
   - PaqRap corre como servicio `paqrap` en el **puerto 8090**, y nginx (puerto 80) le pasa las peticiones. La memoria del servidor se bajó a `-Xmx1500m`, editando `scripts/iniciar_servidor.sh` en la máquina.
-  - Se copió como carpeta (no con `git clone`), con el paquete `salidas/despliegue_vm/PaqRap_vm.tar.gz` del commit `7bdde4f`, **sin `CLAUDE.md` ni menciones a Claude**.
+  - Se copió como carpeta (no con `git clone`), con el paquete `salidas/despliegue_vm/PaqRap_vm.tar.gz`, **sin `CLAUDE.md` ni menciones a Claude**. Versión desplegada: `main` en `d9674a6` (etapa 35, 28-oct-2026); antes, `7bdde4f` (etapa 34). El paquete del 28-oct se revisó descomprimido: sin menciones a Claude ni Anthropic, sin claves ni contraseñas; y la página servida se verificó desde fuera.
   - Para actualizar: regenerar el paquete desde el último commit, copiarlo con `scp`, descomprimirlo encima, volver a bajar la memoria con `sed`, compilar con `scripts/compilar.sh` y reiniciar con `sudo systemctl restart paqrap`.
   - La instancia de AWS (EC2) queda solo de respaldo.
 - **Entregable de la semana 10:** `sol.integrada.sem10/PaqRap_sol_integrada_sem10.zip` (commit `7bdde4f`, sin `CLAUDE.md` ni menciones a Claude). Se generó pero **no está en git**.
@@ -181,7 +181,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
     - **Pedido de la JP de no replanificar los vehículos en ruta:** choca con P16 del Sheet («todo vehículo en el almacén o en ruta es vuelto a planificar»). La solución ya lo cubre en la práctica (Tabú parte del plan vigente y penaliza cada cambio de unidad con S/ 16; solo 20 a 27 cambios en 5 días). Si la JP insiste, conviene preguntárselo por escrito al profesor.
     - ~~Operación día a día~~: completada en la etapa 35 (SI-35).
     - **Fecha del escenario hasta el colapso para la demostración:** desde el 01/01/2027 no colapsa en 30 días (los pedidos de enero de 2027 terminan el día 20); desde el 01/06/2027 colapsa en unas 26 h (etapa 35).
-    - **Fusión de `feature/etapa35-eval-sw` a `main`:** la decide el equipo (pull request), y después se actualiza la máquina virtual (§3).
+    - ~~Fusión de `feature/etapa35-eval-sw` a `main`~~: hecha el 28-oct-2026 (`main` en `d9674a6`, con la corrección de orden de la carga masiva), y la máquina virtual quedó actualizada (§3).
 11. **Preguntas al profesor que siguen abiertas:** 11 (destino bloqueado), 13 (escenario del experimento), 18 (si lo urgente y las averías cortan el bloque; hoy sí lo cortan) y las de `docs/preguntas_para_el_profesor.md`. Contexto completo del curso (Sheet de P&R, hoja «Guía» con 108 criterios del software en vivo, sesiones): `C:\Users\MARIA GRACIA\Downloads\JL\DP1\1INF54_hallazgos_maestro_v11.md`, fuera del repositorio.
 
 ## 7. Convenciones de trabajo

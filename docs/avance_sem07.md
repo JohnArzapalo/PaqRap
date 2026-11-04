@@ -586,3 +586,36 @@ Encargo del equipo: dejar en «Conforme» los 126 ítems que aplican del formula
 - **G05** (permanencia mínima de las maletas en los aeropuertos) es del dominio aéreo. Lo más cercano en PaqRap es la hora de acondicionamiento en el cliente, que ya se cumple: `entrega.horas = 1` (`Compartido.HORAS_ENTREGA`) no cuenta dentro del plazo, pero retrasa las entregas siguientes de la unidad, y cada parada trae su hora de llegada y de fin. No se agregó ninguna regla.
 
 **Pruebas:** 18 nuevas: `TrayectoriasTest` (7), `PanelTest` (2), `VinculacionTest` (1), `LecturaIncrementalTest` (2), `DiaADiaTest` (4), `IntegracionTest` (1) y `BloquesTest` (1). La prueba del día a día de `BloquesTest` cambió a la regla nueva. **Total: 117 pruebas, todas pasan.** Los cambios del visualizador se verificaron en Chromium (Playwright), con capturas.
+
+## Etapa 36: indicadores fuera del mapa
+
+Pedido del equipo (4-nov-2026): dejar el mapa sin marcos flotantes. Solo cambia `web/index.html`; el planificador y el simulador no se tocaron.
+
+| Marco sobre el mapa (antes) | Ahora |
+|---|---|
+| Ocupación de la flota | Sección Flota, arriba de «Ordenar por» y «Sentido» |
+| Llenado de almacenes | Sección Almacenes, arriba de «Semáforo de llenado» |
+| En plazo | Solo en Resumen («Entregas en plazo») |
+| Entregas | Solo en Resumen («Entregas realizadas») |
+| Pendientes | Solo en Resumen («Pedidos vigentes» y «Pedidos en riesgo») |
+| Costo | Solo en Resumen («Costo acumulado») |
+
+- `pintarHud` se reemplazó por `pintarIndicadoresGlobales`, que pinta los dos indicadores aunque su sección esté cerrada.
+- «Entregas en plazo», en Resumen, ahora se pone en rojo al colapsar, como hacía el marco que se quitó.
+- **Punto abierto:** G01 a G04 del formulario dicen «mapa: indicadores global», y estos indicadores ya no están en el mapa. Falta confirmar con el profesor o la JP que cuentan como conformes en los paneles (`docs/evaluacion_software_etapa35.md`).
+
+## Etapa 37: registro rápido de averías
+
+El registro manual ya existía desde la etapa 32 (Resumen → Acciones de operación), pero estaba escondido. El profesor dijo que si registrar una avería toma más de dos minutos «ya pasó la oportunidad», y mencionó el clic sobre la unidad. Ahora hay dos accesos, solo para quien tiene el control, y ambos piden confirmación (decisión del equipo):
+
+| Acceso | Cómo funciona |
+|---|---|
+| Botón «Registrar avería», en la esquina superior derecha del mapa | Abre el formulario de siempre (unidad y tipo). Es lo único en esa esquina. |
+| Ficha del vehículo, debajo de «Paradas del plan» | Un botón por tipo, con el color de ese tipo en el mapa. Abre el mismo formulario con la unidad y el tipo ya elegidos. Solo aparece si la unidad está operativa y la corrida en ejecución. |
+
+- Los botones de la ficha están fuera de `drBody`, que se repinta cada segundo y podría perder el clic. Quedan visibles aunque la lista de paradas sea larga.
+- **`Simulador.inyectarAveria` ahora rechaza lo que no podría aplicar:** unidad inexistente, ya averiada o en mantenimiento, o corrida terminada. El servidor responde 400 con el motivo y el visualizador lo muestra; antes respondía `ok` sin aplicar nada.
+- Si la unidad elegida deja de estar operativa con el formulario abierto, la selección queda vacía y pide elegir otra; antes pasaba sin aviso a la primera de la lista.
+- Se quitó el botón de Resumen; «Acciones de operación» queda con el cambio de velocidad. El planificador, el evaluador común y el experimento no cambian.
+
+**Pruebas:** 2 nuevas en `IntegracionTest` (119 en total). Verificado en el navegador desde el 16/09/2026 en SIM_5D, COLAPSO y DIA_A_DIA: la avería se registra desde la ficha y el formulario en los tres escenarios. En SIM_5D, la unidad sigue operativa mientras el formulario está abierto y después de cancelar; se rechazan una segunda avería y una unidad inexistente. Los accesos se ocultan con la clase `observer`.

@@ -541,9 +541,22 @@ class Simulador {
         return res;
     }
 
-    /** Evento externo (visualizador): avería de la unidad AHORA. Seguro desde otro hilo. */
+    /**
+     * Evento externo (visualizador): avería de la unidad AHORA. Seguro desde otro hilo.
+     * Etapa 37: rechaza lo que no se podría aplicar, para que el operador vea el motivo en vez de un registro falso.
+     */
     void inyectarAveria(String codigoUnidad, int tipo) {
-        averiasExternas.add(new Object[]{codigoUnidad, tipo});
+        cerrojo.lock();
+        try {
+            if (terminada) throw new IllegalStateException("La corrida ya terminó");
+            Unidad un = unidadPorCodigo.get(codigoUnidad);
+            if (un == null) throw new IllegalArgumentException("No existe la unidad " + codigoUnidad);
+            if (un.estado == EstadoUnidad.AVERIADA) throw new IllegalStateException(codigoUnidad + " ya está averiada");
+            if (un.estado == EstadoUnidad.MANTENIMIENTO) throw new IllegalStateException(codigoUnidad + " está en mantenimiento");
+            averiasExternas.add(new Object[]{codigoUnidad, tipo});
+        } finally {
+            cerrojo.unlock();
+        }
         Thread h = hilo;
         if (h != null) h.interrupt();   // corta la espera del reloj para atenderla ya
     }
