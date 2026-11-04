@@ -2,6 +2,7 @@ package pe.edu.pucp.gamesoft.paqrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -67,6 +68,36 @@ class IntegracionTest {
         Simulador.Resultado r = s.ejecutar();
         assertEquals(1, r.averiasAplicadas);
         assertTrue(r.registro.stream().anyMatch(e -> e.tipo == Simulador.Evt.T.AVERIA && e.unidad.equals("TA01")));
+    }
+
+    /** Etapa 37: una avería que no se podría aplicar se rechaza con su motivo, no se da por registrada. */
+    @Test
+    void averiaExternaInvalidaSeRechaza() {
+        Simulador.Config c = SimuladorTest.config(60);
+        c.horizonteMin = 60;
+        Simulador s = Simulador.crear(pedidos(), flota(), Planificador.tabu(8), c);
+        IllegalArgumentException noExiste = assertThrows(IllegalArgumentException.class, () -> s.inyectarAveria("NOEXISTE", 1));
+        assertTrue(noExiste.getMessage().contains("NOEXISTE"), noExiste.getMessage());
+        s.inyectarAveria("TA01", 2);
+        s.ejecutar();
+        assertThrows(IllegalStateException.class, () -> s.inyectarAveria("TM01", 1), "la corrida ya terminó");
+    }
+
+    /** Etapa 37: una unidad que ya está averiada no se puede volver a averiar mientras corre la simulación. */
+    @Test
+    void unidadAveriadaNoSeVuelveAAveriar() throws Exception {
+        Simulador.Config c = SimuladorTest.config(60);
+        c.horizonteMin = 600;
+        c.reloj = Reloj.escalado(6000);
+        ServicioSimulacion srv = new ServicioSimulacion(pedidos(), flota(), Planificador.tabu(8), c);
+        srv.iniciar();
+        Thread.sleep(500);
+        srv.registrarAveria("TM01", 3);   // tipo 3: sigue averiada hasta el final del horizonte
+        Thread.sleep(500);
+        IllegalStateException ya = assertThrows(IllegalStateException.class, () -> srv.registrarAveria("TM01", 1));
+        assertTrue(ya.getMessage().contains("ya está averiada"), ya.getMessage());
+        Simulador.Resultado r = srv.esperar(30_000);
+        assertEquals(1, r.averiasAplicadas);
     }
 
     /** Etapa 35 (D10 a D13): la instantánea de una unidad averiada trae su tipo y hasta cuándo dura la

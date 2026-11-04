@@ -107,6 +107,12 @@ button{cursor:pointer;}
 .map-btn{background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11.5px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35);}
 .map-btn:hover{border-color:var(--brand);}
 .map-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
+/* Registrar avería: lo único en la esquina superior derecha; con poco ancho, debajo de los botones y, en pantallas angostas, abajo a la izquierda */
+.ov-tr{top:10px;right:10px;}
+@media(max-width:1100px){ .ov-tr{top:46px;} }
+@media(max-width:820px){ .ov-tr{top:auto;right:auto;left:10px;bottom:10px;} }
+.map-btn-averia{border-color:var(--red);color:var(--red);font-weight:600;}
+.map-btn-averia:hover{border-color:var(--red);background:var(--red-dim);}
 /* Leyenda desplegable (etapa 35): reemplaza a la leyenda fija, para dejar libre el mapa */
 .leyenda{position:absolute;z-index:940;top:44px;left:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
 .leyenda h4{font-family:var(--font-display);font-size:12px;color:var(--text);font-weight:600;margin-top:2px;}
@@ -162,6 +168,12 @@ button{cursor:pointer;}
 .dr-h b{font-family:var(--font-mono);font-size:14px;}
 .dr-h .x{margin-left:auto;background:none;border:0;font-size:18px;color:var(--text-dim);width:28px;height:28px;border-radius:5px;}
 .dr-b{padding:10px 12px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+/* Avería desde la ficha: fuera de drBody, que se repinta cada segundo y podría perder el clic; siempre visible aunque la lista de paradas sea larga */
+.dr-av{flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border-soft);}
+.dr-av-tipos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.av-tipo{display:grid;gap:2px;align-content:start;padding:6px;background:var(--panel-alt);border:1px solid var(--border-soft);border-top:3px solid var(--c);border-radius:7px;color:var(--text);text-align:left;font-size:12px;}
+.av-tipo:hover{border-color:var(--c);}
+.av-tipo span{font-size:10px;color:var(--text-dim);line-height:1.25;}
 .kv{display:grid;grid-template-columns:100px 1fr;gap:5px 8px;font-size:12px;} .kv dt{color:var(--text-dim);} .kv dd{font-weight:500;}
 .sec-t{font-size:11px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
 .stops{list-style:none;display:flex;flex-direction:column;gap:3px;}
@@ -248,8 +260,6 @@ input,select,textarea{border:1px solid var(--border);border-radius:7px;padding:7
 input:focus,select:focus,textarea:focus{outline:2px solid rgba(56,189,248,.45);outline-offset:0;border-color:var(--brand);}
 textarea{font-family:var(--font-mono);font-size:11.5px;resize:vertical;}
 .ro{background:var(--panel);color:var(--text-dim);}
-.act-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:9px;border:1.5px solid var(--red);border-radius:9px;background:none;color:var(--red);font-weight:600;font-size:13px;font-family:var(--font-display);}
-.act-btn:hover{background:var(--red-dim);}
 /* herramientas de orden y filtro (flota, almacenes y envíos) */
 .ftools{display:grid;gap:8px;border:1px solid var(--border-soft);border-radius:11px;padding:9px 10px;}
 .ftools-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}
@@ -447,6 +457,7 @@ body.observer .ctrl-only{display:none !important;}
         <!-- Buscador (F01, F03): unidad, pedido, parte o producto -->
         <div class="buscador"><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div>
       </div>
+      <div class="ov ov-tr ctrl-only"><button class="map-btn map-btn-averia" id="btnAveriaMapa">Registrar avería</button></div>
       <!-- Ficha de un envío: escalas y ruta anterior (F02 a F04, F09) -->
       <div class="ficha-envio" id="fichaEnvio" hidden></div>
       <div class="leyenda" id="leyenda" hidden></div>
@@ -461,6 +472,14 @@ body.observer .ctrl-only{display:none !important;}
       <div class="drawer" id="drawer">
         <div class="dr-h"><span id="drIcon" class="u-badge">A</span><b id="drCode">—</b><span class="chip" id="drState"></span><button class="x" id="drClose">×</button></div>
         <div class="dr-b" id="drBody"></div>
+        <div class="dr-av ctrl-only" id="drAveria">
+          <div class="sec-t">Registrar avería</div>
+          <div class="dr-av-tipos">
+            <button class="av-tipo" style="--c:var(--av1)" data-tipo="1"><b>Tipo 1</b><span>2 h en el lugar</span></button>
+            <button class="av-tipo" style="--c:var(--av2)" data-tipo="2"><b>Tipo 2</b><span>Hasta el fin del turno siguiente</span></button>
+            <button class="av-tipo" style="--c:var(--av3)" data-tipo="3"><b>Tipo 3</b><span>Al menos 2 días</span></button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -517,7 +536,6 @@ body.observer .ctrl-only{display:none !important;}
           <div class="panel"><div class="panel-head"><h2>Evolución</h2><small id="evoCap">entregas por día</small></div><svg id="evo" viewBox="0 0 300 100" style="width:100%;height:100px;"></svg></div>
           <div class="panel ctrl-only">
             <div class="panel-head"><h2>Acciones de operación</h2></div>
-            <button class="act-btn" id="btnAbrirAveria">Registrar avería</button>
             <div class="row2">
               <label class="fl">Tipo de unidad<select id="velTipo"><option value="AUTO">Auto</option><option value="MOTO">Moto</option><option value="BICICLETA">Bicicleta</option></select></label>
               <label class="fl">Velocidad (km/h)<input type="number" id="velKmh" value="40" min="1" max="80"></label>
@@ -1377,6 +1395,7 @@ function pintarDetalle(s){
     <div><div class="sec-t">Productos a bordo (clic: ruta del envío)</div><div class="tags" id="drABordo">${u.a_bordo.length ? u.a_bordo.map(a => `<span class="lnk" data-env="${esc(a)}">${esc(a)}</span>`).join('') : '<span class="help">Ninguno</span>'}</div></div>
     <div><div class="sec-t">Paradas del plan (${lista.length})</div><ul class="stops">${paradas || '<li style="display:block" class="t">Sin paradas asignadas</li>'}</ul></div>
     <p class="help">Hora estimada de llegada según el plan vigente: camino real (con desvíos por bloqueos), alimentación y 1 h por entrega.</p>`;
+  $('#drAveria').style.display = u.estado === 'OPERATIVA' && s.estado_corrida === 'EN_EJECUCION' ? '' : 'none';
 }
 /* Etiqueta del semáforo de llenado (color y nombre). */
 const semTag = c => `<span class="semtag"><i style="background:${colorSem(c)}"></i>${NOMBRE_SEM[c]}</span>`;
@@ -1439,6 +1458,7 @@ function pintarEvolucion(s){
 function llenarSelectUnidades(s){
   const sel = $('#avUnidad'); if (!s){ sel.innerHTML = ''; return; } const ops = s.unidades.filter(u => u.estado === 'OPERATIVA').map(u => u.codigo);
   if (sel.dataset.k === ops.join()) return; const cur = sel.value; sel.dataset.k = ops.join(); sel.innerHTML = ops.map(c => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+  if (cur && !ops.includes(cur)) sel.selectedIndex = -1;   // la unidad elegida dejó de estar operativa: no se cambia por otra sin avisar
 }
 
 /* =====================================================================
@@ -1676,9 +1696,17 @@ $('#btnFinalizar').onclick = () => { const dia = S.tab === 'DIA_A_DIA';
                                : 'La corrida se detendrá para todos los dispositivos conectados y se mostrará el reporte con la última planificación estable.';
   $('#finGo').textContent = dia ? 'Cerrar operaciones' : 'Finalizar'; abrirModal('mdFin'); };
 $('#finGo').onclick = async () => { cerrarModales(); try { await api('POST', `/api/corridas/${S.tab}/finalizacion`); toast('Se pidió finalizar la corrida.'); } catch (err){ toast(err.message, true); } };
-$('#btnAbrirAveria').onclick = () => { if (!S.snap[S.tab] || S.snap[S.tab].estado_corrida !== 'EN_EJECUCION'){ toast('No hay una corrida en ejecución.', true); return; } abrirModal('mdAveria'); };
-$('#btnAveria').onclick = async () => { const u = $('#avUnidad').value; if (!u) return; cerrarModales();
-  try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad: u, tipo: $('#avTipo').value }); toast(`Avería registrada en ${u}; el planificador replanifica.`); } catch (err){ toast(err.message, true); } };
+/* Registro de averías (etapa 37): desde la esquina del mapa o desde la ficha del vehículo, que abre el mismo
+   formulario con la unidad y el tipo ya elegidos. Nada se registra sin pulsar «Confirmar avería». */
+function abrirRegistroAveria(unidad, tipo){
+  if (!S.snap[S.tab] || S.snap[S.tab].estado_corrida !== 'EN_EJECUCION'){ toast('No hay una corrida en ejecución.', true); return; }
+  if (unidad){ $('#avUnidad').value = unidad; $('#avTipo').value = tipo; }
+  abrirModal('mdAveria');
+}
+$('#btnAveriaMapa').onclick = () => abrirRegistroAveria();
+$('#drAveria').addEventListener('click', e => { const b = e.target.closest('[data-tipo]'); if (b && S.sel) abrirRegistroAveria(S.sel, b.dataset.tipo); });
+$('#btnAveria').onclick = async () => { const unidad = $('#avUnidad').value, tipo = $('#avTipo').value; if (!unidad){ toast('Elige una unidad operativa.', true); return; } cerrarModales();
+  try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad, tipo }); toast(`Avería tipo ${tipo} registrada en ${unidad}; el planificador replanifica.`); } catch (err){ toast(err.message, true); } };
 $('#velTipo').onchange = () => $('#velKmh').value = TIPOS[$('#velTipo').value].vel;
 $('#btnVel').onclick = async () => { const tp = $('#velTipo').value, v = +$('#velKmh').value;
   if (!(v >= 1 && v <= 80)){ $('#velMsg').innerHTML = '<span class="bad-t">Entre 1 y 80 km/h.</span>'; return; }
