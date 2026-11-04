@@ -123,8 +123,8 @@ Formulario `__c1inf54.98#.Eq5E.Eval.Sw`, hoja `91.EvaSw`. Esta tabla **no reempl
 
 | Ítem | Estado 21-oct | Esperado ahora | Evidencia o motivo |
 |---|---|---|---|
-| G01, G02 | sin llenar | Conforme | Indicador «Ocupación de la flota» (suma de cargas / suma de capacidades de la flota operativa) con semáforo (`indicadoresGlobales`, `pintarHud`), captura `t7_01` |
-| G03, G04 | sin llenar | Conforme | Indicador «Llenado de almacenes» (intermedios en conjunto) con semáforo, captura `t7_01` |
+| G01, G02 | sin llenar | Conforme, por confirmar desde la etapa 36 | Indicador «Ocupación de la flota» (suma de cargas / suma de capacidades de la flota operativa) con semáforo (`indicadoresGlobales`, `pintarIndicadoresGlobales`). Desde la etapa 36 está en la sección Flota, no sobre el mapa, y el ítem dice «mapa: indicadores global». La captura `t7_01` muestra la ubicación anterior |
+| G03, G04 | sin llenar | Conforme, por confirmar desde la etapa 36 | Indicador «Llenado de almacenes» (intermedios en conjunto) con semáforo. Desde la etapa 36 está en la sección Almacenes, no sobre el mapa, y el ítem dice «mapa: indicadores global». La captura `t7_01` muestra la ubicación anterior |
 | G05 | sin llenar | No aplica en la práctica | Es del dominio aéreo. Su equivalente en PaqRap, la hora de acondicionamiento en el cliente, ya se cumple (`entrega.horas = 1`, `Compartido.HORAS_ENTREGA`) |
 | G06 | sin llenar | Conforme | Dos navegadores independientes sobre la misma SIM_5D (capturas `t4_06`, `t4_07`) |
 | G08 | sin llenar | Conforme | Reporte con la última planificación estable al terminar la SIM_5D (`tablaUltimoPlan`, `Simulador.reporteJson`). Verificado desde el 10/11/2026: 22 unidades con ruta y 179 paradas, captura `t7_03` |

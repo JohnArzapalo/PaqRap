@@ -586,3 +586,20 @@ Encargo del equipo: dejar en «Conforme» los 126 ítems que aplican del formula
 - **G05** (permanencia mínima de las maletas en los aeropuertos) es del dominio aéreo. Lo más cercano en PaqRap es la hora de acondicionamiento en el cliente, que ya se cumple: `entrega.horas = 1` (`Compartido.HORAS_ENTREGA`) no cuenta dentro del plazo, pero retrasa las entregas siguientes de la unidad, y cada parada trae su hora de llegada y de fin. No se agregó ninguna regla.
 
 **Pruebas:** 18 nuevas: `TrayectoriasTest` (7), `PanelTest` (2), `VinculacionTest` (1), `LecturaIncrementalTest` (2), `DiaADiaTest` (4), `IntegracionTest` (1) y `BloquesTest` (1). La prueba del día a día de `BloquesTest` cambió a la regla nueva. **Total: 117 pruebas, todas pasan.** Los cambios del visualizador se verificaron en Chromium (Playwright), con capturas.
+
+## Etapa 36: indicadores fuera del mapa
+
+Pedido del equipo (4-nov-2026): dejar el mapa sin marcos flotantes. Solo cambia `web/index.html`; el planificador y el simulador no se tocaron.
+
+| Marco sobre el mapa (antes) | Ahora |
+|---|---|
+| Ocupación de la flota | Sección Flota, arriba de «Ordenar por» y «Sentido» |
+| Llenado de almacenes | Sección Almacenes, arriba de «Semáforo de llenado» |
+| En plazo | Solo en Resumen («Entregas en plazo») |
+| Entregas | Solo en Resumen («Entregas realizadas») |
+| Pendientes | Solo en Resumen («Pedidos vigentes» y «Pedidos en riesgo») |
+| Costo | Solo en Resumen («Costo acumulado») |
+
+- `pintarHud` se reemplazó por `pintarIndicadoresGlobales`, que pinta los dos indicadores aunque su sección esté cerrada.
+- «Entregas en plazo», en Resumen, ahora se pone en rojo al colapsar, como hacía el marco que se quitó.
+- **Punto abierto:** G01 a G04 del formulario dicen «mapa: indicadores global», y estos indicadores ya no están en el mapa. Falta confirmar con el profesor o la JP que cuentan como conformes en los paneles (`docs/evaluacion_software_etapa35.md`).
