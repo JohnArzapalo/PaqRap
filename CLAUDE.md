@@ -48,7 +48,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - **Hasta el colapso:** se simula hasta que colapsa (tope de 30 días). Toda corrida termina colapsando; lo que se mide es **cuánto dura**.
 - **Las reglas dudosas las decide el profesor**, porque de él depende la nota. Mientras no responda, se usa un supuesto configurable anotado en `docs/preguntas_para_el_profesor.md`; cuando responda, rige su respuesta.
 
-## 3. Estado del código (etapa 35)
+## 3. Estado del código (etapa 38)
 
 - Java 21, Maven, NetBeans. Paquete `pe.edu.pucp.gamesoft.paqrap` (ruta `src/main/java/pe/edu/pucp/gamesoft/paqrap/`).
 - Guía detallada de clases: `docs/guia_del_codigo.md`. Diagramas: `docs/diseno/`.
@@ -100,6 +100,14 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
   - operación día a día completa (SI-35): pedidos del operador por bloques, carga masiva en su hora y «Cerrar operaciones»;
   - indicadores globales con semáforo (ocupación de la flota y llenado de los almacenes) y reporte de la última planificación estable en los tres escenarios;
   - diagramas A22 y A23 actualizados; `exec.mainClass` = `ServidorWeb`. Hay 117 pruebas.
+- **Etapas 36 y 37** (equipo, 4-nov-2026; fusionadas a `main` en `e445491`): los indicadores salieron del mapa a los paneles, y la avería se registra desde un botón del mapa y desde la ficha, con confirmación. `Simulador.inyectarAveria` rechaza lo que no puede aplicar. Hay 119 pruebas.
+- **Etapa 38, revisión del profesor del 14-nov-2026** (rama `feature/etapa38-revision-profesor`, sin fusionar; detalle en `docs/avance_sem07.md`):
+  - inicio de cada escenario con solo fecha y hora; opciones **Parámetros** (flota, ritmo y semáforo en el servidor, `config/sistema.properties`; SI-36) y **Carga de archivos** (validados y guardados en `datos_cargados/`, sin tocar `juego_de_datos/`; SI-37). Ambos archivos son del servidor y git los ignora;
+  - mapa sin nada encima de la retícula: acciones en una columna a la izquierda, márgenes de 3-4 mm y números de los ejes visibles; íconos sin fondo de 1.6 cuadrículas que cambian con el zoom; bicicleta delgada y moto gruesa; central con el color de «lleno»; rutas finas, tenues y segmentadas;
+  - **tablero flotante** (se mueve y se pliega) con los tiempos («F/H» y «Duración»), los indicadores globales y el filtro rápido por tipo y color;
+  - avería desde un menú sobre el vehículo (clic derecho), con la confirmación ahí mismo;
+  - panel con pestañas, plegado al inicio y de 420 px; filas compactas en Flota y Envíos; rango de km en el filtro de distancia.
+  - Hay 124 pruebas.
 - **Despliegue vigente: máquina virtual del curso** (instalada el 21-oct-2026 y actualizada el 28-oct-2026 con la etapa 35; pasos en `docs/despliegue_aws.md`, §2):
   - **http://1inf54-982-5e.inf.pucp.edu.pe/** (200.16.7.154). Usuario SSH `1inf54.982.5e`; la contraseña la tiene el equipo y **nunca se escribe en el repositorio**.
   - Ubuntu 24.04, 2 núcleos, 3.8 GB y OpenJDK 21. Solo están abiertos los puertos 22, 80 y 443, y Tomcat ocupa el 8080.
@@ -180,6 +188,7 @@ java -cp target/classes pe.edu.pucp.gamesoft.paqrap.Experimento --modo simulacio
     - **Alimentación:** hoy es fija a las 03, 11 y 19 h para toda la flota (SI-06). Falta decidir si cada unidad elige su hora dentro de la ventana del turno; sería un cambio en el evaluador común.
     - **Pedido de la JP de no replanificar los vehículos en ruta:** choca con P16 del Sheet («todo vehículo en el almacén o en ruta es vuelto a planificar»). La solución ya lo cubre en la práctica (Tabú parte del plan vigente y penaliza cada cambio de unidad con S/ 16; solo 20 a 27 cambios en 5 días). Si la JP insiste, conviene preguntárselo por escrito al profesor.
     - ~~Operación día a día~~: completada en la etapa 35 (SI-35).
+    - **Revisión del 14-nov-2026 (etapa 38):** falta el correo que prometió el profesor con sus comentarios, presentar otra vez y, si el equipo lo aprueba, fusionar `feature/etapa38-revision-profesor` a `main` y actualizar la máquina virtual. Al actualizarla, `datos_cargados/` y `config/sistema.properties` se conservan, porque no van en el paquete.
     - **Fecha del escenario hasta el colapso para la demostración:** desde el 01/01/2027 no colapsa en 30 días (los pedidos de enero de 2027 terminan el día 20); desde el 01/06/2027 colapsa en unas 26 h (etapa 35).
     - ~~Fusión de `feature/etapa35-eval-sw` a `main`~~: hecha el 28-oct-2026 (`main` en `d9674a6`, con la corrección de orden de la carga masiva), y la máquina virtual quedó actualizada (§3).
 11. **Preguntas al profesor que siguen abiertas:** 11 (destino bloqueado), 13 (escenario del experimento), 18 (si lo urgente y las averías cortan el bloque; hoy sí lo cortan) y las de `docs/preguntas_para_el_profesor.md`. Contexto completo del curso (Sheet de P&R, hoja «Guía» con 108 criterios del software en vivo, sesiones): `C:\Users\MARIA GRACIA\Downloads\JL\DP1\1INF54_hallazgos_maestro_v11.md`, fuera del repositorio.

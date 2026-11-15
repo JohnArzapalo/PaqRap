@@ -619,3 +619,35 @@ El registro manual ya existía desde la etapa 32 (Resumen → Acciones de operac
 - Se quitó el botón de Resumen; «Acciones de operación» queda con el cambio de velocidad. El planificador, el evaluador común y el experimento no cambian.
 
 **Pruebas:** 2 nuevas en `IntegracionTest` (119 en total). Verificado en el navegador desde el 16/09/2026 en SIM_5D, COLAPSO y DIA_A_DIA: la avería se registra desde la ficha y el formulario en los tres escenarios. En SIM_5D, la unidad sigue operativa mientras el formulario está abierto y después de cancelar; se rechazan una segunda avería y una unidad inexistente. Los accesos se ocultan con la clase `observer`.
+
+## Etapa 38: revisión del profesor del 14-nov-2026
+
+En la reunión del 14-nov-2026 (1 h 05 min, grabada; la transcripción la tiene el equipo) el profesor revisó la SIM_5D en el visualizador y pidió cambios de forma: «el mapa está bien en varios aspectos, solo algunos con temas de forma menor». Rama `feature/etapa38-revision-profesor`, desde `main` en `e445491`. El planificador, el evaluador común y el experimento **no cambian**.
+
+| Lo que pidió el profesor | Qué se hizo |
+|---|---|
+| La pantalla de inicio de cada escenario solo con la fecha, la hora y el botón Iniciar; los archivos y los parámetros son otras opciones del menú, que se configuran una vez | Inicio con solo fecha y hora. Opciones nuevas en la pantalla de escenarios: **Parámetros** (flota, ritmo de cada escenario y umbrales del semáforo, guardados en el servidor y válidos para todos los navegadores; SI-36) y **Carga de archivos** (ventas y bloqueos de un mes y el mantenimiento, validados antes de guardarlos aparte de `juego_de_datos/`; SI-37) |
+| El mensaje «Esta corrida no se ha iniciado» confunde mientras la corrida arranca | «Iniciando la corrida…» hasta que llega la primera instantánea |
+| Nada encima de la retícula: los clientes de los extremos deben verse; el mapa, tan alto como se pueda, con 3-4 mm de margen y los números de los ejes sin taparse, sin scroll | Encuadre con márgenes en píxeles (15 px arriba y 16 px bajo los números) y los números a una distancia fija de la retícula. Las acciones (Encuadrar, Acercar, Alejar, Rutas, Leyenda y Buscar) son íconos en una columna a la izquierda, fuera de la retícula |
+| Íconos de almacenes y vehículos de menos de 2 cuadrículas, para no tapar los nodos vecinos, y sin círculos ni recuadros de fondo | Dibujo solo, con el color de su estado, de 1.6 cuadrículas; cambia con el zoom (`--cel`). Medido: 1.57-1.59 cuadrículas |
+| Distinguir la moto de la bicicleta | Bicicleta de trazos delgados (como tubos) y moto más gruesa y llena (motor y tanque) |
+| El central no en ámbar: el color de «lleno», con su nombre; rótulos livianos y datos al pasar el mouse con poco texto | Central con el color del llenado alto, borde blanco y el rótulo «Central»; cada almacén con su nombre corto. Tooltip «936/1 000» con el % sobre el color del semáforo |
+| Rutas más finas y tenues; lo pendiente, segmentado | Pendiente segmentada (1.6 px, 55 % de opacidad); lo recorrido, punteado y más tenue |
+| Los tiempos, en un control flotante que se mueva y se pliegue, con pocas letras: «Simulación F/H y Duración», luego «Actual», y al final el inicio; sin el ritmo | **Tablero** sobre el mapa que se arrastra y se pliega (cada navegador recuerda dónde lo dejó). También lleva los indicadores globales de la flota y de los almacenes (G01 a G04, que la etapa 36 había llevado a los paneles) |
+| Filtros por tipo y por color a un clic, en ese control: una fila de botones con los vehículos y otra con los colores | Filtro rápido en el tablero: tipos con sus íconos y colores con el vacío. Es el mismo filtro de Flota (lista y mapa) |
+| La avería, solo en el mapa, sin panel adicional | Clic derecho (o mantener presionado) sobre el vehículo: menú con los tres tipos y la confirmación ahí mismo. Se quitó el botón de la esquina (etapa 37); la ficha conserva sus botones |
+| Panel con pestañas, plegado al inicio, más ancho, y filas compactas para ver más elementos sin scroll | Pestañas Corrida, Resumen, Flota, Almacenes, Envíos y Bitácora; empieza plegado (solo la columna de pestañas) y abierto mide 420 px. Flota en una línea por unidad (22 px; entran 36 de 37 sin scroll) con el detalle desplegable; Envíos en una línea por pedido y por parte |
+| (Rúbrica del equipo, E11: el filtro por km solo tenía un límite) | Filtro de distancia «entre X e Y km», además de ≤ y ≥ |
+
+**Decisiones del equipo (15-nov-2026):**
+
+| Tema | Decisión |
+|---|---|
+| Carga de archivos | Subida real al servidor, validada y guardada aparte (`datos_cargados/`); no se permite con una corrida en ejecución |
+| Parámetros | Del sistema, en el servidor (`config/sistema.properties`), iguales para todos los navegadores; solo los cambia el rol Control |
+| Avería en el mapa | Menú sobre el ícono del vehículo con la confirmación en el mismo menú; sin el botón de la esquina |
+
+- **Respuesta del profesor sobre el día a día:** al empezar a operar no hay datos anteriores; la tabla de envíos parte vacía. Ya se cumple: la corrida lee los pedidos desde la hora de inicio.
+- **Pendiente:** el profesor dijo que mandaría un correo con todos los comentarios y que, con los ajustes, se puede presentar otra vez.
+- **Pruebas:** 5 nuevas en `CargaYParametrosTest`: los archivos cargados reemplazan a los oficiales del mes y al quitarlos vuelven los oficiales; un archivo con errores no se guarda; los bloqueos y el mantenimiento cargados los usa la corrida; los parámetros se guardan y sobreviven al reinicio, y un cambio inválido se rechaza sin guardar. **Total: 124 pruebas, todas pasan.**
+- **Verificado en Chromium** con una SIM_5D desde el 16/09/2026 (capturas en `salidas/capturas_etapa38/`, local): inicio, parámetros y carga de archivos; encuadre y tamaño de los íconos; tablero, filtro rápido y su posición recordada; avería desde el menú; pestañas, filas compactas y el rango de km. Sin errores en la consola.

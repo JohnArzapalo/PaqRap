@@ -24,7 +24,7 @@ El **Planificador** (Java) y el **Visualizador** (web) funcionan como un solo se
 scripts/iniciar_servidor.sh        # Linux o macOS (Windows: scripts\iniciar_servidor.bat)
 ```
 
-Después, abrir **http://localhost:8080/**, o la IP del servidor desde otro dispositivo.
+Después, abrir **http://localhost:8080/**, o la IP del servidor desde otro dispositivo. Cada escenario solo pide la fecha y la hora de inicio; la flota, el ritmo y el semáforo están en **Parámetros**, y los archivos de otras fechas se cargan en **Carga de archivos** (etapa 38).
 
 - Diagrama de la interacción entre Planificador y Visualizador, y contrato de la API: [docs/diseno/diagrama_integracion.md](docs/diseno/diagrama_integracion.md)
 - Diagramas A22 (consumo de datos por bloques) y A23 (varios navegadores): [docs/diseno/diagramas_PaqRap.pdf](docs/diseno/diagramas_PaqRap.pdf)
@@ -57,7 +57,7 @@ Qué se configuró y por qué: **[docs/configuracion_5_dias.md](docs/configuraci
 
 Todos los comandos se ejecutan en la raíz del proyecto.
 
-**Compilar y correr las pruebas** (117 pruebas JUnit):
+**Compilar y correr las pruebas** (124 pruebas JUnit):
 
 ```bash
 mvn test
