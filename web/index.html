@@ -328,6 +328,12 @@ table.t td{border-bottom:1px solid var(--border-soft);padding:5px 6px;} table.t 
 fieldset{border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;display:grid;gap:8px;}
 legend{font-size:12px;font-weight:600;color:var(--text-dim);padding:0 4px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+/* Carga de archivos (etapa 38) */
+.arch-form{display:grid;grid-template-columns:1.2fr .8fr 1.6fr auto;gap:10px;align-items:end;}
+.file-pick{display:flex;align-items:center;gap:8px;min-width:0;} .file-pick .help{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fuente{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:600;border:1px solid var(--border);color:var(--text-dim);}
+.fuente.cargado{border-color:var(--brand);color:var(--brand);}
+.arch-err{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--text-dim);max-height:160px;overflow:auto;}
 .rep-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .rep-kpis div{background:var(--panel-alt);border-radius:8px;padding:9px 11px;border:1px solid var(--border-soft);}
 .rep-kpis .l{font-size:11px;color:var(--text-dim);} .rep-kpis .v{font-size:18px;font-weight:600;font-family:var(--font-display);}
@@ -383,6 +389,8 @@ body.observer .ctrl-only{display:none !important;}
           <button class="role-btn">Rol: <b class="roleTxt">Control</b></button>
           <div class="conn"><i></i><span class="connTxt">Conectando…</span></div>
           <button class="link-btn" id="lnRegistro">Registro de pedidos</button>
+          <button class="link-btn" id="lnArchivos">Carga de archivos</button>
+          <button class="link-btn" id="lnParam">Parámetros</button>
         </div>
       </div>
 
@@ -394,45 +402,14 @@ body.observer .ctrl-only{display:none !important;}
           <span class="chip" id="lnChip">Sin corrida</span>
         </div>
         <div class="ln-status" id="lnStatus"></div>
-        <div id="lnCampos" class="ctrl-only" style="display:grid;gap:12px;">
-          <fieldset>
-            <legend>Periodo y ritmo</legend>
-            <!-- Fecha y hora con campos propios (dd/mm/aaaa y hh:mm de 24 h): así no dependen del idioma del navegador (C02, C07) -->
-            <div class="g3">
-              <label class="fl">Fecha de inicio (dd/mm/aaaa)<input id="ciFecha" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></label>
-              <label class="fl">Hora de inicio (hh:mm, 24 h)<input id="ciHora" inputmode="numeric" placeholder="hh:mm" maxlength="5" autocomplete="off"></label>
-              <label class="fl">Ritmo<select id="ciRitmo"></select></label>
-            </div>
-            <p class="help" id="ciAyuda"></p>
-          </fieldset>
-          <fieldset>
-            <legend>Datos de entrada (oficiales del profesor)</legend>
-            <div class="g3">
-              <label class="fl">Ventas<input id="ciVentas" class="ro" readonly></label>
-              <label class="fl">Bloqueos<input id="ciBloq" class="ro" readonly></label>
-              <label class="fl">Mantenimientos<input class="ro" readonly value="mant.preventivo.09.10"></label>
-            </div>
-            <p class="help" id="ciRango"></p>
-          </fieldset>
-          <fieldset>
-            <legend>Flota y algoritmo</legend>
-            <div class="g3">
-              <label class="fl">Autos (24 paq.)<input type="number" id="ciAutos" value="10" min="0" max="30"></label>
-              <label class="fl">Motos (8 paq.)<input type="number" id="ciMotos" value="15" min="0" max="30"></label>
-              <label class="fl">Bicicletas (4 paq.)<input type="number" id="ciBicis" value="12" min="0" max="30"></label>
-            </div>
-            <label class="fl">Algoritmo de planificación<input class="ro" readonly value="Búsqueda Tabú (elegido en el experimento)"></label>
-          </fieldset>
-          <fieldset>
-            <legend>Umbrales del semáforo (solo en este dispositivo)</legend>
-            <div class="g2">
-              <label class="fl">Llenado bajo: menos de (%)<input type="number" id="uL1" value="40" min="1" max="99"></label>
-              <label class="fl">Llenado alto: desde (%)<input type="number" id="uL2" value="75" min="2" max="100"></label>
-              <label class="fl">Pedido: holgura verde desde (min)<input type="number" id="uHv" value="120"></label>
-              <label class="fl">Pedido: holgura ámbar desde (min)<input type="number" id="uHa" value="60"></label>
-            </div>
-            <p class="help" id="uAyuda"></p>
-          </fieldset>
+        <!-- Etapa 38 (indicación del profesor): la pantalla de inicio solo pide la fecha y la hora. La flota, el ritmo
+             y el semáforo están en «Parámetros», y los archivos en «Carga de archivos». -->
+        <div id="lnCampos" class="ctrl-only">
+          <!-- Fecha y hora con campos propios (dd/mm/aaaa y hh:mm de 24 h): así no dependen del idioma del navegador (C02, C07) -->
+          <div class="g2">
+            <label class="fl">Fecha de inicio (dd/mm/aaaa)<input id="ciFecha" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></label>
+            <label class="fl">Hora de inicio (hh:mm, 24 h)<input id="ciHora" inputmode="numeric" placeholder="hh:mm" maxlength="5" autocomplete="off"></label>
+          </div>
         </div>
         <div id="ciMsg"></div>
         <div class="ln-actions">
@@ -703,6 +680,53 @@ body.observer .ctrl-only{display:none !important;}
   </div>
 </div>
 
+<!-- Opciones del sistema (etapa 38): se configuran una vez y valen para todas las corridas y todos los navegadores -->
+<div class="modal" id="mdParam">
+  <div class="mbox">
+    <div class="mh"><h3>Parámetros</h3><button class="mx" data-close>×</button></div>
+    <div class="mb">
+      <p class="help">Valen para todos los navegadores. La flota y el ritmo rigen desde la próxima corrida; el semáforo, de inmediato.</p>
+      <fieldset><legend>Flota</legend><div class="g3">
+        <label class="fl">Autos (24 paq.)<input type="number" id="pAutos" min="0" max="30"></label>
+        <label class="fl">Motos (8 paq.)<input type="number" id="pMotos" min="0" max="30"></label>
+        <label class="fl">Bicicletas (4 paq.)<input type="number" id="pBicis" min="0" max="30"></label></div></fieldset>
+      <fieldset><legend>Ritmo</legend><div class="g3">
+        <label class="fl">Simulación de 5 días<select id="pRitmoSIM_5D"></select></label>
+        <label class="fl">Hasta el colapso<select id="pRitmoCOLAPSO"></select></label>
+        <label class="fl">Día a día<select id="pRitmoDIA_A_DIA"></select></label></div></fieldset>
+      <fieldset><legend>Semáforo</legend><div class="g2">
+        <label class="fl">Llenado bajo: menos de (%)<input type="number" id="pL1" min="1" max="99"></label>
+        <label class="fl">Llenado alto: desde (%)<input type="number" id="pL2" min="2" max="100"></label>
+        <label class="fl">Pedido en verde: holgura desde (min)<input type="number" id="pHv" min="1"></label>
+        <label class="fl">Pedido en ámbar: holgura desde (min)<input type="number" id="pHa" min="0"></label></div>
+        <p class="help" id="pSentido"></p></fieldset>
+      <div id="pMsg"></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" data-close>Cerrar</button><button class="btn-play ctrl-only" id="pGuardar">Guardar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="mdArchivos">
+  <div class="mbox wide">
+    <div class="mh"><h3>Carga de archivos</h3><button class="mx" data-close>×</button></div>
+    <div class="mb">
+      <p class="help">Para simular otra fecha, carga aquí sus archivos y luego inicia la corrida con esa fecha. Cada archivo se valida antes de guardarlo; los oficiales del profesor no se modifican.</p>
+      <div class="ctrl-only arch-form">
+        <label class="fl">Tipo<select id="arTipo"><option value="ventas">Ventas del mes</option><option value="bloqueos">Bloqueos del mes</option><option value="mantenimiento">Mantenimiento preventivo</option></select></label>
+        <label class="fl" id="arMesL">Mes (mm/aaaa)<input id="arMes" inputmode="numeric" placeholder="mm/aaaa" maxlength="7" autocomplete="off"></label>
+        <!-- Botón propio: el del navegador muestra su texto en el idioma del sistema («Choose File»), C07 -->
+        <div class="fl">Archivo<span class="file-pick"><button type="button" class="btn-secondary" id="arElegir">Elegir archivo</button><span class="help" id="arNombre">Ningún archivo elegido</span></span>
+          <input type="file" id="arArchivo" accept=".txt,text/plain" hidden></div>
+        <button class="btn-play" id="arCargar">Validar y cargar</button>
+      </div>
+      <div id="arMsg"></div>
+      <div class="sec-t" style="margin-top:12px">Archivos disponibles <span class="help" id="arMant"></span></div>
+      <div style="max-height:300px;overflow:auto"><table class="t"><thead><tr><th>Mes</th><th>Ventas</th><th>Bloqueos</th></tr></thead><tbody id="arLista"></tbody></table></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" data-close>Cerrar</button></div>
+  </div>
+</div>
+
 <div class="modal" id="mdAveria">
   <div class="mbox">
     <div class="mh"><h3>Registrar avería</h3><button class="mx" data-close>×</button></div>
@@ -761,12 +785,9 @@ const ALMACENES = [
 const HORAS_ALIMENTACION = [3, 11, 19];
 const SIGLA = { AUTO: 'A', MOTO: 'M', BICICLETA: 'B' };   // letra del ícono de cada tipo de unidad
 const ESC_INFO = {
-  DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']],
-               ayuda: 'El reloj avanza desde este momento. Llegan los pedidos del archivo oficial y los que se registren en «Registro de pedidos».' },
-  SIM_5D:    { titulo: 'Simulación de 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']],
-               ayuda: 'Cinco días simulados con los pedidos y bloqueos oficiales. Se planifica por bloques de 1 h simulada, cada uno calculado 30 min antes de que empiece (y ante averías o pedidos urgentes).' },
-  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']],
-               ayuda: 'Corre hasta el primer pedido que no llega en su plazo (tope de 30 días).' }
+  DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']] },
+  SIM_5D:    { titulo: 'Simulación de 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']] },
+  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']] }
 };
 /* Inicio sugerido: ventanas con los datos oficiales que terminaron sin colapso. */
 const INICIO_SUGERIDO = { SIM_5D: '2026-09-16T00:00', COLAPSO: '2027-01-01T00:00' };
@@ -812,13 +833,14 @@ function direccion(x, y, tx, ty){ return tx > x ? 'E' : tx < x ? 'O' : ty > y ? 
 
 /* ===== Estado del cliente ===== */
 const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
-  logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
+  logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, param: null, iniciando: {}, costoRef: {}, sel: null,
   filtro: 'ALL', acc: { sim: true, res: false, flota: false, alm: false, env: false, log: false }, reportado: {}, registrados: [], datos: null,
   dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null,
   fl: null, wh: { sem: null, tipo: '', x: 4, abierto: {}, sel: null }, env: { filtro: 'vigentes', x: 4, q: '' } };
 /* ll1 / ll2: límites de las bandas de llenado (bajo < ll1 ≤ medio < ll2 ≤ alto), iguales para unidades y almacenes. */
 const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, ll1: 40, ll2: 75, rP: 15, rF: 20, rC: 30, rI: 60 };
-const umb = () => S.umbrales[S.tab] || UMB_DEF;
+/* Umbrales del semáforo: los de «Parámetros», iguales para todos los navegadores (etapa 38, SI-36). */
+const umb = () => S.param ? { ...UMB_DEF, ll1: S.param.llenado_bajo, ll2: S.param.llenado_alto, holgV: S.param.holgura_verde, holgA: S.param.holgura_ambar } : UMB_DEF;
 
 /* ===== Utilidades ===== */
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -1093,9 +1115,13 @@ function pintarSimulacion(){
   $('#btnFinalizar').textContent = S.tab === 'DIA_A_DIA' ? 'Cerrar operaciones' : 'Finalizar';   // G09
   $('#btnRegistroLnk').hidden = S.tab !== 'DIA_A_DIA';
   $('#emptyState').classList.toggle('on', !s);
-  $('#emTitle').textContent = obs ? 'Esperando el inicio de la corrida' : 'Esta corrida no se ha iniciado';
-  $('#emText').textContent = obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
-                                 : 'Vuelve a los escenarios para elegir la fecha de inicio y la flota.';
+  // Etapa 38: recién iniciada, la corrida tarda un momento en dar su primera instantánea; no es que «no se haya iniciado»
+  const iniciando = !s && (S.iniciando[S.tab] || S.lista[S.tab] === 'EN_EJECUCION');
+  $('#emTitle').textContent = iniciando ? 'Iniciando la corrida…' : obs ? 'Esperando el inicio de la corrida' : 'Todavía no hay una corrida';
+  $('#emText').textContent = iniciando ? 'Se leen los datos y se arma el primer plan; en unos segundos aparecen las unidades.'
+                           : obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
+                                 : 'Vuelve a los escenarios para elegir la fecha y la hora de inicio.';
+  $('#emBtn').hidden = iniciando;
   $('#pgLbl').textContent = S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día';
   if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal', '#ckTrans']) $(id).textContent = '—';
     $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--/--/---- --:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckNota').hidden = true;
@@ -1587,7 +1613,7 @@ async function actualizar(e){
   if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; S.rastro[e] = {}; delete S.tray[e]; }   // otra corrida
   if (prev && prev.reloj.inicio_corrida_ms === s.reloj.inicio_corrida_ms){ const dr = s.reloj.real_ms - prev.reloj.real_ms;
     if (dr > 0 && s.reloj.simulado_min > prev.reloj.simulado_min) S.K[e] = (s.reloj.simulado_min - prev.reloj.simulado_min) * 60000 / dr; }
-  S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
+  S.prev[e] = prev; S.snap[e] = s; S.iniciando[e] = false; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
   if (s.plan){ const T = S.tray[e]; if (!T || T.version !== s.plan.version || (s.plan.siguiente_listo && !T.sig)) cargarTrayectorias(e); }
   // Mientras el planificador replanifica en el instante, se consulta cada 250 ms para retomar apenas termine
   if (s.reloj.pausado || (s.plan && S.tray[e] && S.tray[e].version !== s.plan.version)) consultaRapida(e);
@@ -1617,22 +1643,20 @@ function mostrarVista(v){ S.vista = v; $('#landing').classList.toggle('on', v ==
 function mostrarInicio(){ mostrarVista('inicio'); S.esc = null; $('#lnEsc').hidden = false; $('#lnIni').hidden = true; actualizarEscenarios(); }
 function elegirEscenario(e){
   S.esc = e; mostrarVista('inicio'); $('#lnEsc').hidden = true; $('#lnIni').hidden = false;
-  const info = ESC_INFO[e]; $('#mdIniT').textContent = info.titulo; $('#ciAyuda').textContent = info.ayuda; $('#ciMsg').innerHTML = '';
-  $('#ciRitmo').innerHTML = info.ritmos.map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+  $('#mdIniT').textContent = ESC_INFO[e].titulo; $('#ciMsg').innerHTML = '';
   const dia = e === 'DIA_A_DIA'; const ini = dia ? localISO(new Date()) : INICIO_SUGERIDO[e];
-  ponerInicio(ini); for (const id of ['#ciFecha', '#ciHora']){ $(id).readOnly = dia; $(id).classList.toggle('ro', dia); } archivosDe(ini);
-  if (S.datos && S.datos.desde) $('#ciRango').textContent = `Hay datos oficiales de ${S.datos.desde} a ${S.datos.hasta}.`;
-  $('#uAyuda').textContent = `Sentido del semáforo: ${SENTIDO_SEMAFORO === 'jp' ? 'llenado bajo = rojo, medio = ámbar, alto = verde' : 'llenado bajo = verde, medio = ámbar, alto = rojo'}; 0 % = vacío. Rige igual para unidades y almacenes.`;
+  ponerInicio(ini); for (const id of ['#ciFecha', '#ciHora']){ $(id).readOnly = dia; $(id).classList.toggle('ro', dia); }
   pintarPaso2(); actualizarEscenarios();
 }
 /* Paso 2: según haya o no una corrida del escenario, se ofrece iniciarla o verla. */
 function pintarPaso2(){
-  const e = S.esc; const est = S.lista[e]; const corre = est === 'EN_EJECUCION'; const obs = S.rol !== 'control';
+  const e = S.esc; const est = S.lista[e]; const corre = est === 'EN_EJECUCION'; const obs = S.rol !== 'control', dia = e === 'DIA_A_DIA';
   const [txt, cls] = estadoTxt(est); $('#lnChip').textContent = txt; $('#lnChip').className = 'chip ' + cls;
   $('#lnStatus').innerHTML = corre ? 'Hay una corrida <b>en ejecución</b>. Puedes verla; para iniciar otra, primero hay que finalizarla desde la barra lateral.'
     : est ? 'La última corrida ya terminó. Puedes ver su resultado o iniciar una nueva.'
     : obs ? 'Todavía no hay una corrida. El dispositivo con el control debe iniciarla; puedes entrar y esperar.'
-    : 'Elige la fecha de inicio, el ritmo y la flota. Todos los dispositivos conectados verán la misma corrida.';
+    : dia ? 'La operación empieza ahora, sin pedidos anteriores. Todos los dispositivos conectados la verán.'
+    : 'Elige la fecha y la hora de inicio. Todos los dispositivos conectados verán la misma corrida.';
   $('#lnCampos').hidden = corre; $('#ciGo').hidden = corre;
   $('#lnVer').hidden = !est && !obs; $('#lnVer').textContent = corre ? 'Ver la corrida en curso' : est ? 'Ver la última corrida' : 'Entrar y esperar';
   $('#lnVer').className = corre || obs ? 'btn-play' : 'btn-secondary';
@@ -1666,7 +1690,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModale
    6. COMANDOS AL PLANIFICADOR
    ===================================================================== */
 function localISO(d){ return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-function archivosDe(iso){ const y = iso.slice(0, 4), m = iso.slice(5, 7); $('#ciVentas').value = `ventas.${y}${m}.txt`; $('#ciBloq').value = `bloqueo.${y.slice(2)}${m}.txt`; }
 /* Fecha y hora de inicio en campos propios (dd/mm/aaaa y hh:mm de 24 h). leerInicio devuelve aaaa-mm-ddThh:mm o null. */
 function ponerInicio(iso){ $('#ciFecha').value = `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; $('#ciHora').value = iso.slice(11, 16); }
 function leerInicio(){
@@ -1675,16 +1698,12 @@ function leerInicio(){
   const fecha = new Date(a, m - 1, d, hh, mi); if (fecha.getDate() !== d || fecha.getMonth() !== m - 1 || hh > 23 || mi > 59) return null;
   return `${a}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}`;
 }
-$('#ciFecha').addEventListener('input', () => { const iso = leerInicio(); if (iso) archivosDe(iso); });
 $('#ciGo').onclick = async () => {
   const e = S.esc; const iso = leerInicio(); if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica una fecha válida (dd/mm/aaaa) y una hora válida (hh:mm, de 00:00 a 23:59).</span>'; return; }
-  const l1 = Math.round(+$('#uL1').value), l2 = Math.round(+$('#uL2').value);
-  if (!(l1 >= 1 && l2 > l1 && l2 <= 100)){ $('#ciMsg').innerHTML = '<span class="bad-t">Los límites de llenado deben cumplir 1 ≤ bajo &lt; alto ≤ 100.</span>'; return; }
-  S.umbrales[e] = { ...UMB_DEF, holgV: +$('#uHv').value, holgA: +$('#uHa').value, ll1: l1, ll2: l2 };
-  $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Cargando datos oficiales y armando el primer plan…</span>';
+  $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Leyendo los datos y armando el primer plan…</span>';
   try {
-    await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime(), factor: $('#ciRitmo').value,
-      autos: $('#ciAutos').value, motos: $('#ciMotos').value, bicicletas: $('#ciBicis').value });
+    // La flota y el ritmo salen de «Parámetros» (etapa 38): aquí solo van la fecha y la hora
+    await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime() }); S.iniciando[e] = true;
     S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e]; delete S.tray[e]; S.rastro[e] = {}; S.tDisp = null; S.lista[e] = 'EN_EJECUCION';
     mostrarEscenario(e); toast('Corrida iniciada. Todos los dispositivos la verán.');
   } catch (err){ $('#ciMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
@@ -1712,6 +1731,72 @@ $('#btnVel').onclick = async () => { const tp = $('#velTipo').value, v = +$('#ve
   if (!(v >= 1 && v <= 80)){ $('#velMsg').innerHTML = '<span class="bad-t">Entre 1 y 80 km/h.</span>'; return; }
   try { await api('POST', `/api/corridas/${S.tab}/velocidades`, { tipo: tp, kmh: v }); $('#velMsg').innerHTML = `<span class="ok-t">${tp.toLowerCase()} a ${v} km/h desde la próxima planificación.</span>`; }
   catch (err){ $('#velMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; } };
+
+/* =====================================================================
+   OPCIONES DEL SISTEMA (etapa 38): «Parámetros» y «Carga de archivos». El profesor pidió que la pantalla de
+   inicio solo tenga la fecha, la hora e Iniciar; lo demás se configura una vez, aquí, y vale para todos.
+   ===================================================================== */
+async function cargarParametros(){
+  try { const p = await api('GET', '/api/parametros'); const cambio = JSON.stringify(p) !== JSON.stringify(S.param); S.param = p;
+    if (cambio && S.vista === 'mon' && S.snap[S.tab]) render(); } catch (err){ /* sin conexión: se reintenta */ }
+}
+function opcionesRitmo(e, actual){
+  const ops = ESC_INFO[e].ritmos.slice(); if (!ops.some(([k]) => +k === +actual)) ops.push([actual, '×' + (+actual)]);
+  return ops.map(([k, t]) => `<option value="${k}" ${+k === +actual ? 'selected' : ''}>${t}</option>`).join('');
+}
+async function abrirParametros(){
+  await cargarParametros(); const p = S.param; if (!p){ toast('Sin conexión con el planificador.', true); return; }
+  $('#pAutos').value = p.autos; $('#pMotos').value = p.motos; $('#pBicis').value = p.bicicletas;
+  for (const e of ['SIM_5D', 'COLAPSO', 'DIA_A_DIA']) $('#pRitmo' + e).innerHTML = opcionesRitmo(e, p.ritmo[e]);
+  $('#pL1').value = p.llenado_bajo; $('#pL2').value = p.llenado_alto; $('#pHv').value = p.holgura_verde; $('#pHa').value = p.holgura_ambar;
+  $('#pSentido').textContent = 'Llenado bajo = rojo, medio = ámbar, alto = verde; 0 % = vacío. Rige igual para unidades y almacenes.';
+  const obs = S.rol !== 'control'; $$('#mdParam input, #mdParam select').forEach(i => i.disabled = obs);
+  $('#pMsg').innerHTML = obs ? '<p class="help">Solo el dispositivo con el control puede cambiarlos.</p>' : ''; abrirModal('mdParam');
+}
+$('#pGuardar').onclick = async () => {
+  const d = { autos: $('#pAutos').value, motos: $('#pMotos').value, bicicletas: $('#pBicis').value,
+    ritmo_SIM_5D: $('#pRitmoSIM_5D').value, ritmo_COLAPSO: $('#pRitmoCOLAPSO').value, ritmo_DIA_A_DIA: $('#pRitmoDIA_A_DIA').value,
+    llenado_bajo: $('#pL1').value, llenado_alto: $('#pL2').value, holgura_verde: $('#pHv').value, holgura_ambar: $('#pHa').value };
+  try { S.param = await api('POST', '/api/parametros', d); $('#pMsg').innerHTML = '<span class="ok-t">Parámetros guardados.</span>'; toast('Parámetros guardados para todos los navegadores.');
+    if (S.vista === 'mon' && S.snap[S.tab]) render(); }
+  catch (err){ $('#pMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
+};
+const MES_TXT = /^(\d{1,2})\/(\d{4})$/;
+async function pintarArchivos(){
+  let l; try { l = await api('GET', '/api/archivos'); } catch (err){ $('#arLista').innerHTML = `<tr><td colspan="3" class="bad-t">${esc(err.message)}</td></tr>`; return; }
+  const ctrl = S.rol === 'control';
+  const celda = (mes, tipo, f) => !f ? '<span class="help">—</span>' : `<span class="fuente ${f}">${f}</span>`
+    + (f === 'cargado' && ctrl ? ` <button class="link-btn" data-quitar="${tipo}" data-mes="${mes}">quitar</button>` : '');
+  const mmaaaa = m => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
+  $('#arLista').innerHTML = l.meses.map(m => `<tr><td class="mono">${mmaaaa(m.mes)}</td><td>${celda(m.mes, 'ventas', m.ventas)}</td><td>${celda(m.mes, 'bloqueos', m.bloqueos)}</td></tr>`).join('');
+  $('#arMant').innerHTML = '· mantenimiento preventivo: ' + (l.mantenimiento ? `<span class="fuente ${l.mantenimiento}">${l.mantenimiento}</span>` : '—')
+    + (l.mantenimiento === 'cargado' && ctrl ? ' <button class="link-btn" data-quitar="mantenimiento">quitar</button>' : '');
+}
+function abrirArchivos(){ $('#arMsg').innerHTML = ''; $('#arMesL').hidden = $('#arTipo').value === 'mantenimiento'; pintarArchivos(); abrirModal('mdArchivos'); }
+$('#arTipo').onchange = () => $('#arMesL').hidden = $('#arTipo').value === 'mantenimiento';
+$('#arElegir').onclick = () => $('#arArchivo').click();
+$('#arArchivo').onchange = () => { const f = $('#arArchivo').files[0]; $('#arNombre').textContent = f ? f.name : 'Ningún archivo elegido'; };
+$('#arCargar').onclick = async () => {
+  const tipo = $('#arTipo').value, f = $('#arArchivo').files[0]; let mes = '';
+  if (tipo !== 'mantenimiento'){ const m = $('#arMes').value.trim().match(MES_TXT);
+    if (!m || +m[1] < 1 || +m[1] > 12){ $('#arMsg').innerHTML = '<span class="bad-t">Indica el mes como mm/aaaa.</span>'; return; } mes = `${m[2]}-${pad(+m[1])}`; }
+  if (!f){ $('#arMsg').innerHTML = '<span class="bad-t">Elige el archivo.</span>'; return; }
+  $('#arCargar').disabled = true; $('#arMsg').innerHTML = '<span class="help">Validando…</span>';
+  try {
+    const r = await api('POST', '/api/archivos', { tipo, mes, texto: await f.text() });
+    const lista = xs => `<ul class="arch-err">${xs.map(a => `<li>${esc(a)}</li>`).join('')}</ul>`;
+    $('#arMsg').innerHTML = r.guardado
+      ? `<span class="ok-t">Cargado como ${esc(r.archivo)}: ${r.validas} líneas válidas.</span>` + (r.avisos.length ? lista(r.avisos) : '')
+      : `<span class="bad-t">No se cargó: ${r.errores_total} errores en ${r.lineas} líneas. Corrige el archivo y vuelve a intentarlo.</span>` + lista(r.errores);
+    pintarArchivos(); api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
+  } catch (err){ $('#arMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
+  finally { $('#arCargar').disabled = false; }
+};
+$('#mdArchivos').addEventListener('click', async e => { const b = e.target.closest('[data-quitar]'); if (!b) return;
+  try { await api('POST', '/api/archivos/eliminacion', { tipo: b.dataset.quitar, mes: b.dataset.mes || '' }); toast('Se quitó el archivo cargado: vuelve a regir el oficial.'); pintarArchivos(); }
+  catch (err){ toast(err.message, true); } });
+$('#lnParam').onclick = abrirParametros;
+$('#lnArchivos').onclick = abrirArchivos;
 
 /* Reporte de cierre: resumen del planificador + última instantánea. */
 $('#btnReporte').onclick = () => abrirReporte(S.tab);
@@ -1824,6 +1909,7 @@ S.fl = filtrosFlotaIniciales(); S.wh.sem = new Set(SEM_ALM.map(x => x[0]));
 chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem);
 render(); pintarRegistro(); mostrarInicio();
 api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
+cargarParametros(); setInterval(cargarParametros, 10000);
 </script>
 </body>
 </html>

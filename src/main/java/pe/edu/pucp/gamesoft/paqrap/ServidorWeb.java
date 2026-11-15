@@ -31,8 +31,15 @@ import java.util.concurrent.Executors;
  *
  * API (respuestas en JSON; datos de entrada como formulario o en la URL):
  *   GET  /api/datos                          meses con datos oficiales
+ *   GET  /api/parametros                     parámetros del sistema (flota, ritmos y semáforo; etapa 38)
+ *   POST /api/parametros                     los cambia (autos, motos, bicicletas, llenado_bajo, llenado_alto,
+ *                                            holgura_verde, holgura_ambar, ritmo_SIM_5D, ritmo_COLAPSO, ritmo_DIA_A_DIA)
+ *   GET  /api/archivos                       meses con datos y de dónde sale cada archivo (oficial o cargado; etapa 38)
+ *   POST /api/archivos                       carga un archivo validado (tipo=ventas|bloqueos|mantenimiento, mes=aaaa-mm, texto)
+ *   POST /api/archivos/eliminacion           quita un archivo cargado (tipo, mes): vuelve a regir el oficial
  *   GET  /api/corridas                       estado de las tres corridas
- *   POST /api/corridas/{ESC}                 inicia (inicio=aaaa-mm-ddThh:mm, inicio_ms, factor, autos, motos, bicicletas)
+ *   POST /api/corridas/{ESC}                 inicia (inicio=aaaa-mm-ddThh:mm, inicio_ms); la flota y el ritmo salen
+ *                                            de los parámetros del sistema (factor, autos, motos y bicicletas, opcionales)
  *   GET  /api/corridas/{ESC}/estado          instantánea (el visualizador la consulta cada segundo)
  *   GET  /api/corridas/{ESC}/eventos?desde=n bitácora desde el evento n
  *   GET  /api/corridas/{ESC}/historial?id=X  escalas y tramos recorridos de un pedido, parte o producto (etapa 35)
@@ -84,6 +91,11 @@ public final class ServidorWeb {
             Map<String, String> datos = parametros(ex);
             String metodo = ex.getRequestMethod();
             if (p.length == 3 && p[2].equals("datos")) { responder(ex, 200, datosJson()); return; }
+            if (p.length == 3 && p[2].equals("parametros")) {
+                responder(ex, 200, (metodo.equals("POST") ? ParametrosSistema.actualizar(datos) : ParametrosSistema.vigentes()).json());
+                return;
+            }
+            if (p.length >= 3 && p[2].equals("archivos")) { archivos(ex, metodo, p.length > 3 ? p[3] : "", datos); return; }
             if (p.length < 3 || !p[2].equals("corridas")) { error(ex, 404, "Recurso no encontrado"); return; }
             if (p.length == 3) { responder(ex, 200, resumenJson()); return; }
             Simulador.Escenario esc = escenario(p[3]);
@@ -157,11 +169,36 @@ public final class ServidorWeb {
         long inicioMs = Long.parseLong(d.getOrDefault("inicio_ms", "0"));
         // Sin inicio_ms (p. ej., una corrida iniciada por la API), la fecha en la zona del servidor (etapa 35)
         if (inicioMs == 0) inicioMs = inicio.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-        double porDefecto = esc == Simulador.Escenario.SIM_5D ? 5 * 1440 / Parametros.decimal("sim5d.minutos_reales", 60)
-                : esc == Simulador.Escenario.COLAPSO ? Parametros.decimal("web.factor_colapso", 600) : 1;
-        double factor = d.containsKey("factor") ? Double.parseDouble(d.get("factor")) : porDefecto;
-        return CorridaWeb.iniciar(esc, inicio, inicioMs, factor, entero(d, "autos", 10), entero(d, "motos", 15),
-                entero(d, "bicicletas", 12));
+        // Etapa 38 (SI-36): la pantalla de inicio solo pide la fecha y la hora; la flota y el ritmo son
+        // parámetros del sistema. La API todavía acepta factor y flota para las pruebas y los scripts.
+        ParametrosSistema ps = ParametrosSistema.vigentes();
+        double factor = d.containsKey("factor") ? Double.parseDouble(d.get("factor")) : ps.ritmo(esc);
+        return CorridaWeb.iniciar(esc, inicio, inicioMs, factor, entero(d, "autos", ps.autos), entero(d, "motos", ps.motos),
+                entero(d, "bicicletas", ps.bicicletas));
+    }
+
+    /** Carga de archivos (etapa 38, SI-37). No se permite con una corrida en ejecución, que podría estar leyéndolos. */
+    private static void archivos(HttpExchange ex, String metodo, String accion, Map<String, String> d) throws IOException {
+        if (metodo.equals("GET") && accion.isEmpty()) { responder(ex, 200, ArchivosCargados.listadoJson()); return; }
+        if (!metodo.equals("POST") || !(accion.isEmpty() || accion.equals("eliminacion"))) { error(ex, 404, "Acción no encontrada"); return; }
+        for (CorridaWeb c : CORRIDAS.values())
+            if (c.enCurso()) { error(ex, 409, "Hay una corrida en ejecución: finalízala antes de cargar o quitar archivos"); return; }
+        ArchivosCargados.Tipo tipo = ArchivosCargados.tipo(requerido(d, "tipo"));
+        YearMonth mes = null;
+        if (d.containsKey("mes") && !d.get("mes").isBlank()) {
+            try {
+                mes = YearMonth.parse(d.get("mes").trim());
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Mes inválido: " + d.get("mes") + " (aaaa-mm)");
+            }
+        }
+        if (accion.equals("eliminacion")) {
+            boolean habia = ArchivosCargados.eliminar(tipo, mes);
+            responder(ex, 200, new EscritorJson().abrirObjeto(null).valor("eliminado", habia).cerrarObjeto().toString());
+            return;
+        }
+        ValidadorEntradas.Informe inf = ArchivosCargados.cargar(tipo, mes, d.get("texto"));
+        responder(ex, 200, ArchivosCargados.informeJson(inf, tipo, mes));
     }
 
     private static Simulador.Escenario escenario(String texto) {

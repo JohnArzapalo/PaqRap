@@ -27,3 +27,7 @@ datos/generados/
 # Copias de archivos antiguos (el historial está en la rama "historial" de git)
 obsoleto_sem06/
 /resultados_*.txt
+
+# Etapa 38: datos que genera el servidor (archivos cargados y parámetros del sistema)
+datos_cargados/
+config/sistema.properties

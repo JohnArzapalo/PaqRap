@@ -21,6 +21,7 @@ import java.util.List;
  *
  * Carpetas configurables en config/parametros.properties (web.*).
  * Etapa 35: las corridas del visualizador ya no cargan aquí los pedidos (los lee LectorVentasIncremental).
+ * Etapa 38 (SI-37): si se cargó un archivo desde el visualizador (ArchivosCargados), se usa ese en lugar del oficial.
  */
 final class DatosOficiales {
 
@@ -38,13 +39,31 @@ final class DatosOficiales {
     private DatosOficiales() {
     }
 
-    /** Archivo de ventas del mes (formato del profesor: ventas.202609.txt). */
+    /** Archivo de ventas del mes: el cargado desde el visualizador si existe; si no, el oficial. */
     static Path archivoVentas(YearMonth mes) {
+        Path cargado = ArchivosCargados.ventas(mes);
+        return Files.exists(cargado) ? cargado : ventasOficiales(mes);
+    }
+
+    /** Archivo de bloqueos del mes: el cargado desde el visualizador si existe; si no, el oficial. */
+    static Path archivoBloqueos(YearMonth mes) {
+        Path cargado = ArchivosCargados.bloqueos(mes);
+        return Files.exists(cargado) ? cargado : bloqueosOficiales(mes);
+    }
+
+    /** Mantenimiento preventivo: el cargado desde el visualizador si existe; si no, el oficial. */
+    static Path archivoMantenimiento() {
+        Path cargado = ArchivosCargados.mantenimiento();
+        return Files.exists(cargado) ? cargado : Paths.get(ARCHIVO_MANTENIMIENTO);
+    }
+
+    /** Archivo oficial de ventas del mes (formato del profesor: ventas.202609.txt). */
+    static Path ventasOficiales(YearMonth mes) {
         return Paths.get(CARPETA_VENTAS, String.format("ventas.%04d%02d.txt", mes.getYear(), mes.getMonthValue()));
     }
 
-    /** Archivo de bloqueos del mes (formato del profesor: bloqueo.2609.txt). */
-    static Path archivoBloqueos(YearMonth mes) {
+    /** Archivo oficial de bloqueos del mes (formato del profesor: bloqueo.2609.txt). */
+    static Path bloqueosOficiales(YearMonth mes) {
         return Paths.get(CARPETA_BLOQUEOS, String.format("bloqueo.%02d%02d.txt", mes.getYear() % 100, mes.getMonthValue()));
     }
 
@@ -82,8 +101,8 @@ final class DatosOficiales {
             if (Files.exists(archivoBloqueos(mes)))
                 for (MapaVial.Bloqueo b : MapaVial.leer(archivoBloqueos(mes).toString()).bloqueos)
                     d.bloqueos.add(new MapaVial.Bloqueo(b.inicioH + offsetH, b.finH + offsetH, b.nodos));
-            if (Files.exists(Paths.get(ARCHIVO_MANTENIMIENTO)))
-                for (Mantenimiento m : Mantenimiento.leer(ARCHIVO_MANTENIMIENTO, mes.getYear() * 100 + mes.getMonthValue()))
+            if (Files.exists(archivoMantenimiento()))
+                for (Mantenimiento m : Mantenimiento.leer(archivoMantenimiento().toString(), mes.getYear() * 100 + mes.getMonthValue()))
                     d.mantenimientos.add(new Mantenimiento(m.unidad, m.inicioMin + offsetMin, m.finMin + offsetMin));
             offsetMin += mes.lengthOfMonth() * 1440.0;
         }
