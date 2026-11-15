@@ -174,6 +174,36 @@ button{cursor:pointer;}
 .lf-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;font-family:var(--font-mono);}
 .ax-lbl{font-size:9.5px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;text-align:center;}
 .ax-lbl.ax-y{text-align:right;}
+/* Tablero flotante (etapa 38, indicación del profesor): tiempos, indicadores globales y filtros rápidos en una ventana
+   que se mueve arrastrando su barra y se pliega. Pocas letras: «F/H» y «Duración», uno debajo del otro. */
+.tablero{position:absolute;z-index:930;top:10px;right:30px;width:238px;background:rgba(14,22,36,.95);border:1px solid var(--border);border-radius:11px;box-shadow:0 12px 28px -12px rgba(0,0,0,.75);font-size:11.5px;color:var(--text-dim);}
+.tb-h{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 8px;cursor:move;border-bottom:1px solid var(--border-soft);touch-action:none;user-select:none;}
+.tablero.plegado .tb-h{border-bottom:0;}
+.tb-h b{font-family:var(--font-display);font-size:12.5px;color:var(--text);}
+.tb-h .chip{font-size:10px;padding:1px 6px;}
+.tb-asa{width:10px;height:16px;flex-shrink:0;fill:var(--text-faint);}
+.tb-x{margin-left:auto;width:24px;height:24px;border-radius:6px;background:none;border:1px solid transparent;color:var(--text-dim);display:grid;place-items:center;padding:0;font-size:16px;line-height:1;}
+.tb-x:hover{border-color:var(--border);color:var(--text);}
+.tb-b{padding:8px 10px 10px;display:grid;gap:8px;}
+.tb-blq{display:grid;gap:1px;}
+.tb-l{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--text-faint);display:flex;justify-content:space-between;gap:6px;}
+.tb-l span{text-transform:none;letter-spacing:0;font-weight:600;}
+.tb-f{display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
+.tb-f .k{color:var(--text-faint);min-width:56px;} .tb-f abbr{text-decoration:none;}
+.tb-f .v{font-family:var(--font-mono);color:var(--text);}
+.tb-f .v.fh{font-size:16px;font-weight:600;}
+.tb-sub{font-size:10.5px;color:var(--text-faint);}
+.tb-pg{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;}
+.tb-pg i{display:block;height:100%;width:0;background:var(--brand);} .tb-pg.col i{background:var(--red);}
+.tb-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.tb-ind{border:1px solid var(--border);border-left:4px solid var(--x,var(--border));border-radius:7px;padding:3px 7px;display:grid;}
+.tb-ind .l{font-size:10px;} .tb-ind .v{font:700 14px var(--font-display);color:var(--text);} .tb-ind .s{font-size:9.5px;color:var(--text-faint);white-space:nowrap;}
+.tb-row{display:flex;gap:4px;}
+.tb-btn{flex:1;height:28px;min-width:0;padding:0 4px;border-radius:6px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text-faint);display:grid;place-items:center;font-size:10.5px;font-weight:600;}
+.tb-btn svg{width:22px;height:22px;color:inherit;}
+.tb-btn i{width:13px;height:13px;border-radius:50%;display:block;}
+.tb-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--text);background:var(--panel-raised);}
+.tb-row.parcial .tb-btn[aria-pressed="false"] i,.tb-row.parcial .tb-btn[aria-pressed="false"] svg{opacity:.3;}
 /* estado vacío */
 .map-empty{position:absolute;inset:0;display:none;place-items:center;z-index:950;background:rgba(7,12,22,.6);padding:16px;}
 .map-empty.on{display:grid;}
@@ -458,6 +488,39 @@ body.observer .ctrl-only{display:none !important;}
           <div class="buscador" id="buscador" hidden><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div></div>
       </div>
       <div class="ov ov-tr ctrl-only"><button class="map-btn map-btn-averia" id="btnAveriaMapa">Registrar avería</button></div>
+      <!-- Tablero flotante (etapa 38): se mueve arrastrando su barra, se pliega y cada navegador recuerda dónde lo dejó -->
+      <section class="tablero" id="tablero" aria-label="Tablero de la simulación">
+        <header class="tb-h" id="tbAsa" title="Arrastra para mover el tablero">
+          <svg class="tb-asa" viewBox="0 0 10 16" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>
+          <b>Tablero</b><span class="chip" id="tbEstado">Sin iniciar</span>
+          <button class="tb-x" id="tbPlegar" aria-expanded="true" title="Plegar">–</button>
+        </header>
+        <div class="tb-b" id="tbCuerpo">
+          <!-- Tiempos (C12 a C16), al minuto: primero la simulación, luego el tiempo real y al final el inicio -->
+          <div class="tb-blq">
+            <div class="tb-l"><span id="tbSimL">SIMULACIÓN</span><span id="tbSimDia"></span></div>
+            <div class="tb-f"><span class="k"><abbr title="Fecha y hora simulada (día, hora y minuto)">F/H</abbr>:</span><span class="v fh" id="tbSimFH">--/--/---- --:--</span></div>
+            <div class="tb-f"><span class="k">Duración:</span><span class="v" id="tbSimDur">—</span></div>
+            <div class="tb-sub" id="tbTurno"></div>
+          </div>
+          <div class="tb-blq">
+            <div class="tb-l"><span>ACTUAL</span></div>
+            <div class="tb-f"><span class="k"><abbr title="Fecha y hora real (día, hora y minuto)">F/H</abbr>:</span><span class="v" id="tbActFH">—</span></div>
+            <div class="tb-f"><span class="k">Duración:</span><span class="v" id="tbActDur">—</span></div>
+          </div>
+          <div class="tb-f"><span class="k">Inicio:</span><span class="v" id="tbIni">—</span></div>
+          <div class="tb-sub" id="tbNota" hidden></div>
+          <div class="tb-pg" id="tbPg" title="Avance"><i id="tbPgFill"></i></div>
+          <!-- Indicadores globales (G01 a G04) -->
+          <div class="tb-g" id="tbGlobal"></div>
+          <!-- Filtros rápidos de las unidades (tipo y semáforo con vacío): se reflejan en el mapa y en Flota -->
+          <div class="tb-blq">
+            <div class="tb-l"><span>FILTRO</span><span id="tbCuenta"></span></div>
+            <div class="tb-row" id="tbTipos"></div>
+            <div class="tb-row" id="tbSem" style="margin-top:4px"></div>
+          </div>
+        </div>
+      </section>
       <!-- Ficha de un envío: escalas y ruta anterior (F02 a F04, F09) -->
       <div class="ficha-envio" id="fichaEnvio" hidden></div>
       <div class="leyenda" id="leyenda" hidden></div>
@@ -492,29 +555,7 @@ body.observer .ctrl-only{display:none !important;}
             <div><div class="sim-name" id="rbTitle">Simulación de 5 días</div><div class="help" id="rbMeta">Búsqueda Tabú · datos oficiales del profesor</div></div>
             <span class="chip" id="rbState">Sin iniciar</span>
           </div>
-          <dl class="kv">
-            <dt>Fecha de inicio</dt><dd id="smInicio">—</dd>
-            <dt>Vehículos</dt><dd id="smFlota">—</dd>
-            <dt>Ritmo</dt><dd id="smRitmo">—</dd>
-          </dl>
-          <!-- Relojes (C12 a C16): fecha y hora simulada, tiempo simulado transcurrido, fecha y hora real y tiempo real transcurrido -->
-          <div class="sim-clock">
-            <div class="l" id="ckLbl">Fecha y hora simulada (día, hora y minuto)</div>
-            <div class="hm" id="ckHM">--/--/---- --:--</div>
-            <div class="d" id="ckDay">Día —</div>
-            <div class="sub" id="ckDate">sin reloj</div>
-          </div>
-          <dl class="kv kv-tiempos">
-            <dt id="ckTransLbl">Tiempo simulado transcurrido</dt><dd id="ckTrans" class="mono">—</dd>
-            <dt>Fecha y hora actual (real)</dt><dd id="smHoraReal" class="mono">—</dd>
-            <dt>Tiempo real transcurrido</dt><dd id="smReal" class="mono">—</dd>
-          </dl>
-          <p class="help" id="ckNota" hidden></p>
-          <div class="progress">
-            <div class="pg-h"><span id="pgLbl">Avance de los 5 días</span><span id="pgPct" class="mono">0 %</span></div>
-            <div class="bar2" id="pgBar"><i id="pgFill" style="width:0"></i></div>
-            <div class="ticks" id="pgTicks"></div>
-          </div>
+          <p class="help">Los tiempos, los indicadores globales y el filtro rápido están en el tablero flotante sobre el mapa.</p>
           <div class="sim-actions">
             <button class="btn-play danger ctrl-only" id="btnFinalizar" disabled>Finalizar</button>
             <button class="btn-secondary" id="btnReporte" disabled>Reporte</button>
@@ -879,6 +920,7 @@ const fmtHM = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; };
 const fmtMin = m => { m = Math.round(m); const neg = m < 0; m = Math.abs(m); const h = Math.floor(m / 60), mi = m % 60; return (neg ? '−' : '') + (h ? h + ' h ' : '') + mi + ' min'; };
 const fmtDias = m => { m = Math.max(0, Math.floor(m)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return `${d} ${d === 1 ? 'día' : 'días'} ${pad(h)} h ${pad(mi)} min`; };
+const fmtDurCorta = m => { m = Math.max(0, Math.floor(m)); return `${Math.floor(m / 1440)} d ${pad(Math.floor(m % 1440 / 60))} h ${pad(m % 60)} min`; };
 const fmtDia = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const soles = v => 'S/ ' + Math.round(v).toLocaleString('es-PE');
 const num = v => Math.round(v).toLocaleString('es-PE');
@@ -1161,40 +1203,33 @@ function pintarSimulacion(){
                            : obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
                                  : 'Vuelve a los escenarios para elegir la fecha y la hora de inicio.';
   $('#emBtn').hidden = iniciando;
-  $('#pgLbl').textContent = S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día';
-  if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal', '#ckTrans']) $(id).textContent = '—';
-    $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--/--/---- --:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckNota').hidden = true;
-    $('#pgFill').style.width = '0'; $('#pgPct').textContent = '0 %'; $('#pgTicks').innerHTML = ''; return; }
+  $('#tbEstado').textContent = $('#rbState').textContent; $('#tbEstado').className = $('#rbState').className;
+  if (!s){ for (const id of ['#tbSimFH', '#tbSimDur', '#tbActFH', '#tbActDur', '#tbIni']) $(id).textContent = '—';
+    $('#tbSimDia').textContent = ''; $('#tbTurno').textContent = ''; $('#tbNota').hidden = true; $('#tbPgFill').style.width = '0'; return; }
   const ahora = s.reloj.ahora_min ?? s.reloj.simulado_min;   // minuto del reloj de la corrida (etapa 35)
   const d = aFecha(s, ahora); const tc = ahora - s.reloj.inicio_min; const fin = c.fin_real_ms || s.reloj.real_ms;
-  $('#smInicio').textContent = fmtFecha(new Date(c.inicio_ms));
-  $('#smFlota').textContent = `${c.autos + c.motos + c.bicicletas} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis`;
-  $('#smRitmo').textContent = ritmoTxt(S.tab, c.factor);
-  // Los cuatro tiempos (C12 a C16), a nivel de minuto. En la operación día a día con ritmo ×1 el tiempo
-  // simulado ES el tiempo real (empieza en la fecha y hora actuales): se rotula así.
+  // Tablero (etapa 38): los cuatro tiempos al minuto (C12 a C16), uno debajo del otro, con pocas letras.
+  // En la operación día a día con ritmo ×1 el tiempo de la operación ES el real (empieza ahora).
   const dia = S.tab === 'DIA_A_DIA', real = dia && +c.factor === 1;
-  $('#ckLbl').textContent = real ? 'Fecha y hora de la operación (= hora real; día, hora y minuto)' : 'Fecha y hora simulada (día, hora y minuto)';
-  $('#ckTransLbl').textContent = real ? 'Tiempo de operación transcurrido' : 'Tiempo simulado transcurrido';
-  $('#ckHM').innerHTML = `<span class="fe">${fmtDia(d)}</span>${fmtHM(d)}`;
+  $('#tbSimL').textContent = dia ? 'OPERACIÓN' : 'SIMULACIÓN';
+  $('#tbSimFH').textContent = fmtFecha(d);
+  $('#tbSimDur').textContent = fmtDurCorta(tc);
   const semana = d.toLocaleDateString('es-PE', { weekday: 'long' });
   // Al cumplirse los 5 días el reloj marca las 00:00 del día siguiente: se rotula como el fin, no como un «día 6»
   const finDe5 = S.tab === 'SIM_5D' && tc >= 5 * 1440;
-  $('#ckDay').textContent = (dia ? '' : finDe5 ? 'Fin de los 5 días · ' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' de la simulación · ') + semana;
-  $('#ckDate').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
-  $('#ckTrans').textContent = fmtDias(tc);
-  $('#smHoraReal').textContent = fmtFecha(new Date());
-  $('#smReal').textContent = fmtDias((fin - c.inicio_real_ms) / 60000);
-  $('#ckNota').hidden = !dia;
-  $('#ckNota').textContent = real ? 'Operación día a día: el reloj simulado avanza con el reloj real (ritmo ×1), así que la fecha y hora de la operación coinciden con la actual.'
-                                 : `Operación día a día en ritmo de demostración (×${c.factor}): el reloj de la operación avanza ${c.factor} veces más rápido que el real.`;
+  $('#tbSimDia').textContent = (dia ? '' : finDe5 ? 'fin de los 5 días · ' : 'día ' + (Math.floor(tc / 1440) + 1) + ' · ') + semana;
+  $('#tbTurno').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
+  $('#tbActFH').textContent = fmtFecha(new Date());
+  $('#tbActDur').textContent = fmtDurCorta((fin - c.inicio_real_ms) / 60000);
+  $('#tbIni').textContent = fmtFecha(new Date(c.inicio_ms));
+  $('#tbNota').hidden = !dia;
+  $('#tbNota').textContent = real ? 'La hora de la operación es la hora real.' : `Demostración: la operación va ${c.factor} veces más rápido que el reloj real.`;
   // avance dentro del horizonte
   const span = S.tab === 'SIM_5D' ? 5 * 1440 : S.tab === 'COLAPSO' ? Math.max(5, Math.ceil(tc / 1440) + 1) * 1440 : 1440;
   const t0 = S.tab === 'DIA_A_DIA' ? Math.floor(tc / 1440) * 1440 : 0;
   const pct = Math.min(100, 100 * (tc - t0) / span);
-  $('#pgFill').style.width = pct + '%'; $('#pgPct').textContent = pct.toFixed(1) + ' %';
-  $('#pgBar').classList.toggle('col', s.estado_corrida === 'COLAPSO');
-  const n = S.tab === 'DIA_A_DIA' ? 4 : span / 1440;
-  $('#pgTicks').innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${S.tab === 'DIA_A_DIA' ? pad(i * 6) + ' h' : (i < n ? 'D' + (i + 1) : 'fin')}</span>`).join('');
+  $('#tbPgFill').style.width = pct + '%'; $('#tbPg').classList.toggle('col', s.estado_corrida === 'COLAPSO');
+  $('#tbPg').title = (S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día') + ': ' + pct.toFixed(1) + ' %';
 }
 /* Indicadores globales (G01 a G04): ocupación de toda la flota operativa y llenado de los almacenes intermedios
    en conjunto, con el mismo semáforo de llenado (y vacío) que las unidades y los almacenes. */
@@ -1207,12 +1242,17 @@ function indicadoresGlobales(s){
 /* Cada indicador global va en la sección de su lista: la flota en Flota y los almacenes en Almacenes. */
 function pintarIndicadoresGlobales(s){
   const tarjeta = (l, pct, sem, sub) => `<div class="kpi ${sem ? 'sem ' + sem : ''}"><div class="l">${l}</div><div class="v">${pct}</div><div class="s" title="${sub}">${sub}</div></div>`;
+  const ind = (l, pct, sem, sub) => `<div class="tb-ind" style="--x:${sem ? colorSem(sem) : 'var(--border)'}" title="${sub}"><span class="l">${l}</span><span class="v">${pct}</span><span class="s">${sub}</span></div>`;
   if (!s){
+    $('#tbGlobal').innerHTML = ind('Flota', '—', '', '&nbsp;') + ind('Almacenes', '—', '', '&nbsp;');
     $('#flGlobal').innerHTML = tarjeta('Ocupación de la flota', '—', '', '&nbsp;');
     $('#whGlobal').innerHTML = tarjeta('Llenado de almacenes', '—', '', '&nbsp;');
     return;
   }
   const G = indicadoresGlobales(s);
+  // En el tablero, sobre el mapa (G01 a G04: «mapa: indicadores global»)
+  $('#tbGlobal').innerHTML = ind('Flota', G.flota.pct.toFixed(0) + ' %', G.flota.sem, `${num(G.flota.carga)}/${num(G.flota.cap)} paq.`)
+    + ind('Almacenes', G.almacenes.pct.toFixed(0) + ' %', G.almacenes.sem, `${num(G.almacenes.stock)}/${num(G.almacenes.cap)}`);
   $('#flGlobal').innerHTML = tarjeta('Ocupación de la flota', G.flota.pct.toFixed(0) + ' %', G.flota.sem, `${num(G.flota.carga)}/${num(G.flota.cap)} paq. · ${NOMBRE_SEM[G.flota.sem]}`);
   $('#whGlobal').innerHTML = tarjeta('Llenado de almacenes', G.almacenes.pct.toFixed(0) + ' %', G.almacenes.sem, `${num(G.almacenes.stock)}/${num(G.almacenes.cap)} · ${NOMBRE_SEM[G.almacenes.sem]}`);
 }
@@ -1317,7 +1357,52 @@ function chipsSemaforo(id, lista, conjunto){
   const color = k => k === 'av' ? COL.av1 : k === 'man' ? COL['u-mant'] : k === 'central' ? colorCentral() : colorSem(k);
   $(id).innerHTML = lista.map(([k, n]) => `<button class="fchip" data-v="${k}" aria-pressed="${conjunto.has(k)}"><i style="background:${color(k)}"></i>${n}</button>`).join('');
 }
-function refiltrar(){ const s = S.snap[S.tab]; pintarFlota(s); pintarAlmacenes(s); if (s) dibujarMapa(s); }
+function refiltrar(){ const s = S.snap[S.tab]; pintarFlota(s); pintarAlmacenes(s); if (s) dibujarMapa(s); pintarFiltroRapido(s); }
+/* Filtro rápido del tablero (etapa 38, indicación del profesor): una fila con los tipos de unidad y otra con los colores del
+   semáforo, a un clic. Es el MISMO filtro de la sección Flota (S.fl): se refleja en el mapa y en la lista. Desde «todos»,
+   un clic deja solo ese; después, cada clic agrega o quita; sin ninguno, vuelven todos. */
+const TIPOS_RAPIDO = ['AUTO', 'MOTO', 'BICICLETA'], SEM_RAPIDO = ['vacio', 'bad', 'warn', 'ok'], SEM_TODOS = SEM_UNI.map(x => x[0]);
+function pintarFiltroRapido(s){
+  const todosT = TIPOS_RAPIDO.every(t => S.fl.tipos.has(t)), todosS = SEM_TODOS.every(k => S.fl.sem.has(k));
+  const b = (attr, v, on, html, t) => `<button class="tb-btn" ${attr}="${v}" aria-pressed="${on}" title="${t}">${html}</button>`;
+  $('#tbTipos').classList.toggle('parcial', !todosT); $('#tbSem').classList.toggle('parcial', !todosS);
+  $('#tbTipos').innerHTML = b('data-t', 'ALL', todosT, 'Todos', 'Todos los tipos')
+    + TIPOS_RAPIDO.map(t => b('data-t', t, S.fl.tipos.has(t) && !todosT, svgVeh(t), TIPOS[t].nombre)).join('');
+  $('#tbSem').innerHTML = b('data-s', 'ALL', todosS, 'Todos', 'Todos los colores')
+    + SEM_RAPIDO.map(k => b('data-s', k, S.fl.sem.has(k) && !todosS, `<i style="background:${colorSem(k)}"></i>`, NOMBRE_SEM[k])).join('');
+  contarFiltroRapido(s);
+}
+/* Solo el contador (cada segundo): repintar los botones podría perder un clic a medio hacer. */
+function contarFiltroRapido(s){ $('#tbCuenta').textContent = s ? `${s.unidades.filter(u => pasaFiltroUnidad(u, s)).length} de ${s.unidades.length} unidades` : ''; }
+function elegirRapido(conj, todos, k){
+  if (k === 'ALL'){ todos.forEach(x => conj.add(x)); return; }
+  if (todos.every(x => conj.has(x))){ conj.clear(); conj.add(k); return; }
+  conj.has(k) ? conj.delete(k) : conj.add(k);
+  if (!conj.size) todos.forEach(x => conj.add(x));
+}
+$('#tbTipos').addEventListener('click', e => { const x = e.target.closest('[data-t]'); if (!x) return; elegirRapido(S.fl.tipos, TIPOS_RAPIDO, x.dataset.t);
+  $$('#flTipo .fchip').forEach(c => c.setAttribute('aria-pressed', S.fl.tipos.has(c.dataset.v))); refiltrar(); });
+$('#tbSem').addEventListener('click', e => { const x = e.target.closest('[data-s]'); if (!x) return; elegirRapido(S.fl.sem, SEM_TODOS, x.dataset.s);
+  chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); refiltrar(); });
+/* El tablero se mueve arrastrando su barra y se pliega; cada navegador recuerda dónde lo dejó (solo es una comodidad local). */
+(function tableroMovil(){
+  const el = $('#tablero'), asa = $('#tbAsa'), cont = $('#mapWrap'); let pendiente = null, ini = null;
+  try { pendiente = JSON.parse(localStorage.getItem('paqrap.tablero') || 'null'); } catch (e){ pendiente = null; }
+  const ubicar = (x, y) => { const mx = cont.clientWidth - el.offsetWidth, my = cont.clientHeight - el.offsetHeight;
+    el.style.left = Math.max(0, Math.min(mx, x)) + 'px'; el.style.top = Math.max(0, Math.min(my, y)) + 'px'; el.style.right = 'auto'; };
+  const guardar = () => { try { localStorage.setItem('paqrap.tablero', JSON.stringify({ x: el.offsetLeft, y: el.offsetTop, plegado: el.classList.contains('plegado'), movido: !!el.style.left })); } catch (e){ /* sin almacenamiento */ } };
+  const plegar = si => { el.classList.toggle('plegado', si); $('#tbCuerpo').hidden = si; $('#tbPlegar').setAttribute('aria-expanded', !si);
+    $('#tbPlegar').title = si ? 'Desplegar' : 'Plegar'; $('#tbPlegar').textContent = si ? '+' : '–'; };
+  if (pendiente && pendiente.plegado) plegar(true);
+  asa.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; ini = { px: e.clientX, py: e.clientY, x: el.offsetLeft, y: el.offsetTop }; asa.setPointerCapture(e.pointerId); });
+  asa.addEventListener('pointermove', e => { if (ini) ubicar(ini.x + e.clientX - ini.px, ini.y + e.clientY - ini.py); });
+  asa.addEventListener('pointerup', () => { if (ini){ ini = null; guardar(); } });
+  $('#tbPlegar').onclick = () => { plegar(!el.classList.contains('plegado')); guardar(); };
+  // La posición guardada se aplica cuando el mapa ya tiene tamaño; al cambiar el tamaño, el tablero no queda fuera
+  new ResizeObserver(() => { if (!cont.clientWidth) return;
+    if (pendiente){ if (pendiente.movido) ubicar(pendiente.x, pendiente.y); pendiente = null; }
+    else if (el.style.left) ubicar(el.offsetLeft, el.offsetTop); }).observe(cont);
+})();
 function alternarChip(conjunto, b){ const k = b.dataset.v; conjunto.has(k) ? conjunto.delete(k) : conjunto.add(k); b.setAttribute('aria-pressed', conjunto.has(k)); refiltrar(); }
 $('#flTipo').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.tipos, b); });
 $('#flSem').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.sem, b); });
@@ -1633,7 +1718,7 @@ $$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').datase
 
 function render(){
   if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
-  const s = S.snap[S.tab]; pintarSimulacion(); pintarIndicadoresGlobales(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
+  const s = S.snap[S.tab]; pintarSimulacion(); pintarIndicadoresGlobales(s); contarFiltroRapido(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
   if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog(); pintarLeyenda();
   if (S.envSel){ if (performance.now() - S.envSel.recibido > 5000) seleccionarEnvio(S.envSel.id, false); else pintarEnvioSel(false); }
 }
@@ -1949,7 +2034,7 @@ $('#btnEjemplo').onclick = () => { const s = diaActivo(); const d = s ? aFecha(s
 
 /* ===== Arranque: primero se elige el escenario ===== */
 S.fl = filtrosFlotaIniciales(); S.wh.sem = new Set(SEM_ALM.map(x => x[0]));
-chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem);
+chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem); pintarFiltroRapido(null);
 render(); pintarRegistro(); mostrarInicio();
 api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
 cargarParametros(); setInterval(cargarParametros, 10000);
