@@ -115,12 +115,14 @@ button{cursor:pointer;}
 .map-btn{background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11.5px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35);}
 .map-btn:hover{border-color:var(--brand);}
 .map-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
-/* Registrar avería: lo único en la esquina superior derecha; con poco ancho, debajo de los botones y, en pantallas angostas, abajo a la izquierda */
-.ov-tr{top:10px;right:10px;}
-@media(max-width:1100px){ .ov-tr{top:46px;} }
-@media(max-width:820px){ .ov-tr{top:auto;right:auto;left:10px;bottom:10px;} }
-.map-btn-averia{border-color:var(--red);color:var(--red);font-weight:600;}
-.map-btn-averia:hover{border-color:var(--red);background:var(--red-dim);}
+/* Avería desde el mapa (etapa 38): menú junto al vehículo, con la confirmación ahí mismo */
+.menu-av{position:absolute;z-index:965;width:230px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px -10px rgba(0,0,0,.75);padding:8px;display:grid;gap:5px;font-size:12px;color:var(--text-dim);}
+.menu-av .mh{display:flex;align-items:center;gap:6px;color:var(--text);} .menu-av .mh b{font-family:var(--font-display);font-size:12.5px;}
+.menu-av .x{margin-left:auto;background:none;border:0;color:var(--text-dim);font-size:17px;width:24px;height:24px;border-radius:5px;padding:0;}
+.menu-av .tipo{display:flex;align-items:center;gap:8px;text-align:left;background:var(--panel-alt);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-size:11.5px;}
+.menu-av .tipo:hover{border-color:var(--brand);}
+.menu-av .n{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:#0B1220;font:700 10.5px var(--font-mono);flex-shrink:0;}
+.menu-av .acciones{display:flex;gap:6px;justify-content:flex-end;}
 /* Leyenda desplegable (etapa 35): reemplaza a la leyenda fija, para dejar libre el mapa */
 .leyenda{position:absolute;z-index:940;top:10px;left:52px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
 .leyenda h4{font-family:var(--font-display);font-size:12px;color:var(--text);font-weight:600;margin-top:2px;}
@@ -487,7 +489,7 @@ body.observer .ctrl-only{display:none !important;}
         <div class="tool-wrap"><button class="tool" id="tgBuscar" aria-pressed="false" title="Buscar unidad, pedido o producto" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></button>
           <div class="buscador" id="buscador" hidden><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div></div>
       </div>
-      <div class="ov ov-tr ctrl-only"><button class="map-btn map-btn-averia" id="btnAveriaMapa">Registrar avería</button></div>
+      <div class="menu-av" id="menuAv" hidden role="dialog" aria-label="Registrar avería"></div>
       <!-- Tablero flotante (etapa 38): se mueve arrastrando su barra, se pliega y cada navegador recuerda dónde lo dejó -->
       <section class="tablero" id="tablero" aria-label="Tablero de la simulación">
         <header class="tb-h" id="tbAsa" title="Arrastra para mover el tablero">
@@ -1058,13 +1060,15 @@ function dibujarMapa(s){
     const pasa = !S.fl || S.sel === u.codigo || pasaFiltroUnidad(u, s);   // filtros del panel reflejados en el mapa (F16, F18)
     const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '') + (pasa ? '' : ' atenuada');
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
-      m.on('click', () => unidadDesdeMapa(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
+      m.on('click', () => unidadDesdeMapa(u.codigo)); m.on('contextmenu', ev => abrirMenuAveria(u.codigo, ev));
+      m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
     // Con trayectorias, la posición la da la reproducción (cada cuadro); la instantánea solo ubica a las demás
     const T = S.tray[S.tab]; if (!(T && u.estado === 'OPERATIVA' && T.unidades[u.codigo])) m.setLatLng([u.y, u.x]);
     orientar(u.codigo, u.camino.length ? direccion(u.x, u.y, u.camino[0][0], u.camino[0][1]) : null);
     const ll = 100 * u.carga / u.capacidad;
-    m.setTooltipContent(`<b>${u.codigo}</b> ${estadoVisible(u, s).t} · ${u.carga}/${u.capacidad}${pctSem(ll, semLlenado(ll))}${textoAveria(u, s)}`);
+    const pista = S.rol === 'control' && u.estado === 'OPERATIVA' && s.estado_corrida === 'EN_EJECUCION' ? '<br><span class="help">Clic derecho: registrar avería</span>' : '';
+    m.setTooltipContent(`<b>${u.codigo}</b> ${estadoVisible(u, s).t} · ${u.carga}/${u.capacidad}${pctSem(ll, semLlenado(ll))}${textoAveria(u, s)}${pista}`);
   }
   for (const k of Object.keys(mUni)) if (!vistos.has(k)){ gUni.removeLayer(mUni[k]); delete mUni[k]; }
   // Rutas (etapa 38, indicación del profesor): finas y tenues; lo que falta recorrer, segmentado (se borra a medida que la
@@ -1565,6 +1569,7 @@ function pintarLeyenda(){
     ${[1, 2, 3].map(k => fila(sw(COLOR_AVERIA[k]), `<b>Avería ${k}</b> (marca «${k}») · ${TEXTO_AVERIA[k].split(' · ')[1]}`)).join('')}
     ${fila(sw(COL['u-mant']), '<b>Mantenimiento</b> preventivo (marca «M»)')}
     ${fila('<span style="width:16px;text-align:center;color:#fff">▶</span>', 'La flecha indica hacia dónde avanza la unidad')}
+    ${fila('<span style="width:16px;text-align:center;color:var(--text)">⋯</span>', '<b>Clic derecho</b> sobre un vehículo (o mantenerlo presionado): registrar una avería')}
     <h4>Mapa</h4>
     ${fila(alm(colorCentral(), true), '<b>Almacén central</b> · stock ilimitado: siempre lleno, borde blanco')}
     ${fila(alm(colorSem('warn')), '<b>Almacén intermedio</b> · color del semáforo; el número son las unidades detenidas allí')}
@@ -1850,7 +1855,39 @@ function abrirRegistroAveria(unidad, tipo){
   if (unidad){ $('#avUnidad').value = unidad; $('#avTipo').value = tipo; }
   abrirModal('mdAveria');
 }
-$('#btnAveriaMapa').onclick = () => abrirRegistroAveria();
+/* Avería desde el mapa (etapa 38, indicación del profesor: «solamente en el mapa, sin ningún panel adicional»): clic
+   derecho sobre el vehículo (o mantenerlo presionado en una pantalla táctil) abre, junto al ícono, un menú con los tres
+   tipos; la confirmación se hace ahí mismo. Solo para quien tiene el control y con la corrida en ejecución. */
+function cerrarMenuAveria(){ $('#menuAv').hidden = true; S.menuAv = null; }
+function abrirMenuAveria(codigo, ev){
+  if (ev && ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
+  const s = S.snap[S.tab]; const u = s && s.unidades.find(x => x.codigo === codigo);
+  if (S.rol !== 'control' || !u || s.estado_corrida !== 'EN_EJECUCION') return;
+  S.menuAv = { codigo, tipo: null }; pintarMenuAveria(u);
+  const el = $('#menuAv'), cont = $('#mapWrap'); el.hidden = false;
+  const p = map.latLngToContainerPoint(mUni[codigo] ? mUni[codigo].getLatLng() : [u.y, u.x]);
+  el.style.left = Math.max(4, Math.min(cont.clientWidth - el.offsetWidth - 4, p.x + 16)) + 'px';
+  el.style.top = Math.max(4, Math.min(cont.clientHeight - el.offsetHeight - 4, p.y - 20)) + 'px';
+}
+function pintarMenuAveria(u){
+  const M = S.menuAv, el = $('#menuAv'), cab = t => `<div class="mh">${t}<button class="x" data-cerrar title="Cerrar">×</button></div>`;
+  if (u.estado !== 'OPERATIVA'){ el.innerHTML = cab(`<b>${u.codigo}</b>`) + `<p class="help">${u.estado === 'AVERIADA' ? 'Ya está averiada' : 'Está en mantenimiento'}: no se le puede registrar otra avería.</p>`; return; }
+  if (!M.tipo){ el.innerHTML = cab(`<b>Avería en ${u.codigo}</b>`) + [1, 2, 3].map(k =>
+      `<button class="tipo" data-tipo="${k}"><b class="n" style="background:${COLOR_AVERIA[k]}">${k}</b><span>${TEXTO_AVERIA[k].split(' · ')[1]}</span></button>`).join(''); return; }
+  el.innerHTML = cab(`<b class="n" style="background:${COLOR_AVERIA[M.tipo]}">${M.tipo}</b><b>¿Avería tipo ${M.tipo} en ${u.codigo}?</b>`)
+    + `<p class="help">Se aplica ahora y el planificador replanifica.</p><div class="acciones"><button class="btn-secondary" data-atras>Atrás</button><button class="btn-play danger" data-confirmar>Confirmar avería</button></div>`;
+}
+$('#menuAv').addEventListener('click', async e => {
+  const M = S.menuAv; if (!M) return; const s = S.snap[S.tab]; const u = s && s.unidades.find(x => x.codigo === M.codigo);
+  if (e.target.closest('[data-cerrar]') || !u){ cerrarMenuAveria(); return; }
+  const t = e.target.closest('[data-tipo]'); if (t){ M.tipo = +t.dataset.tipo; pintarMenuAveria(u); return; }
+  if (e.target.closest('[data-atras]')){ M.tipo = null; pintarMenuAveria(u); return; }
+  if (e.target.closest('[data-confirmar]')){ const tipo = M.tipo; cerrarMenuAveria();
+    try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad: u.codigo, tipo }); toast(`Avería tipo ${tipo} registrada en ${u.codigo}; el planificador replanifica.`); consultaRapida(S.tab); }
+    catch (err){ toast(err.message, true); } }
+});
+map.on('click movestart zoomstart', cerrarMenuAveria);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.menuAv) cerrarMenuAveria(); });
 $('#drAveria').addEventListener('click', e => { const b = e.target.closest('[data-tipo]'); if (b && S.sel) abrirRegistroAveria(S.sel, b.dataset.tipo); });
 $('#btnAveria').onclick = async () => { const unidad = $('#avUnidad').value, tipo = $('#avTipo').value; if (!unidad){ toast('Elige una unidad operativa.', true); return; } cerrarModales();
   try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad, tipo }); toast(`Avería tipo ${tipo} registrada en ${unidad}; el planificador replanifica.`); } catch (err){ toast(err.message, true); } };
