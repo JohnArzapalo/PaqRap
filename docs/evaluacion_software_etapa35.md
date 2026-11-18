@@ -18,6 +18,23 @@ Formulario `__c1inf54.98#.Eq5E.Eval.Sw`, hoja `91.EvaSw`. Esta tabla **no reempl
 | Parcial | 1 (A16, depende del equipo) |
 | No aplica (en la práctica) | 21 (13 preguntas de la sección A, G05, G19 y la percepción del docente) |
 
+## Cambios de la etapa 38 (revisión del profesor del 14-nov-2026)
+
+Los ítems siguen en Conforme; cambia la evidencia (capturas en `salidas/capturas_etapa38/`):
+
+| Ítems | Ahora |
+|---|---|
+| B04, B13 | Flota y parámetros en la opción «Parámetros» (SI-36); archivos en «Carga de archivos», validados (SI-37). Capturas `t1_03` a `t1_05` |
+| C02 | La pantalla de inicio solo pide la fecha y la hora. Captura `t1_02` |
+| C09 a C11 | Retícula tan alta como se pueda, con 15-16 px de margen, números de los ejes visibles y acciones en una columna fuera de la retícula. Captura `t2_02` |
+| C12 a C16 | Tiempos en el tablero flotante: Simulación (F/H y Duración), Actual (F/H y Duración) e Inicio. Captura `t3_02` |
+| C18 a C21, C24 a C27 | Íconos sin fondo, de 1.6 cuadrículas; bicicleta delgada y moto gruesa; central con el color de «lleno». Capturas `t2_04`, `t2_05_*` |
+| C31, C33, C34 | Rutas más finas y tenues; lo pendiente, segmentado. Captura `t2_02` |
+| D10 a D12 | La avería se registra desde un menú sobre el vehículo. Capturas `t4_01` a `t4_03` |
+| E01 a E33 | Panel con pestañas, plegado al inicio; filas compactas; rango de km en el filtro de distancia. Capturas `t5_01` a `t5_06` |
+| F15 a F18 | El filtro rápido del tablero (tipo y semáforo con vacío) se refleja en el mapa y en Flota. Captura `t3_03` |
+| G01 a G04 | Indicadores globales otra vez sobre el mapa, en el tablero. Captura `t3_02` |
+
 ## A. General
 
 | Ítem | Estado 21-oct | Esperado ahora | Evidencia o motivo |
@@ -123,8 +140,8 @@ Formulario `__c1inf54.98#.Eq5E.Eval.Sw`, hoja `91.EvaSw`. Esta tabla **no reempl
 
 | Ítem | Estado 21-oct | Esperado ahora | Evidencia o motivo |
 |---|---|---|---|
-| G01, G02 | sin llenar | Conforme, por confirmar desde la etapa 36 | Indicador «Ocupación de la flota» (suma de cargas / suma de capacidades de la flota operativa) con semáforo (`indicadoresGlobales`, `pintarIndicadoresGlobales`). Desde la etapa 36 está en la sección Flota, no sobre el mapa, y el ítem dice «mapa: indicadores global». La captura `t7_01` muestra la ubicación anterior |
-| G03, G04 | sin llenar | Conforme, por confirmar desde la etapa 36 | Indicador «Llenado de almacenes» (intermedios en conjunto) con semáforo. Desde la etapa 36 está en la sección Almacenes, no sobre el mapa, y el ítem dice «mapa: indicadores global». La captura `t7_01` muestra la ubicación anterior |
+| G01, G02 | sin llenar | Conforme | Indicador de la ocupación de la flota (suma de cargas / suma de capacidades de la flota operativa) con semáforo. **Desde la etapa 38 vuelve a estar sobre el mapa, en el tablero flotante** (además de en Flota), como pidió el profesor el 14-nov. Captura `salidas/capturas_etapa38/t3_02` |
+| G03, G04 | sin llenar | Conforme | Indicador del llenado de los almacenes intermedios en conjunto, con semáforo, **en el tablero flotante sobre el mapa** desde la etapa 38 (además de en Almacenes). Captura `salidas/capturas_etapa38/t3_02` |
 | G05 | sin llenar | No aplica en la práctica | Es del dominio aéreo. Su equivalente en PaqRap, la hora de acondicionamiento en el cliente, ya se cumple (`entrega.horas = 1`, `Compartido.HORAS_ENTREGA`) |
 | G06 | sin llenar | Conforme | Dos navegadores independientes sobre la misma SIM_5D (capturas `t4_06`, `t4_07`) |
 | G08 | sin llenar | Conforme | Reporte con la última planificación estable al terminar la SIM_5D (`tablaUltimoPlan`, `Simulador.reporteJson`). Verificado desde el 10/11/2026: 22 unidades con ruta y 179 paradas, captura `t7_03` |

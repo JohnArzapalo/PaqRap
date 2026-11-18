@@ -109,8 +109,13 @@ sequenceDiagram
 | Método y ruta | Datos | Respuesta |
 |---|---|---|
 | `GET /api/datos` | — | meses con datos oficiales (`desde`, `hasta`) |
+| `GET /api/parametros` | — | parámetros del sistema: flota, ritmo de cada escenario y umbrales del semáforo (etapa 38) |
+| `POST /api/parametros` | `autos`, `motos`, `bicicletas`, `ritmo_SIM_5D`, `ritmo_COLAPSO`, `ritmo_DIA_A_DIA`, `llenado_bajo`, `llenado_alto`, `holgura_verde`, `holgura_ambar` (los que cambien) | los parámetros guardados; 400 con el motivo si alguno es inválido |
+| `GET /api/archivos` | — | meses con datos y de dónde sale cada archivo (`oficial` o `cargado`), y el mantenimiento (etapa 38) |
+| `POST /api/archivos` | `tipo` (`ventas`, `bloqueos` o `mantenimiento`), `mes` (aaaa-mm, salvo el mantenimiento), `texto` | informe de la validación (`guardado`, líneas válidas, errores y avisos); 409 con una corrida en ejecución |
+| `POST /api/archivos/eliminacion` | `tipo`, `mes` | quita el archivo cargado: vuelve a regir el oficial |
 | `GET /api/corridas` | — | estado de las tres corridas (para las pestañas) |
-| `POST /api/corridas/{ESC}` | `inicio=aaaa-mm-ddThh:mm`, `inicio_ms`, `factor`, `autos`, `motos`, `bicicletas` | `{corrida, estado}`; 409 si ya hay una en ejecución |
+| `POST /api/corridas/{ESC}` | `inicio=aaaa-mm-ddThh:mm`, `inicio_ms`; la flota y el ritmo salen de los parámetros del sistema (`factor`, `autos`, `motos` y `bicicletas` siguen siendo opcionales, para pruebas) | `{corrida, estado}`; 409 si ya hay una en ejecución |
 | `GET /api/corridas/{ESC}/estado` | — | `{corrida, estado}`: la instantánea completa |
 | `GET /api/corridas/{ESC}/eventos?desde=n` | — | `{total, eventos[]}` desde el evento n |
 | `GET /api/corridas/{ESC}/bloques` | — | trayectorias nodo a nodo (salida, llegada, x, y) del bloque en curso y del siguiente, con `plan.version` (etapa 35) |

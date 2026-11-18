@@ -29,7 +29,7 @@
   --alm-central:#EAB308; --alm-inter:#3B82F6;
   --ped-ok:#22C55E; --ped-warn:#F59E0B; --ped-bad:#EF4444;
   --font-display:'Space Grotesk', sans-serif; --font-body:'Inter', sans-serif; --font-mono:'JetBrains Mono', monospace;
-  --side:340px;
+  --side:420px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
@@ -91,8 +91,9 @@ button{cursor:pointer;}
 
 /* ===== VISTA DEL ESCENARIO: mapa (todo lo disponible) + barra lateral ===== */
 .stage{height:100vh;height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) var(--side);}
-.stage.noside{grid-template-columns:minmax(0,1fr) 0;}
-.stage.noside .side{display:none;}
+/* Panel lateral con pestañas (etapa 38, indicación del profesor): empieza plegado, solo con la columna de pestañas; un clic
+   en una pestaña lo abre (más ancho que antes) y otro clic en la misma lo vuelve a plegar. */
+.stage.plegado{grid-template-columns:minmax(0,1fr) 54px;}
 .map-wrap{position:relative;min-width:0;overflow:hidden;background:var(--map-bg);}
 #map{position:absolute;inset:0;background:var(--map-bg);}
 .leaflet-container{font-family:var(--font-body);background:var(--map-bg);}
@@ -103,18 +104,28 @@ button{cursor:pointer;}
 .leaflet-bar{border:1px solid var(--border) !important;box-shadow:0 2px 8px rgba(0,0,0,.4) !important;}
 /* controles flotantes sobre el mapa */
 .ov{position:absolute;z-index:900;}
-.ov-tl{top:10px;left:10px;display:flex;gap:6px;}
+.ov-tl{top:10px;left:8px;display:flex;flex-direction:column;gap:6px;}
+/* Barra de acciones del mapa (etapa 38, indicación del profesor): íconos en una columna a la izquierda, fuera de la
+   retícula (el encuadre deja ese margen), para que nada tape los nodos de los extremos. */
+.tool{width:34px;height:34px;display:grid;place-items:center;padding:0;background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:8px;color:var(--text-dim);box-shadow:0 2px 8px rgba(0,0,0,.35);}
+.tool:hover{color:var(--text);border-color:var(--brand);}
+.tool[aria-pressed="true"]{color:var(--brand);border-color:var(--brand);}
+.tool svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.tool-sep{height:1px;background:var(--border);margin:1px 5px;}
+.tool-wrap{position:relative;}
 .map-btn{background:rgba(18,27,43,.92);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11.5px;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35);}
 .map-btn:hover{border-color:var(--brand);}
 .map-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);}
-/* Registrar avería: lo único en la esquina superior derecha; con poco ancho, debajo de los botones y, en pantallas angostas, abajo a la izquierda */
-.ov-tr{top:10px;right:10px;}
-@media(max-width:1100px){ .ov-tr{top:46px;} }
-@media(max-width:820px){ .ov-tr{top:auto;right:auto;left:10px;bottom:10px;} }
-.map-btn-averia{border-color:var(--red);color:var(--red);font-weight:600;}
-.map-btn-averia:hover{border-color:var(--red);background:var(--red-dim);}
+/* Avería desde el mapa (etapa 38): menú junto al vehículo, con la confirmación ahí mismo */
+.menu-av{position:absolute;z-index:965;width:230px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px -10px rgba(0,0,0,.75);padding:8px;display:grid;gap:5px;font-size:12px;color:var(--text-dim);}
+.menu-av .mh{display:flex;align-items:center;gap:6px;color:var(--text);} .menu-av .mh b{font-family:var(--font-display);font-size:12.5px;}
+.menu-av .x{margin-left:auto;background:none;border:0;color:var(--text-dim);font-size:17px;width:24px;height:24px;border-radius:5px;padding:0;}
+.menu-av .tipo{display:flex;align-items:center;gap:8px;text-align:left;background:var(--panel-alt);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-size:11.5px;}
+.menu-av .tipo:hover{border-color:var(--brand);}
+.menu-av .n{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:#0B1220;font:700 10.5px var(--font-mono);flex-shrink:0;}
+.menu-av .acciones{display:flex;gap:6px;justify-content:flex-end;}
 /* Leyenda desplegable (etapa 35): reemplaza a la leyenda fija, para dejar libre el mapa */
-.leyenda{position:absolute;z-index:940;top:44px;left:10px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
+.leyenda{position:absolute;z-index:940;top:10px;left:52px;width:min(300px,calc(100% - 20px));max-height:calc(100% - 60px);overflow:auto;background:rgba(18,27,43,.96);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7);display:grid;gap:8px;font-size:11.5px;color:var(--text-dim);}
 .leyenda h4{font-family:var(--font-display);font-size:12px;color:var(--text);font-weight:600;margin-top:2px;}
 .leyenda .lg-row{display:flex;align-items:center;gap:8px;}
 .leyenda .lg-row b{color:var(--text);font-weight:600;}
@@ -122,16 +133,16 @@ button{cursor:pointer;}
 .lg-sw{width:16px;height:16px;border-radius:50%;border:2px solid #fff;display:inline-block;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.5);}
 .lg-alm{width:14px;height:14px;border-radius:3px;border:1.5px solid #fff;display:inline-block;flex-shrink:0;}
 .lg-ln{width:22px;height:0;border-top:3px dashed var(--bloqueo);display:inline-block;flex-shrink:0;}
-.lg-rt{width:22px;height:0;border-top:2.5px solid var(--ruta);display:inline-block;flex-shrink:0;}
-.lg-rt.rec{border-top:2.5px dashed var(--ruta);opacity:.55;}
+.lg-rt{width:22px;height:0;border-top:2px dashed var(--ruta);display:inline-block;flex-shrink:0;opacity:.8;}
+.lg-rt.rec{border-top:2px dotted var(--ruta);opacity:.5;}
 /* Buscador y ficha de un envío (etapa 35, F01 a F04) */
-.buscador{position:relative;}
-.buscador input{width:250px;padding:5px 10px;font-size:11.5px;background:rgba(18,27,43,.92);border-radius:7px;}
+.buscador{position:absolute;left:42px;top:0;z-index:960;}
+.buscador input{width:260px;height:34px;padding:5px 10px;font-size:12px;background:rgba(18,27,43,.97);border-radius:8px;}
 .buscar-res{position:absolute;top:calc(100% + 4px);left:0;width:320px;max-width:calc(100vw - 30px);background:var(--panel);border:1px solid var(--border);border-radius:9px;box-shadow:0 12px 28px -12px rgba(0,0,0,.7);overflow:hidden;z-index:970;}
 .buscar-res button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--border-soft);padding:7px 10px;font-size:12px;color:var(--text);}
 .buscar-res button:hover,.buscar-res button:focus{background:var(--panel-raised);outline:none;}
 .buscar-res small{display:block;color:var(--text-faint);font-size:10.5px;}
-.ficha-envio{position:absolute;z-index:945;left:10px;bottom:10px;width:min(360px,calc(100% - 20px));max-height:48%;overflow:auto;background:rgba(18,27,43,.97);border:1px solid var(--border);border-radius:11px;padding:10px 12px;box-shadow:0 12px 28px -12px rgba(0,0,0,.7);display:grid;gap:7px;font-size:11.5px;}
+.ficha-envio{position:absolute;z-index:945;left:52px;bottom:10px;width:min(360px,calc(100% - 20px));max-height:48%;overflow:auto;background:rgba(18,27,43,.97);border:1px solid var(--border);border-radius:11px;padding:10px 12px;box-shadow:0 12px 28px -12px rgba(0,0,0,.7);display:grid;gap:7px;font-size:11.5px;}
 .ficha-envio .fe-h{display:flex;align-items:center;gap:8px;} .ficha-envio .fe-h b{font-family:var(--font-mono);font-size:13px;}
 .ficha-envio .fe-h .x{margin-left:auto;background:none;border:0;color:var(--text-dim);font-size:18px;width:26px;height:26px;border-radius:5px;}
 .ficha-envio ol{list-style:none;display:grid;gap:2px;margin:3px 0 0;}
@@ -139,22 +150,63 @@ button{cursor:pointer;}
 .ficha-envio li b{color:var(--text);font-weight:600;}
 .fe-parte{border-left:3px solid var(--rec);padding-left:8px;display:grid;gap:3px;}
 .tags span.lnk{cursor:pointer;} .tags span.lnk:hover{border-color:var(--brand);color:var(--brand);}
-/* Ícono de unidad (etapa 35): dibujo SVG del vehículo, color según su estado y flecha hacia donde avanza */
-.veh{position:relative;width:30px;height:30px;}
-.veh-c{position:absolute;inset:2px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.55);display:grid;place-items:center;}
-.veh-g{width:18px;height:18px;color:var(--g,#0B1220);transition:transform .25s ease;}
+/* Íconos del mapa (etapa 38, indicación del profesor): el dibujo solo, sin círculo ni recuadro de fondo, del color de su
+   estado y de 1.6 cuadrículas (--cel = lado de una cuadrícula en píxeles, se actualiza con el zoom). Centrado en su nodo,
+   no tapa ninguno de los nodos vecinos. */
+#map{--cel:16px;--tam:clamp(12px,calc(var(--cel) * 1.6),44px);}
+.veh,.alm{position:absolute;left:0;top:0;width:var(--tam);height:var(--tam);transform:translate(-50%,-50%);}
+.veh-g{display:block;width:100%;height:100%;color:var(--c);filter:drop-shadow(0 0 1px #050A12) drop-shadow(0 0 1px #050A12);transition:transform .25s ease;}
 .veh-d{position:absolute;inset:0;transition:transform .25s ease;pointer-events:none;}
-.veh-d::after{content:"";position:absolute;right:-6px;top:50%;margin-top:-5px;border-left:7px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent;filter:drop-shadow(0 0 1px rgba(0,0,0,.9));}
+.veh-d::after{content:"";position:absolute;right:-3px;top:50%;margin-top:-3px;border-left:4px solid #fff;border-top:3px solid transparent;border-bottom:3px solid transparent;filter:drop-shadow(0 0 1px rgba(0,0,0,.9));}
 .veh.parada .veh-d{display:none;}
-.veh.sel .veh-c{outline:3px solid var(--ruta-sel);outline-offset:2px;}
+.veh.sel .veh-g{filter:drop-shadow(0 0 2px var(--ruta-sel)) drop-shadow(0 0 2px var(--ruta-sel)) drop-shadow(0 0 1px #050A12);}
 .veh.atenuada{opacity:.22;}
-.veh-av{position:absolute;top:-6px;right:-7px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#0B1220;color:#fff;border:1.5px solid #fff;font:700 9.5px var(--font-mono);display:grid;place-items:center;}
+.veh-av{position:absolute;top:-5px;right:-6px;min-width:12px;height:12px;padding:0 2px;border-radius:6px;background:#0B1220;color:#fff;border:1px solid var(--c);font:700 8px/1 var(--font-mono);display:grid;place-items:center;}
+.alm{color:var(--c);filter:drop-shadow(0 0 1.5px #050A12) drop-shadow(0 0 1px #050A12);}
+.alm svg{display:block;width:100%;height:100%;}
+.alm.central .alm-borde{stroke:#fff;stroke-width:2.2;}
+.alm-n{position:absolute;top:100%;left:50%;transform:translateX(-50%);font:600 9.5px/1.1 var(--font-body);color:var(--text-dim);white-space:nowrap;text-shadow:0 0 3px #050A12,0 0 2px #050A12;pointer-events:none;}
+.alm-b{position:absolute;top:-5px;right:-8px;min-width:13px;height:13px;padding:0 2px;border-radius:7px;background:#fff;color:#0B1220;font:700 8.5px/1 var(--font-mono);display:grid;place-items:center;filter:none;}
+/* Datos al pasar el mouse: pocos textos y el % sobre el color del semáforo */
+.pct{display:inline-block;padding:0 5px;border-radius:4px;font-weight:700;color:#06111F;margin-left:4px;}
+.lg-veh{width:22px;height:22px;flex-shrink:0;color:var(--text-dim);filter:drop-shadow(0 0 1px #050A12);}
 .u-badge{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;background:var(--panel-raised);flex-shrink:0;}
 .u-badge svg{width:19px;height:19px;color:#fff;}
 .side-toggle{position:absolute;top:50%;right:0;transform:translateY(-50%);z-index:950;background:var(--panel);border:1px solid var(--border);border-right:0;border-radius:8px 0 0 8px;padding:12px 5px;font-size:18px;line-height:1;color:var(--text-dim);}
 .side-toggle:hover{color:var(--text);}
 .lf-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;font-family:var(--font-mono);}
-.ax-lbl{font-size:9.5px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;}
+.ax-lbl{font-size:9.5px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;text-align:center;}
+.ax-lbl.ax-y{text-align:right;}
+/* Tablero flotante (etapa 38, indicación del profesor): tiempos, indicadores globales y filtros rápidos en una ventana
+   que se mueve arrastrando su barra y se pliega. Pocas letras: «F/H» y «Duración», uno debajo del otro. */
+.tablero{position:absolute;z-index:930;top:10px;right:30px;width:238px;background:rgba(14,22,36,.95);border:1px solid var(--border);border-radius:11px;box-shadow:0 12px 28px -12px rgba(0,0,0,.75);font-size:11.5px;color:var(--text-dim);}
+.tb-h{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 8px;cursor:move;border-bottom:1px solid var(--border-soft);touch-action:none;user-select:none;}
+.tablero.plegado .tb-h{border-bottom:0;}
+.tb-h b{font-family:var(--font-display);font-size:12.5px;color:var(--text);}
+.tb-h .chip{font-size:10px;padding:1px 6px;}
+.tb-asa{width:10px;height:16px;flex-shrink:0;fill:var(--text-faint);}
+.tb-x{margin-left:auto;width:24px;height:24px;border-radius:6px;background:none;border:1px solid transparent;color:var(--text-dim);display:grid;place-items:center;padding:0;font-size:16px;line-height:1;}
+.tb-x:hover{border-color:var(--border);color:var(--text);}
+.tb-b{padding:8px 10px 10px;display:grid;gap:8px;}
+.tb-blq{display:grid;gap:1px;}
+.tb-l{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--text-faint);display:flex;justify-content:space-between;gap:6px;}
+.tb-l span{text-transform:none;letter-spacing:0;font-weight:600;}
+.tb-f{display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
+.tb-f .k{color:var(--text-faint);min-width:56px;} .tb-f abbr{text-decoration:none;}
+.tb-f .v{font-family:var(--font-mono);color:var(--text);}
+.tb-f .v.fh{font-size:16px;font-weight:600;}
+.tb-sub{font-size:10.5px;color:var(--text-faint);}
+.tb-pg{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;}
+.tb-pg i{display:block;height:100%;width:0;background:var(--brand);} .tb-pg.col i{background:var(--red);}
+.tb-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.tb-ind{border:1px solid var(--border);border-left:4px solid var(--x,var(--border));border-radius:7px;padding:3px 7px;display:grid;}
+.tb-ind .l{font-size:10px;} .tb-ind .v{font:700 14px var(--font-display);color:var(--text);} .tb-ind .s{font-size:9.5px;color:var(--text-faint);white-space:nowrap;}
+.tb-row{display:flex;gap:4px;}
+.tb-btn{flex:1;height:28px;min-width:0;padding:0 4px;border-radius:6px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text-faint);display:grid;place-items:center;font-size:10.5px;font-weight:600;}
+.tb-btn svg{width:22px;height:22px;color:inherit;}
+.tb-btn i{width:13px;height:13px;border-radius:50%;display:block;}
+.tb-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--text);background:var(--panel-raised);}
+.tb-row.parcial .tb-btn[aria-pressed="false"] i,.tb-row.parcial .tb-btn[aria-pressed="false"] svg{opacity:.3;}
 /* estado vacío */
 .map-empty{position:absolute;inset:0;display:none;place-items:center;z-index:950;background:rgba(7,12,22,.6);padding:16px;}
 .map-empty.on{display:grid;}
@@ -183,7 +235,18 @@ button{cursor:pointer;}
 .tags{display:flex;flex-wrap:wrap;gap:4px;} .tags span{font-family:var(--font-mono);font-size:10.5px;background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:4px;padding:1px 5px;}
 
 /* ===== BARRA LATERAL: secciones desplegables ===== */
-.side{border-left:1px solid var(--border-soft);background:var(--bg);display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;padding:10px;}
+.side{border-left:1px solid var(--border-soft);background:var(--bg);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+.side-cuerpo{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+.tab{flex:1;min-width:0;display:grid;justify-items:center;gap:2px;padding:6px 2px 7px;background:none;border:0;border-bottom:2px solid transparent;color:var(--text-dim);font-size:10.5px;font-weight:600;}
+.tab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.tab:hover{color:var(--text);} .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--brand);}
+.tab-x{flex:0 0 34px;}
+.stage.plegado .tabs{flex-direction:column;border-bottom:0;padding:8px 5px;height:100%;gap:4px;}
+.stage.plegado .tab{flex:0 0 auto;padding:9px 0;border-bottom:0;border-radius:8px;}
+.stage.plegado .tab span,.stage.plegado .tab-x,.stage.plegado .side-cuerpo{display:none;}
+.acc-h{display:none;}
+.acc:not(.open){display:none;}
 .acc{background:var(--panel);border:1px solid var(--border);border-radius:13px;flex-shrink:0;}
 .acc-h{width:100%;display:flex;align-items:center;gap:8px;padding:12px 14px;background:none;border:0;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text);text-align:left;}
 .acc-h small{font-family:var(--font-body);font-weight:500;font-size:11px;color:var(--text-faint);}
@@ -192,7 +255,7 @@ button{cursor:pointer;}
 .acc:not(.open) .acc-h .chev{transform:rotate(-45deg);margin-bottom:0;}
 .vehicle-card .chev{margin-left:auto;margin-right:4px;}
 .vehicle-card:not(.open) .chev{transform:rotate(-45deg);}
-.acc-b{display:none;padding:0 12px 12px;flex-direction:column;gap:10px;}
+.acc-b{display:none;padding:12px;flex-direction:column;gap:10px;}
 .acc.open .acc-b{display:flex;}
 .panel{border:1px solid var(--border-soft);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
@@ -228,6 +291,9 @@ button{cursor:pointer;}
 .wh-top{display:flex;justify-content:space-between;align-items:center;}
 .wh-name{font-size:11.5px;font-weight:600;} .wh-pct{font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
 .wh-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);font-family:var(--font-mono);}
+.wh-cod{font-family:var(--font-mono);font-size:10px;font-weight:400;color:var(--text-faint);margin-left:4px;}
+.ayuda-env summary{cursor:pointer;font-size:11px;color:var(--text-faint);}
+.ayuda-env p{margin-top:4px;}
 .bar{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;margin:4px 0 2px;} .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
 .bar i.warn{background:var(--amber);} .bar i.bad{background:var(--red);} .bar i.ok{background:var(--sem-ok);} .bar i.vacio{background:transparent;}
 .semtag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;border:1px solid var(--border);white-space:nowrap;}
@@ -236,9 +302,9 @@ button{cursor:pointer;}
 .risk-row{display:grid;grid-template-columns:110px 1fr 40px;gap:6px;align-items:center;font-size:11.5px;color:var(--text-dim);}
 .risk-row b{text-align:right;color:var(--text);}
 .col-box{border:2px solid var(--red);background:var(--red-dim);border-radius:12px;padding:10px 12px;color:#FECACA;display:grid;gap:4px;}
-.col-box b{font-size:14px;font-family:var(--font-display);}
+.col-box b{font-size:14px;font-family:var(--font-display);} .col-box{overflow-wrap:anywhere;}
 /* sección Flota */
-.vehicle-card{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;}
+.vehicle-card{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:7px 9px;display:flex;flex-direction:column;gap:4px;cursor:pointer;}
 .vehicle-card:hover{border-color:var(--brand);}
 .vehicle-top{display:flex;align-items:center;gap:9px;}
 .v-icon{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;background:var(--panel-raised);flex-shrink:0;}
@@ -249,7 +315,19 @@ button{cursor:pointer;}
 .st-bad{background:var(--red-dim);color:var(--red);} .st-dim{background:var(--panel-raised);color:var(--text-dim);}
 .v-occ{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);} .v-occ .bar{flex:1;margin:0;}
 .ulist{display:none;border-top:1px solid var(--border-soft);padding-top:6px;} .vehicle-card.open .ulist{display:block;}
-.urow{display:grid;grid-template-columns:48px 1fr 46px 40px;gap:5px;align-items:center;padding:3px 2px;border-radius:5px;background:none;border:0;width:100%;text-align:left;font-size:11.5px;}
+/* Filas compactas (etapa 38, indicación del profesor): una línea por unidad, el detalle se despliega con su flecha */
+.urow{display:grid;grid-template-columns:18px 38px minmax(0,1fr) auto 18px;gap:5px;align-items:center;padding:2px 3px;border-radius:5px;width:100%;text-align:left;font-size:11.5px;cursor:pointer;}
+.ug{display:grid;place-items:center;} .ug svg{width:17px;height:17px;color:var(--c,var(--text-dim));filter:drop-shadow(0 0 1px #050A12);}
+.umas{width:18px;height:18px;padding:0;border:0;background:none;display:grid;place-items:center;border-radius:4px;}
+.umas .chev{width:6px;height:6px;transform:rotate(-45deg);} .umas[aria-expanded="true"] .chev{transform:rotate(45deg);}
+.umas:hover{background:var(--panel-raised);}
+.pct.chico{font-size:9.5px;padding:0 4px;margin-left:3px;}
+.urow .uq{white-space:nowrap;} .urow .uc,.urow .ug{white-space:nowrap;}
+.vc-h{display:flex;align-items:center;gap:7px;} .vc-h b{font-family:var(--font-display);font-size:12.5px;} .vc-h .vc-n{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
+.vc-h .bar{flex:1;margin:0;max-width:110px;} .vc-h .vc-o{font-family:var(--font-mono);font-size:11px;color:var(--text);min-width:34px;text-align:right;}
+.vc-st{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:10.5px;color:var(--text-dim);}
+.vc-st i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px;background:var(--text-faint);vertical-align:1px;}
+.vc-st .ruta i{background:var(--green);} .vc-st .ali i{background:var(--amber);} .vc-st .ave i{background:var(--av1);} .vc-st .man i{background:var(--u-mant);}
 .urow:hover,.urow.sel{background:var(--panel-raised);} .urow .uc{font-family:var(--font-mono);font-weight:600;font-size:11px;}
 .urow .ue{color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .urow .uq{font-size:10.5px;text-align:right;color:var(--text);}
@@ -263,12 +341,14 @@ textarea{font-family:var(--font-mono);font-size:11.5px;resize:vertical;}
 /* herramientas de orden y filtro (flota, almacenes y envíos) */
 .ftools{display:grid;gap:8px;border:1px solid var(--border-soft);border-radius:11px;padding:9px 10px;}
 .ftools-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.dist-row{display:grid;grid-template-columns:1fr 46px 64px;gap:6px;}
+.ftools-sum{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ftools-sum .btn-secondary{padding:5px 11px;font-size:12px;} .ftools-sum .btn-secondary[aria-expanded="true"]{border-color:var(--brand);color:var(--brand);}
+.dist-row{display:grid;grid-template-columns:1fr 62px 56px;gap:6px;} .dist-row.rango{grid-template-columns:1fr 62px 52px 52px;}
 .fchip i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
 .ulist.plana{display:block;border-top:0;padding-top:0;}
 .urow .ud{grid-column:1/-1;font-size:10.5px;color:var(--text-faint);white-space:normal;line-height:1.35;}
 .urow .ud b{color:var(--text-dim);font-weight:600;}
-.urow .uc svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;color:var(--text-dim);}
+.urow .ud{padding:2px 0 4px 23px;}
 /* almacenes y envíos */
 .wh-card.sel{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);}
 .wh-card{cursor:pointer;}
@@ -279,8 +359,9 @@ textarea{font-family:var(--font-mono);font-size:11.5px;resize:vertical;}
 .mini th{text-align:left;color:var(--text-faint);font-weight:600;padding:3px 4px;border-bottom:1px solid var(--border-soft);}
 .mini td{padding:3px 4px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
 .env{background:var(--panel-alt);border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;display:grid;gap:5px;}
-.env-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
-.env-h b{font-family:var(--font-mono);font-size:12px;}
+.env-h{display:flex;gap:6px;align-items:center;}
+.env-h b{font-family:var(--font-mono);font-size:12px;white-space:nowrap;}
+.env-h .env-m{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .env-h .pct{flex-shrink:0;margin:0;}
 .env-m{font-size:11px;color:var(--text-dim);}
 .parte{border-left:3px solid var(--border);padding:4px 0 4px 8px;display:grid;gap:2px;font-size:11px;cursor:pointer;border-radius:0 6px 6px 0;}
 .parte:hover{background:var(--panel-raised);}
@@ -328,19 +409,25 @@ table.t td{border-bottom:1px solid var(--border-soft);padding:5px 6px;} table.t 
 fieldset{border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;display:grid;gap:8px;}
 legend{font-size:12px;font-weight:600;color:var(--text-dim);padding:0 4px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+/* Carga de archivos (etapa 38) */
+.arch-form{display:grid;grid-template-columns:1.2fr .8fr 1.6fr auto;gap:10px;align-items:end;}
+.file-pick{display:flex;align-items:center;gap:8px;min-width:0;} .file-pick .help{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fuente{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:600;border:1px solid var(--border);color:var(--text-dim);}
+.fuente.cargado{border-color:var(--brand);color:var(--brand);}
+.arch-err{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--text-dim);max-height:160px;overflow:auto;}
 .rep-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .rep-kpis div{background:var(--panel-alt);border-radius:8px;padding:9px 11px;border:1px solid var(--border-soft);}
 .rep-kpis .l{font-size:11px;color:var(--text-dim);} .rep-kpis .v{font-size:18px;font-weight:600;font-family:var(--font-display);}
 #toast{position:fixed;right:20px;bottom:20px;z-index:3000;max-width:min(420px,calc(100% - 40px));padding:11px 14px;border-radius:9px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s ease;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.45);}
 
 /* ===== PANTALLAS ANGOSTAS ===== */
-@media(max-width:1100px){ :root{--side:310px;} }
+@media(max-width:1100px){ :root{--side:360px;} }
 @media(max-width:820px){
   body{overflow:auto;}
   .ln-cards{grid-template-columns:1fr;}
   .stage{height:auto;display:block;} .map-wrap{height:72vh;height:72dvh;}
   .side{border-left:0;overflow:visible;} .side-toggle{display:none;}
-  .ov-tl{flex-wrap:wrap;right:10px;}
+  .stage.plegado .tabs{flex-direction:row;height:auto;} .stage.plegado .tab span{display:block;}
   .view-reg{height:auto;}
   .reg-grid,.g3,.rep-kpis{grid-template-columns:1fr 1fr;}
 }
@@ -370,7 +457,7 @@ body.observer .ctrl-only{display:none !important;}
           </button>
           <button class="ln-card" data-esc="SIM_5D">
             <span class="ln-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><span class="ln-t">Simulación de 5 días</span>
-            <span class="ln-d">Cinco días de operación con los datos oficiales, mostrados en 60 o 30 minutos.</span>
+            <span class="ln-d">Cinco días de operación con los datos oficiales.</span>
             <span class="ln-st"><i class="dot" id="dot-SIM_5D"></i><span id="st-SIM_5D">Sin corrida</span></span>
           </button>
           <button class="ln-card" data-esc="COLAPSO">
@@ -383,6 +470,8 @@ body.observer .ctrl-only{display:none !important;}
           <button class="role-btn">Rol: <b class="roleTxt">Control</b></button>
           <div class="conn"><i></i><span class="connTxt">Conectando…</span></div>
           <button class="link-btn" id="lnRegistro">Registro de pedidos</button>
+          <button class="link-btn" id="lnArchivos">Carga de archivos</button>
+          <button class="link-btn" id="lnParam">Parámetros</button>
         </div>
       </div>
 
@@ -394,45 +483,14 @@ body.observer .ctrl-only{display:none !important;}
           <span class="chip" id="lnChip">Sin corrida</span>
         </div>
         <div class="ln-status" id="lnStatus"></div>
-        <div id="lnCampos" class="ctrl-only" style="display:grid;gap:12px;">
-          <fieldset>
-            <legend>Periodo y ritmo</legend>
-            <!-- Fecha y hora con campos propios (dd/mm/aaaa y hh:mm de 24 h): así no dependen del idioma del navegador (C02, C07) -->
-            <div class="g3">
-              <label class="fl">Fecha de inicio (dd/mm/aaaa)<input id="ciFecha" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></label>
-              <label class="fl">Hora de inicio (hh:mm, 24 h)<input id="ciHora" inputmode="numeric" placeholder="hh:mm" maxlength="5" autocomplete="off"></label>
-              <label class="fl">Ritmo<select id="ciRitmo"></select></label>
-            </div>
-            <p class="help" id="ciAyuda"></p>
-          </fieldset>
-          <fieldset>
-            <legend>Datos de entrada (oficiales del profesor)</legend>
-            <div class="g3">
-              <label class="fl">Ventas<input id="ciVentas" class="ro" readonly></label>
-              <label class="fl">Bloqueos<input id="ciBloq" class="ro" readonly></label>
-              <label class="fl">Mantenimientos<input class="ro" readonly value="mant.preventivo.09.10"></label>
-            </div>
-            <p class="help" id="ciRango"></p>
-          </fieldset>
-          <fieldset>
-            <legend>Flota y algoritmo</legend>
-            <div class="g3">
-              <label class="fl">Autos (24 paq.)<input type="number" id="ciAutos" value="10" min="0" max="30"></label>
-              <label class="fl">Motos (8 paq.)<input type="number" id="ciMotos" value="15" min="0" max="30"></label>
-              <label class="fl">Bicicletas (4 paq.)<input type="number" id="ciBicis" value="12" min="0" max="30"></label>
-            </div>
-            <label class="fl">Algoritmo de planificación<input class="ro" readonly value="Búsqueda Tabú (elegido en el experimento)"></label>
-          </fieldset>
-          <fieldset>
-            <legend>Umbrales del semáforo (solo en este dispositivo)</legend>
-            <div class="g2">
-              <label class="fl">Llenado bajo: menos de (%)<input type="number" id="uL1" value="40" min="1" max="99"></label>
-              <label class="fl">Llenado alto: desde (%)<input type="number" id="uL2" value="75" min="2" max="100"></label>
-              <label class="fl">Pedido: holgura verde desde (min)<input type="number" id="uHv" value="120"></label>
-              <label class="fl">Pedido: holgura ámbar desde (min)<input type="number" id="uHa" value="60"></label>
-            </div>
-            <p class="help" id="uAyuda"></p>
-          </fieldset>
+        <!-- Etapa 38 (indicación del profesor): la pantalla de inicio solo pide la fecha y la hora. La flota, el ritmo
+             y el semáforo están en «Parámetros», y los archivos en «Carga de archivos». -->
+        <div id="lnCampos" class="ctrl-only">
+          <!-- Fecha y hora con campos propios (dd/mm/aaaa y hh:mm de 24 h): así no dependen del idioma del navegador (C02, C07) -->
+          <div class="g2">
+            <label class="fl">Fecha de inicio (dd/mm/aaaa)<input id="ciFecha" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></label>
+            <label class="fl">Hora de inicio (hh:mm, 24 h)<input id="ciHora" inputmode="numeric" placeholder="hh:mm" maxlength="5" autocomplete="off"></label>
+          </div>
         </div>
         <div id="ciMsg"></div>
         <div class="ln-actions">
@@ -450,14 +508,51 @@ body.observer .ctrl-only{display:none !important;}
     <!-- MAPA: ocupa todo el espacio que deja la barra lateral -->
     <div class="map-wrap" id="mapWrap">
       <div id="map"></div>
-      <div class="ov ov-tl">
-        <button class="map-btn" id="tgFit" title="Encuadrar la retícula completa">Encuadrar</button>
-        <button class="map-btn" id="tgRutas" title="Rutas en el mapa: pendientes, pendientes y recorridas, u ocultas">Rutas: pendientes</button>
-        <button class="map-btn" id="tgLey" aria-pressed="false" title="Mostrar u ocultar la leyenda">Leyenda</button>
+      <div class="ov ov-tl" role="toolbar" aria-label="Acciones del mapa">
+        <button class="tool" id="tgFit" title="Encuadrar la retícula completa" aria-label="Encuadrar"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+        <button class="tool" id="tgMas" title="Acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="tool" id="tgMenos" title="Alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <span class="tool-sep"></span>
+        <button class="tool" id="tgRutas" aria-pressed="true" title="Rutas: pendientes (clic: pendientes y recorridas, u ocultas)" aria-label="Rutas"><svg viewBox="0 0 24 24"><circle cx="5.5" cy="18.5" r="2.2"/><circle cx="18.5" cy="5.5" r="2.2"/><path d="M7.7 18.5H15a3.3 3.3 0 0 0 0-6.6H9a3.3 3.3 0 0 1 0-6.6h7.3" stroke-dasharray="2.6 2.4"/></svg></button>
+        <button class="tool" id="tgLey" aria-pressed="false" title="Leyenda" aria-label="Leyenda"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></button>
         <!-- Buscador (F01, F03): unidad, pedido, parte o producto -->
-        <div class="buscador"><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div>
+        <div class="tool-wrap"><button class="tool" id="tgBuscar" aria-pressed="false" title="Buscar unidad, pedido o producto" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></button>
+          <div class="buscador" id="buscador" hidden><input id="buscar" placeholder="Buscar unidad, pedido o producto" autocomplete="off" aria-label="Buscar unidad, pedido o producto"><div class="buscar-res" id="buscarRes" hidden></div></div></div>
       </div>
-      <div class="ov ov-tr ctrl-only"><button class="map-btn map-btn-averia" id="btnAveriaMapa">Registrar avería</button></div>
+      <div class="menu-av" id="menuAv" hidden role="dialog" aria-label="Registrar avería"></div>
+      <!-- Tablero flotante (etapa 38): se mueve arrastrando su barra, se pliega y cada navegador recuerda dónde lo dejó -->
+      <section class="tablero" id="tablero" aria-label="Tablero de la simulación">
+        <header class="tb-h" id="tbAsa" title="Arrastra para mover el tablero">
+          <svg class="tb-asa" viewBox="0 0 10 16" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>
+          <b>Tablero</b><span class="chip" id="tbEstado">Sin iniciar</span>
+          <button class="tb-x" id="tbPlegar" aria-expanded="true" title="Plegar">–</button>
+        </header>
+        <div class="tb-b" id="tbCuerpo">
+          <!-- Tiempos (C12 a C16), al minuto: primero la simulación, luego el tiempo real y al final el inicio -->
+          <div class="tb-blq">
+            <div class="tb-l"><span id="tbSimL">SIMULACIÓN</span><span id="tbSimDia"></span></div>
+            <div class="tb-f"><span class="k"><abbr title="Fecha y hora simulada (día, hora y minuto)">F/H</abbr>:</span><span class="v fh" id="tbSimFH">--/--/---- --:--</span></div>
+            <div class="tb-f"><span class="k">Duración:</span><span class="v" id="tbSimDur">—</span></div>
+            <div class="tb-sub" id="tbTurno"></div>
+          </div>
+          <div class="tb-blq">
+            <div class="tb-l"><span>ACTUAL</span></div>
+            <div class="tb-f"><span class="k"><abbr title="Fecha y hora real (día, hora y minuto)">F/H</abbr>:</span><span class="v" id="tbActFH">—</span></div>
+            <div class="tb-f"><span class="k">Duración:</span><span class="v" id="tbActDur">—</span></div>
+          </div>
+          <div class="tb-f"><span class="k">Inicio:</span><span class="v" id="tbIni">—</span></div>
+          <div class="tb-sub" id="tbNota" hidden></div>
+          <div class="tb-pg" id="tbPg" title="Avance"><i id="tbPgFill"></i></div>
+          <!-- Indicadores globales (G01 a G04) -->
+          <div class="tb-g" id="tbGlobal"></div>
+          <!-- Filtros rápidos de las unidades (tipo y semáforo con vacío): se reflejan en el mapa y en Flota -->
+          <div class="tb-blq">
+            <div class="tb-l"><span>FILTRO</span><span id="tbCuenta"></span></div>
+            <div class="tb-row" id="tbTipos"></div>
+            <div class="tb-row" id="tbSem" style="margin-top:4px"></div>
+          </div>
+        </div>
+      </section>
       <!-- Ficha de un envío: escalas y ruta anterior (F02 a F04, F09) -->
       <div class="ficha-envio" id="fichaEnvio" hidden></div>
       <div class="leyenda" id="leyenda" hidden></div>
@@ -483,8 +578,18 @@ body.observer .ctrl-only{display:none !important;}
       </div>
     </div>
 
-    <!-- BARRA LATERAL: cuatro secciones desplegables -->
+    <!-- BARRA LATERAL con pestañas (etapa 38): plegada al inicio, solo la columna de pestañas -->
     <aside class="side" id="side">
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Paneles">
+        <button class="tab" role="tab" data-tab="sim" title="Corrida: finalizar, reporte y escenarios"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10 8.5l5 3.5-5 3.5z"/></svg><span>Corrida</span></button>
+        <button class="tab" role="tab" data-tab="res" title="Resumen"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Resumen</span></button>
+        <button class="tab" role="tab" data-tab="flota" title="Flota"><svg viewBox="0 0 24 24"><path d="M2 15v-3l2.5-.7 2.7-3.4h7.3l3 3.4 3.5.8V15z"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/></svg><span>Flota</span></button>
+        <button class="tab" role="tab" data-tab="alm" title="Almacenes"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20H3z"/><path d="M9 20v-6h6v6"/></svg><span>Almacenes</span></button>
+        <button class="tab" role="tab" data-tab="env" title="Envíos"><svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/></svg><span>Envíos</span></button>
+        <button class="tab" role="tab" data-tab="log" title="Bitácora"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Bitácora</span></button>
+        <button class="tab tab-x" id="tabPlegar" title="Plegar el panel" aria-label="Plegar el panel"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </nav>
+      <div class="side-cuerpo">
       <section class="acc open" data-acc="sim">
         <button class="acc-h" aria-expanded="true">Simulación<i class="chev"></i></button>
         <div class="acc-b">
@@ -492,29 +597,7 @@ body.observer .ctrl-only{display:none !important;}
             <div><div class="sim-name" id="rbTitle">Simulación de 5 días</div><div class="help" id="rbMeta">Búsqueda Tabú · datos oficiales del profesor</div></div>
             <span class="chip" id="rbState">Sin iniciar</span>
           </div>
-          <dl class="kv">
-            <dt>Fecha de inicio</dt><dd id="smInicio">—</dd>
-            <dt>Vehículos</dt><dd id="smFlota">—</dd>
-            <dt>Ritmo</dt><dd id="smRitmo">—</dd>
-          </dl>
-          <!-- Relojes (C12 a C16): fecha y hora simulada, tiempo simulado transcurrido, fecha y hora real y tiempo real transcurrido -->
-          <div class="sim-clock">
-            <div class="l" id="ckLbl">Fecha y hora simulada (día, hora y minuto)</div>
-            <div class="hm" id="ckHM">--/--/---- --:--</div>
-            <div class="d" id="ckDay">Día —</div>
-            <div class="sub" id="ckDate">sin reloj</div>
-          </div>
-          <dl class="kv kv-tiempos">
-            <dt id="ckTransLbl">Tiempo simulado transcurrido</dt><dd id="ckTrans" class="mono">—</dd>
-            <dt>Fecha y hora actual (real)</dt><dd id="smHoraReal" class="mono">—</dd>
-            <dt>Tiempo real transcurrido</dt><dd id="smReal" class="mono">—</dd>
-          </dl>
-          <p class="help" id="ckNota" hidden></p>
-          <div class="progress">
-            <div class="pg-h"><span id="pgLbl">Avance de los 5 días</span><span id="pgPct" class="mono">0 %</span></div>
-            <div class="bar2" id="pgBar"><i id="pgFill" style="width:0"></i></div>
-            <div class="ticks" id="pgTicks"></div>
-          </div>
+          <p class="help">Los tiempos, los indicadores globales y el filtro rápido están en el tablero flotante sobre el mapa.</p>
           <div class="sim-actions">
             <button class="btn-play danger ctrl-only" id="btnFinalizar" disabled>Finalizar</button>
             <button class="btn-secondary" id="btnReporte" disabled>Reporte</button>
@@ -551,7 +634,9 @@ body.observer .ctrl-only{display:none !important;}
         <div class="acc-b">
           <div id="flGlobal"></div><!-- Ocupación de toda la flota, con semáforo (G01, G02) -->
           <!-- Ordenar, filtrar y buscar unidades (E06 a E17); los filtros se reflejan en el mapa (F16, F18) -->
-          <div class="ftools" id="flTools">
+          <!-- Etapa 38: orden y filtros plegados, para que entren más unidades; el filtro rápido está en el tablero -->
+          <div class="ftools-sum"><button class="btn-secondary" id="flToolsBtn" aria-expanded="false">Orden y filtros</button><span class="help" id="flRes2"></span></div>
+          <div class="ftools" id="flTools" hidden>
             <div class="row2">
               <label class="fl">Ordenar por<select id="flOrden">
                 <option value="">— (agrupar por tipo)</option>
@@ -571,7 +656,7 @@ body.observer .ctrl-only{display:none !important;}
               <label class="fl">Origen (almacén de la última recarga)<select id="flOrigen"><option value="">Todos</option><option value="AL-CEN">Central</option><option value="AL-NO">Nor-Oeste</option><option value="AL-ES">Este</option></select></label>
               <label class="fl">Estado<select id="flEstado"><option value="">Todos</option><option value="ruta">En ruta o atendiendo</option><option value="libre">Disponible</option><option value="AVERIADA">Averiada</option><option value="MANTENIMIENTO">Mantenimiento</option></select></label>
             </div>
-            <div class="fl">Buscar por distancia
+            <div class="fl">Filtro por distancia (se mantiene mientras no lo cambies)
               <div class="dist-row"><select id="flDistM">
                 <option value="">— (sin búsqueda)</option>
                 <option value="min_destino">Minutos a la llegada al destino</option>
@@ -580,7 +665,7 @@ body.observer .ctrl-only{display:none !important;}
                 <option value="min_origen_lleg">Minutos desde la llegada al origen</option>
                 <option value="km_destino">Km al destino</option>
                 <option value="km_origen">Km desde el origen</option>
-              </select><select id="flDistOp"><option value="le">≤</option><option value="ge">≥</option></select><input type="number" id="flDistV" value="30" min="0"></div>
+              </select><select id="flDistOp"><option value="le">≤</option><option value="ge">≥</option><option value="entre">entre</option></select><input type="number" id="flDistV" value="30" min="0" aria-label="Valor"><input type="number" id="flDistV2" value="60" min="0" aria-label="Hasta" hidden></div>
             </div>
             <p class="help"><b>Origen</b>: la última parada a la que llegó la unidad (almacén, cliente o trasvase). <b>Destino</b>: su próxima parada en el plan. <b>Salida</b>: hora en que parte del origen hacia el destino; <b>llegada</b>: hora estimada en que llega al destino. Minutos y km siguen el camino real, con los desvíos por bloqueos.</p>
             <div class="ftools-foot"><span class="help" id="flRes"></span><button class="link-btn" id="flLimpiar">Quitar filtros</button></div>
@@ -617,7 +702,7 @@ body.observer .ctrl-only{display:none !important;}
             <button class="fchip" data-f="sin_unidad" aria-pressed="false">Sin unidad</button>
           </div>
           <label class="fl">X (horas)<select id="envX"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option><option>24</option></select></label>
-          <p class="help">Cada producto se identifica con el id de su parte y su número (p. ej., <span class="mono">c1234-L55+3·p2</span>). Un pedido repartido entre unidades muestra cada parte con su unidad, su ruta y sus horas.</p>
+          <details class="ayuda-env"><summary>¿Cómo leer los identificadores?</summary><p class="help">Cada producto se identifica con el id de su parte y su número (p. ej., <span class="mono">c1234-L55+3·p2</span>). Un pedido repartido entre unidades muestra cada parte con su unidad, su ruta y sus horas.</p></details>
           <div id="envList" style="display:grid;gap:8px;"></div>
         </div>
       </section>
@@ -637,6 +722,7 @@ body.observer .ctrl-only{display:none !important;}
           <div id="logList"></div>
         </div>
       </section>
+      </div>
     </aside>
   </div>
 </div>
@@ -703,6 +789,49 @@ body.observer .ctrl-only{display:none !important;}
   </div>
 </div>
 
+<!-- Opciones del sistema (etapa 38): se configuran una vez y valen para todas las corridas y todos los navegadores -->
+<div class="modal" id="mdParam">
+  <div class="mbox">
+    <div class="mh"><h3>Parámetros</h3><button class="mx" data-close>×</button></div>
+    <div class="mb">
+      <p class="help">Valen para todos los navegadores. La flota rige desde la próxima corrida; el semáforo, de inmediato.</p>
+      <fieldset><legend>Flota</legend><div class="g3">
+        <label class="fl">Autos (24 paq.)<input type="number" id="pAutos" min="0" max="30"></label>
+        <label class="fl">Motos (8 paq.)<input type="number" id="pMotos" min="0" max="30"></label>
+        <label class="fl">Bicicletas (4 paq.)<input type="number" id="pBicis" min="0" max="30"></label></div></fieldset>
+      <fieldset><legend>Semáforo</legend><div class="g2">
+        <label class="fl">Llenado bajo: menos de (%)<input type="number" id="pL1" min="1" max="99"></label>
+        <label class="fl">Llenado alto: desde (%)<input type="number" id="pL2" min="2" max="100"></label>
+        <label class="fl">Pedido en verde: holgura desde (min)<input type="number" id="pHv" min="1"></label>
+        <label class="fl">Pedido en ámbar: holgura desde (min)<input type="number" id="pHa" min="0"></label></div>
+        <p class="help" id="pSentido"></p></fieldset>
+      <div id="pMsg"></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" data-close>Cerrar</button><button class="btn-play ctrl-only" id="pGuardar">Guardar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="mdArchivos">
+  <div class="mbox wide">
+    <div class="mh"><h3>Carga de archivos</h3><button class="mx" data-close>×</button></div>
+    <div class="mb">
+      <p class="help">Para simular otra fecha, carga aquí sus archivos y luego inicia la corrida con esa fecha. Cada archivo se valida antes de guardarlo; los oficiales del profesor no se modifican.</p>
+      <div class="ctrl-only arch-form">
+        <label class="fl">Tipo<select id="arTipo"><option value="ventas">Ventas del mes</option><option value="bloqueos">Bloqueos del mes</option><option value="mantenimiento">Mantenimiento preventivo</option></select></label>
+        <label class="fl" id="arMesL">Mes (mm/aaaa)<input id="arMes" inputmode="numeric" placeholder="mm/aaaa" maxlength="7" autocomplete="off"></label>
+        <!-- Botón propio: el del navegador muestra su texto en el idioma del sistema («Choose File»), C07 -->
+        <div class="fl">Archivo<span class="file-pick"><button type="button" class="btn-secondary" id="arElegir">Elegir archivo</button><span class="help" id="arNombre">Ningún archivo elegido</span></span>
+          <input type="file" id="arArchivo" accept=".txt,text/plain" hidden></div>
+        <button class="btn-play" id="arCargar">Validar y cargar</button>
+      </div>
+      <div id="arMsg"></div>
+      <div class="sec-t" style="margin-top:12px">Archivos disponibles <span class="help" id="arMant"></span></div>
+      <div style="max-height:300px;overflow:auto"><table class="t"><thead><tr><th>Mes</th><th>Ventas</th><th>Bloqueos</th></tr></thead><tbody id="arLista"></tbody></table></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" data-close>Cerrar</button></div>
+  </div>
+</div>
+
 <div class="modal" id="mdAveria">
   <div class="mbox">
     <div class="mh"><h3>Registrar avería</h3><button class="mx" data-close>×</button></div>
@@ -761,12 +890,9 @@ const ALMACENES = [
 const HORAS_ALIMENTACION = [3, 11, 19];
 const SIGLA = { AUTO: 'A', MOTO: 'M', BICICLETA: 'B' };   // letra del ícono de cada tipo de unidad
 const ESC_INFO = {
-  DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']],
-               ayuda: 'El reloj avanza desde este momento. Llegan los pedidos del archivo oficial y los que se registren en «Registro de pedidos».' },
-  SIM_5D:    { titulo: 'Simulación de 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']],
-               ayuda: 'Cinco días simulados con los pedidos y bloqueos oficiales. Se planifica por bloques de 1 h simulada, cada uno calculado 30 min antes de que empiece (y ante averías o pedidos urgentes).' },
-  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']],
-               ayuda: 'Corre hasta el primer pedido que no llega en su plazo (tope de 30 días).' }
+  DIA_A_DIA: { titulo: 'Operación día a día' },
+  SIM_5D:    { titulo: 'Simulación de 5 días' },
+  COLAPSO:   { titulo: 'Simulación hasta el colapso' }
 };
 /* Inicio sugerido: ventanas con los datos oficiales que terminaron sin colapso. */
 const INICIO_SUGERIDO = { SIM_5D: '2026-09-16T00:00', COLAPSO: '2027-01-01T00:00' };
@@ -799,11 +925,13 @@ function rangosSemaforo(){ const U = umb(); const r = [`1–${U.ll1 - 1} %`, `${
 const COLOR_AVERIA = { 1: COL.av1, 2: COL.av2, 3: COL.av3 };
 const TEXTO_AVERIA = { 1: 'Tipo 1 · se recupera en el lugar (2 h)', 2: 'Tipo 2 · trasvase y taller', 3: 'Tipo 3 · fuera de servicio varios días' };
 
-/* Dibujos de los vehículos (vistos de lado, mirando a la derecha), en SVG sin dependencias. */
+/* Dibujos de los vehículos (vistos de lado, mirando a la derecha), en SVG sin dependencias. Etapa 38 (indicación del
+   profesor): sin círculo de fondo, el dibujo lleva el color; la bicicleta es de trazos delgados, como tubos, y la moto,
+   más gruesa y llena (motor y tanque), para distinguirlas a simple vista. */
 const GLIFO = {
-  AUTO: '<path fill="currentColor" d="M1.8 15.6v-3.1c0-.5.3-.9.8-1l2.3-.6 2.6-3.4c.3-.4.7-.6 1.2-.6h5.8c.5 0 .9.2 1.2.5l2.8 3.3 2.9.7c.5.1.8.5.8 1v3.2z"/><path style="fill:var(--c)" d="M8.6 8.5h2.6v2.4H6.8zM12.5 8.5h1.9l2 2.4h-3.9z"/><circle cx="6.8" cy="16" r="2.5" fill="currentColor" style="stroke:var(--c)" stroke-width="1.2"/><circle cx="17.2" cy="16" r="2.5" fill="currentColor" style="stroke:var(--c)" stroke-width="1.2"/>',
-  MOTO: '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.2" cy="16" r="3.2"/><circle cx="18.8" cy="16" r="3.2"/><path d="M5.2 16l3.6-5h5.4l1.6 2.2M18.8 16l-3-7.6h2.6"/></g><path fill="currentColor" d="M8.2 8.2h5.6l1.2 2.3H8.6z"/>',
-  BICICLETA: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="15.8" r="3.6"/><circle cx="18.5" cy="15.8" r="3.6"/><path d="M5.5 15.8l3.7-6.6h6.2l3.1 6.6M9.2 9.2l3 6.6H5.5M15.4 9.2l-1-3h2.3M7.8 7.4h3.2"/></g>'
+  AUTO: '<path fill="currentColor" d="M1.5 16v-3.4c0-.6.4-1 .9-1.1l2.4-.6 2.7-3.6c.3-.4.8-.7 1.3-.7h6.2c.5 0 1 .2 1.3.6l2.9 3.5 3 .8c.5.1.9.6.9 1.1V16z"/><path fill="#0B1220" d="M8.4 8.7h2.8v2.5H6.5zM12.6 8.7h2l2.1 2.5h-4.1z"/><circle cx="6.6" cy="16.4" r="2.6" fill="#0B1220" stroke="currentColor" stroke-width="1.7"/><circle cx="17.4" cy="16.4" r="2.6" fill="#0B1220" stroke="currentColor" stroke-width="1.7"/>',
+  MOTO: '<g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="16.6" r="3.2" fill="#0B1220" stroke-width="2.7"/><circle cx="19" cy="16.6" r="3.2" fill="#0B1220" stroke-width="2.7"/><path d="M16.4 8.4 19 16.6M15 7.1h3.4" fill="none" stroke-width="2.5"/></g><path fill="currentColor" d="M4.3 13.9 7.1 10.4h5.9l2.1-2.3h1.8l-.7 3.6-2.3 1.3v4H8.7l-1.6-3.1z"/>',
+  BICICLETA: '<g fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.3" cy="15.6" r="3.9"/><circle cx="18.7" cy="15.6" r="3.9"/><path d="M5.3 15.6 9 9h6.6M9 9l3.4 6.6H5.3M12.4 15.6 15.6 9l3.1 6.6M15.6 9l-.8-2.7M13.6 6.3h2.6M9 9 8.3 7.5M7.1 7.5h2.6"/></g>'
 };
 const svgVeh = (tipo, cls) => `<svg class="${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${GLIFO[tipo]}</svg>`;
 /* Dirección de avance en la retícula (solo 4 direcciones): giro del dibujo y de la flecha. */
@@ -812,13 +940,14 @@ function direccion(x, y, tx, ty){ return tx > x ? 'E' : tx < x ? 'O' : ty > y ? 
 
 /* ===== Estado del cliente ===== */
 const S = { vista: 'inicio', esc: null, lista: {}, tab: 'SIM_5D', rol: 'control', snap: {}, corrida: {}, prev: {}, recv: {}, K: {}, desde: {},
-  logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, umbrales: {}, costoRef: {}, sel: null,
+  logs: { DIA_A_DIA: [], SIM_5D: [], COLAPSO: [] }, serie: { DIA_A_DIA: {}, SIM_5D: {}, COLAPSO: {} }, param: null, iniciando: {}, costoRef: {}, sel: null,
   filtro: 'ALL', acc: { sim: true, res: false, flota: false, alm: false, env: false, log: false }, reportado: {}, registrados: [], datos: null,
-  dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null,
+  dir: {}, rastro: {}, rutas: 'pend', tray: {}, trayPid: {}, tDisp: null, pestana: null, ultimaPestana: 'sim', expUni: new Set(), expEnv: new Set(),
   fl: null, wh: { sem: null, tipo: '', x: 4, abierto: {}, sel: null }, env: { filtro: 'vigentes', x: 4, q: '' } };
 /* ll1 / ll2: límites de las bandas de llenado (bajo < ll1 ≤ medio < ll2 ≤ alto), iguales para unidades y almacenes. */
 const UMB_DEF = { enPlazoV: 100, enPlazoA: 95, holgV: 120, holgA: 60, ll1: 40, ll2: 75, rP: 15, rF: 20, rC: 30, rI: 60 };
-const umb = () => S.umbrales[S.tab] || UMB_DEF;
+/* Umbrales del semáforo: los de «Parámetros», iguales para todos los navegadores (etapa 38, SI-36). */
+const umb = () => S.param ? { ...UMB_DEF, ll1: S.param.llenado_bajo, ll2: S.param.llenado_alto, holgV: S.param.holgura_verde, holgA: S.param.holgura_ambar } : UMB_DEF;
 
 /* ===== Utilidades ===== */
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -832,6 +961,7 @@ const fmtHM = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; };
 const fmtMin = m => { m = Math.round(m); const neg = m < 0; m = Math.abs(m); const h = Math.floor(m / 60), mi = m % 60; return (neg ? '−' : '') + (h ? h + ' h ' : '') + mi + ' min'; };
 const fmtDias = m => { m = Math.max(0, Math.floor(m)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return `${d} ${d === 1 ? 'día' : 'días'} ${pad(h)} h ${pad(mi)} min`; };
+const fmtDurCorta = m => { m = Math.max(0, Math.floor(m)); return `${Math.floor(m / 1440)} d ${pad(Math.floor(m % 1440 / 60))} h ${pad(m % 60)} min`; };
 const fmtDia = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const soles = v => 'S/ ' + Math.round(v).toLocaleString('es-PE');
 const num = v => Math.round(v).toLocaleString('es-PE');
@@ -840,7 +970,6 @@ function sem(v, a, r, invert){ if (invert) return v >= r ? 'bad' : v >= a ? 'war
 function turnoDe(d){ const h = d.getHours(); return h >= 7 && h < 15 ? 'Turno 1 · 07–15 h' : h >= 15 && h < 23 ? 'Turno 2 · 15–23 h' : 'Turno 3 · 23–07 h'; }
 function estadoTxt(est){ return !est ? ['Sin corrida', ''] : est === 'EN_EJECUCION' ? ['En ejecución', 'run'] : est === 'COLAPSO' ? ['Colapso logístico', 'col']
   : est === 'ERROR' ? ['Error', 'col'] : ['Finalizada', 'fin']; }
-function ritmoTxt(e, k){ const r = (ESC_INFO[e] || { ritmos: [] }).ritmos.find(([f]) => +f === +k); return r ? `${r[1]} (×${k})` : `×${k}`; }
 function toast(msg, malo){ const t = $('#toast'); t.textContent = msg; t.style.background = malo ? '#2A1218' : '#0F2A20'; t.style.color = malo ? '#FCA5A5' : '#6EE7B7';
   t.style.border = '1px solid ' + (malo ? '#7F1D1D' : '#1F5C44'); t.style.opacity = '1'; clearTimeout(t._k); t._k = setTimeout(() => t.style.opacity = '0', 3500); }
 function estadoVisible(u, s){
@@ -857,10 +986,19 @@ function estadoVisible(u, s){
    espacio disponible y se vuelve a encuadrar cuando cambia el tamaño.
    ===================================================================== */
 const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 0, zoomDelta: 0.5, attributionControl: false, preferCanvas: true, zoomControl: false });
-L.control.zoom({ position: 'bottomright', zoomInTitle: 'Acercar', zoomOutTitle: 'Alejar' }).addTo(map);
-/* Retícula y etiquetas de los ejes, con el margen justo (etapa 35: el mapa usa todo el espacio posible, C09 y C10). */
-const B = [[-1.3, -2.2], [H + 0.3, W + 0.4]];
-function encuadrar(){ map.invalidateSize({ animate: false }); map.fitBounds(B, { padding: [2, 2], animate: false }); }
+/* Encuadre (etapa 38, indicación del profesor): la retícula lo más grande posible, con unos 4 mm de margen arriba y
+   abajo, los números de los ejes siempre visibles y la columna de acciones a la izquierda, fuera de la retícula.
+   Los márgenes van en píxeles, así no dependen del zoom. */
+const MARGEN = { izq: 52 + 26, arr: 15, der: 24, aba: 15 + 16 };   // acciones + números del eje Y; números del eje X
+/* Mientras el tablero siga en su lugar de siempre (arriba a la derecha, sin moverlo), el encuadre le reserva su ancho,
+   para que no tape ningún nodo de la retícula. Si el usuario lo mueve, es su decisión y no se reserva nada. */
+function reservaTablero(){ const t = $('#tablero'); return t && t.offsetParent && !t.style.left ? t.offsetWidth + 30 + 8 : 0; }
+function encuadrar(){ map.invalidateSize({ animate: false });
+  map.fitBounds([[0, 0], [H, W]], { paddingTopLeft: [MARGEN.izq, MARGEN.arr], paddingBottomRight: [Math.max(MARGEN.der, reservaTablero()), MARGEN.aba], animate: false }); actualizarCelda(); }
+/* Lado de una cuadrícula en píxeles: fija el tamaño de los íconos (menos de 2 cuadrículas, para no tapar los nodos vecinos). */
+function actualizarCelda(){ const a = map.latLngToContainerPoint([0, 0]), b = map.latLngToContainerPoint([0, 1]);
+  $('#map').style.setProperty('--cel', Math.max(1, b.x - a.x).toFixed(2) + 'px'); }
+map.on('zoom zoomend', actualizarCelda);
 map.setMaxBounds([[-40, -40], [H + 40, W + 40]]);   // margen amplio: al enfocar algo cerca del borde, queda centrado (F05, F07, F09)
 encuadrar();
 new ResizeObserver(() => { if ($('#mapWrap').clientWidth) encuadrar(); }).observe($('#mapWrap'));
@@ -871,18 +1009,24 @@ const gGrid = L.layerGroup().addTo(map), gRutas = L.layerGroup().addTo(map), gBl
   for (let x = 0; x <= W; x++) L.polyline([[0, x], [H, x]], x % 10 ? fino : grueso).addTo(gGrid);
   for (let y = 0; y <= H; y++) L.polyline([[y, 0], [y, W]], y % 10 ? fino : grueso).addTo(gGrid);
   L.rectangle([[0, 0], [H, W]], { color: COL['grid-border'], weight: 1.8, fill: false, interactive: false }).addTo(gGrid);
-  for (let x = 0; x <= W; x += 10) L.marker([-0.9, x], { icon: L.divIcon({ className: 'ax-lbl', html: x, iconSize: [20, 10], iconAnchor: [10, 0] }), interactive: false }).addTo(gGrid);
-  for (let y = 0; y <= H; y += 10) L.marker([y, -0.8], { icon: L.divIcon({ className: 'ax-lbl', html: y, iconSize: [20, 10], iconAnchor: [20, 6] }), interactive: false }).addTo(gGrid);
+  // Números de los ejes a una distancia fija en píxeles de la retícula (etapa 38): nunca quedan tapados
+  for (let x = 0; x <= W; x += 10) L.marker([0, x], { icon: L.divIcon({ className: 'ax-lbl', html: x, iconSize: [24, 11], iconAnchor: [12, -4] }), interactive: false }).addTo(gGrid);
+  for (let y = 0; y <= H; y += 10) L.marker([y, 0], { icon: L.divIcon({ className: 'ax-lbl ax-y', html: y, iconSize: [22, 11], iconAnchor: [27, 6] }), interactive: false }).addTo(gGrid);
 })();
 const mAlm = {}, mUni = {}, mPed = {};
 /* Ícono de almacén (techo, muros y puerta), dibujado en SVG */
-const ICONO_ALMACEN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06111F" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5V20H3z"/><path d="M9 20v-6h6v6"/></svg>';
+const ICONO_ALMACEN = '<svg viewBox="0 0 24 24"><path class="alm-borde" d="M2.5 10.6 12 3.6l9.5 7V21h-19z" fill="currentColor" stroke="#06111F" stroke-width="1.4" stroke-linejoin="round"/><path d="M8.6 21v-6.4h6.8V21z" fill="#06111F"/></svg>';
+/* El central tiene stock ilimitado: siempre «lleno» (color del llenado alto), con el borde más grueso y su nombre. */
+const colorCentral = () => colorSem(BANDAS_SEMAFORO[2]);
+const NOMBRE_CORTO = { 'AL-CEN': 'Central', 'AL-NO': 'Nor-Oeste', 'AL-ES': 'Este' };
 function iconAlm(a, cls, n){
-  // Central: stock ilimitado, color fijo. Intermedios: semáforo de llenado (stock / capacidad), con vacío.
-  const col = a.codigo === 'AL-CEN' ? COL['alm-central'] : colorSem(cls);
-  const badge = n ? `<span style="position:absolute;top:-9px;right:-11px;min-width:16px;height:16px;border-radius:8px;background:#fff;color:#0B1220;border:1.5px solid #0B1220;font-size:9px;display:grid;place-items:center;padding:0 3px;font-weight:700;">${n}</span>` : '';
-  return L.divIcon({ className: '', html: `<div style="position:relative;width:34px;height:34px;border-radius:8px;background:${col};border:2px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;">${ICONO_ALMACEN}${badge}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+  // Etapa 38: sin recuadro de fondo y de 1.6 cuadrículas; el color es el del semáforo de llenado (con vacío).
+  const central = a.codigo === 'AL-CEN'; const col = central ? colorCentral() : colorSem(cls);
+  const badge = n ? `<span class="alm-b" title="Unidades detenidas aquí">${n}</span>` : '';
+  return L.divIcon({ className: '', html: `<div class="alm${central ? ' central' : ''}" style="--c:${col}">${ICONO_ALMACEN}${badge}<span class="alm-n">${NOMBRE_CORTO[a.codigo] || a.codigo}</span></div>`, iconSize: [0, 0], iconAnchor: [0, 0] });
 }
+/* % sobre el color del semáforo, para los datos al pasar el mouse */
+const pctSem = (pct, c) => `<span class="pct" style="background:${colorSem(c)}">${pct.toFixed(0)} %</span>`;
 /* Color de relleno y del dibujo de una unidad según su clase (ver claseUnidad). */
 function estiloUnidad(base){
   if (base.startsWith('av')) return { c: COLOR_AVERIA[base.slice(2)] || COL.av1, g: '#0B1220' };
@@ -894,7 +1038,7 @@ function estiloUnidad(base){
 function iconUni(u, cls){
   const base = cls.split(' ')[0], est = estiloUnidad(base);
   const marca = base.startsWith('av') ? `<b class="veh-av" title="Avería tipo ${base.slice(2)}">${base.slice(2)}</b>` : base === 'man' ? '<b class="veh-av" title="Mantenimiento">M</b>' : '';
-  return L.divIcon({ className: '', html: `<div class="veh ${cls}" style="--c:${est.c};--g:${est.g}"><i class="veh-d"></i><span class="veh-c">${svgVeh(u.tipo, 'veh-g')}</span>${marca}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+  return L.divIcon({ className: '', html: `<div class="veh ${cls}" style="--c:${est.c}"><i class="veh-d"></i>${svgVeh(u.tipo, 'veh-g')}${marca}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] });
 }
 /* Gira el dibujo y la flecha hacia la dirección de avance (C30). Sin dirección nueva conserva la última. */
 function orientar(codigo, dir){
@@ -908,8 +1052,9 @@ function dibujarAlmacenes(s){
     const ll = a.capacidad ? 100 * a.stock / a.capacidad : null; const cls0 = ll === null ? '' : semLlenado(ll);
     const aqui = (S.enAlm && S.enAlm[a.codigo]) || []; const cls = cls0 + '|' + aqui.length;
     const nombre = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
-    const tip = `<b>${nombre}</b> (${a.x}, ${a.y})<br>` + (a.capacidad ? `Stock ${num(a.stock)} / ${num(a.capacidad)} · llenado ${ll.toFixed(0)} % · ${NOMBRE_SEM[cls0]}` : 'Stock ilimitado') + (aqui.length ? `<br>Unidades aquí: ${aqui.join(', ')}` : '');
-    if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip); mAlm[a.codigo]._cls = cls;
+    // Etapa 38: pocos textos; el stock en número y el % sobre el color del semáforo
+    const tip = `<b>${NOMBRE_CORTO[a.codigo] || nombre}</b> ` + (a.capacidad ? `${num(a.stock)}/${num(a.capacidad)}${pctSem(ll, cls0)}` : 'stock ilimitado') + (aqui.length ? `<br>Aquí: ${aqui.join(', ')}` : '');
+    if (!mAlm[a.codigo]){ mAlm[a.codigo] = L.marker([a.y, a.x], { icon: iconAlm(a, cls0, aqui.length), zIndexOffset: 3000 }).addTo(gAlm).bindTooltip(tip, { direction: 'top', offset: [0, -10] }); mAlm[a.codigo]._cls = cls;
       mAlm[a.codigo].on('click', () => enfocarAlmacen(a.codigo, true)); }
     else { if (mAlm[a.codigo]._cls !== cls){ mAlm[a.codigo].setIcon(iconAlm(a, cls0, aqui.length)); mAlm[a.codigo]._cls = cls; } mAlm[a.codigo].setTooltipContent(tip); }
     mAlm[a.codigo].setOpacity(!S.wh || !S.wh.sem || pasaFiltroAlmacen(a) ? 1 : .25);   // filtros de almacenes del panel (F15, F17)
@@ -956,16 +1101,19 @@ function dibujarMapa(s){
     const pasa = !S.fl || S.sel === u.codigo || pasaFiltroUnidad(u, s);   // filtros del panel reflejados en el mapa (F16, F18)
     const base = claseUnidad(u); const cls = base + (S.sel === u.codigo ? ' sel' : '') + (pasa ? '' : ' atenuada');
     if (!mUni[u.codigo]){ const m = L.marker([u.y, u.x], { icon: iconUni(u, cls), zIndexOffset: 1000 }).addTo(gUni); m._cls = cls;
-      m.on('click', () => unidadDesdeMapa(u.codigo)); m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
+      m.on('click', () => unidadDesdeMapa(u.codigo)); m.on('contextmenu', ev => abrirMenuAveria(u.codigo, ev));
+      m.bindTooltip('', { direction: 'top', offset: [0, -10] }); mUni[u.codigo] = m; }
     const m = mUni[u.codigo]; if (m._cls !== cls){ m.setIcon(iconUni(u, cls)); m._cls = cls; }
     // Con trayectorias, la posición la da la reproducción (cada cuadro); la instantánea solo ubica a las demás
     const T = S.tray[S.tab]; if (!(T && u.estado === 'OPERATIVA' && T.unidades[u.codigo])) m.setLatLng([u.y, u.x]);
     orientar(u.codigo, u.camino.length ? direccion(u.x, u.y, u.camino[0][0], u.camino[0][1]) : null);
     const ll = 100 * u.carga / u.capacidad;
-    m.setTooltipContent(`<b>${u.codigo}</b> · ${estadoVisible(u, s).t}<br>Carga ${u.carga}/${u.capacidad} (${ll.toFixed(0)} %) · ${NOMBRE_SEM[semLlenado(ll)]}<br>${u.velocidad} km/h${textoAveria(u, s)}`);
+    const pista = S.rol === 'control' && u.estado === 'OPERATIVA' && s.estado_corrida === 'EN_EJECUCION' ? '<br><span class="help">Clic derecho: registrar avería</span>' : '';
+    m.setTooltipContent(`<b>${u.codigo}</b> ${estadoVisible(u, s).t} · ${u.carga}/${u.capacidad}${pctSem(ll, semLlenado(ll))}${textoAveria(u, s)}${pista}`);
   }
   for (const k of Object.keys(mUni)) if (!vistos.has(k)){ gUni.removeLayer(mUni[k]); delete mUni[k]; }
-  // Rutas: lo que falta recorrer (línea continua) y lo recorrido desde la última parada (punteada y tenue).
+  // Rutas (etapa 38, indicación del profesor): finas y tenues; lo que falta recorrer, segmentado (se borra a medida que la
+  // unidad avanza) y lo recorrido desde la última parada, punteado y más tenue.
   // Para no llenar el mapa de líneas, lo recorrido se dibuja solo para la unidad elegida, salvo que se pida para todas.
   gRutas.clearLayers();
   const R = S.rastro[S.tab] || {};
@@ -975,16 +1123,16 @@ function dibujarMapa(s){
     if (!selc && (S.rutas === 'ninguna' || (S.fl && !pasaFiltroUnidad(u, s)))) continue;
     const col = selc ? COL['ruta-sel'] : COL.ruta; const rec = R[u.codigo];
     if ((selc || S.rutas === 'ambas') && rec && rec.length > 1)
-      L.polyline(rec.map(c => [c[1], c[0]]), { color: col, weight: selc ? 3 : 2, opacity: selc ? .65 : .45, dashArray: '3 6', interactive: false }).addTo(gRutas);
+      L.polyline(rec.map(c => [c[1], c[0]]), { color: col, weight: selc ? 2.4 : 1.4, opacity: selc ? .6 : .35, dashArray: '1 5', lineCap: 'round', interactive: false }).addTo(gRutas);
     if (u.camino.length)
-      L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: col, weight: selc ? 4 : 2.2, opacity: selc ? 1 : .75, interactive: false }).addTo(gRutas);
+      L.polyline([[u.y, u.x], ...u.camino.map(c => [c[1], c[0]])], { color: col, weight: selc ? 3 : 1.6, opacity: selc ? .95 : .55, dashArray: selc ? '8 5' : '5 5', interactive: false }).addTo(gRutas);
   }
   // bloqueos activos
   gBloq.clearLayers();
   for (const b of s.bloqueos_activos){
     const ll = b.nodos.map(n => [n[1], n[0]]);
-    L.polyline(ll, { color: COL['map-bg'], weight: 10, opacity: .85, interactive: false }).addTo(gBloq);
-    L.polyline(ll, { color: COL.bloqueo, weight: 5, opacity: 1, dashArray: '8 6', lineCap: 'butt' }).addTo(gBloq)
+    L.polyline(ll, { color: COL['map-bg'], weight: 7, opacity: .85, interactive: false }).addTo(gBloq);
+    L.polyline(ll, { color: COL.bloqueo, weight: 3.5, opacity: 1, dashArray: '7 5', lineCap: 'butt' }).addTo(gBloq)
       .bindTooltip(`<b>Bloqueo</b><br>${fmtFecha(aFecha(s, b.inicio_min))} → ${fmtFecha(aFecha(s, b.fin_min))}`);
   }
   // pedidos vigentes: color según la holgura hasta su hora límite
@@ -1093,43 +1241,40 @@ function pintarSimulacion(){
   $('#btnFinalizar').textContent = S.tab === 'DIA_A_DIA' ? 'Cerrar operaciones' : 'Finalizar';   // G09
   $('#btnRegistroLnk').hidden = S.tab !== 'DIA_A_DIA';
   $('#emptyState').classList.toggle('on', !s);
-  $('#emTitle').textContent = obs ? 'Esperando el inicio de la corrida' : 'Esta corrida no se ha iniciado';
-  $('#emText').textContent = obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
-                                 : 'Vuelve a los escenarios para elegir la fecha de inicio y la flota.';
-  $('#pgLbl').textContent = S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día';
-  if (!s){ for (const id of ['#smInicio', '#smFlota', '#smRitmo', '#smReal', '#smHoraReal', '#ckTrans']) $(id).textContent = '—';
-    $('#ckDay').textContent = 'Día —'; $('#ckHM').textContent = '--/--/---- --:--'; $('#ckDate').textContent = 'sin reloj'; $('#ckNota').hidden = true;
-    $('#pgFill').style.width = '0'; $('#pgPct').textContent = '0 %'; $('#pgTicks').innerHTML = ''; return; }
+  // Etapa 38: recién iniciada, la corrida tarda un momento en dar su primera instantánea; no es que «no se haya iniciado»
+  const iniciando = !s && (S.iniciando[S.tab] || S.lista[S.tab] === 'EN_EJECUCION');
+  $('#emTitle').textContent = iniciando ? 'Iniciando la corrida…' : obs ? 'Esperando el inicio de la corrida' : 'Todavía no hay una corrida';
+  $('#emText').textContent = iniciando ? 'Se leen los datos y se arma el primer plan; en unos segundos aparecen las unidades.'
+                           : obs ? 'El dispositivo con el control todavía no la inicia. La pantalla se actualizará sola.'
+                                 : 'Vuelve a los escenarios para elegir la fecha y la hora de inicio.';
+  $('#emBtn').hidden = iniciando;
+  $('#tbEstado').textContent = $('#rbState').textContent; $('#tbEstado').className = $('#rbState').className;
+  if (!s){ for (const id of ['#tbSimFH', '#tbSimDur', '#tbActFH', '#tbActDur', '#tbIni']) $(id).textContent = '—';
+    $('#tbSimDia').textContent = ''; $('#tbTurno').textContent = ''; $('#tbNota').hidden = true; $('#tbPgFill').style.width = '0'; return; }
   const ahora = s.reloj.ahora_min ?? s.reloj.simulado_min;   // minuto del reloj de la corrida (etapa 35)
   const d = aFecha(s, ahora); const tc = ahora - s.reloj.inicio_min; const fin = c.fin_real_ms || s.reloj.real_ms;
-  $('#smInicio').textContent = fmtFecha(new Date(c.inicio_ms));
-  $('#smFlota').textContent = `${c.autos + c.motos + c.bicicletas} · ${c.autos} autos, ${c.motos} motos, ${c.bicicletas} bicis`;
-  $('#smRitmo').textContent = ritmoTxt(S.tab, c.factor);
-  // Los cuatro tiempos (C12 a C16), a nivel de minuto. En la operación día a día con ritmo ×1 el tiempo
-  // simulado ES el tiempo real (empieza en la fecha y hora actuales): se rotula así.
+  // Tablero (etapa 38): los cuatro tiempos al minuto (C12 a C16), uno debajo del otro, con pocas letras.
+  // En la operación día a día con ritmo ×1 el tiempo de la operación ES el real (empieza ahora).
   const dia = S.tab === 'DIA_A_DIA', real = dia && +c.factor === 1;
-  $('#ckLbl').textContent = real ? 'Fecha y hora de la operación (= hora real; día, hora y minuto)' : 'Fecha y hora simulada (día, hora y minuto)';
-  $('#ckTransLbl').textContent = real ? 'Tiempo de operación transcurrido' : 'Tiempo simulado transcurrido';
-  $('#ckHM').innerHTML = `<span class="fe">${fmtDia(d)}</span>${fmtHM(d)}`;
+  $('#tbSimL').textContent = dia ? 'OPERACIÓN' : 'SIMULACIÓN';
+  $('#tbSimFH').textContent = fmtFecha(d);
+  $('#tbSimDur').textContent = fmtDurCorta(tc);
   const semana = d.toLocaleDateString('es-PE', { weekday: 'long' });
   // Al cumplirse los 5 días el reloj marca las 00:00 del día siguiente: se rotula como el fin, no como un «día 6»
   const finDe5 = S.tab === 'SIM_5D' && tc >= 5 * 1440;
-  $('#ckDay').textContent = (dia ? '' : finDe5 ? 'Fin de los 5 días · ' : 'Día ' + (Math.floor(tc / 1440) + 1) + ' de la simulación · ') + semana;
-  $('#ckDate').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
-  $('#ckTrans').textContent = fmtDias(tc);
-  $('#smHoraReal').textContent = fmtFecha(new Date());
-  $('#smReal').textContent = fmtDias((fin - c.inicio_real_ms) / 60000);
-  $('#ckNota').hidden = !dia;
-  $('#ckNota').textContent = real ? 'Operación día a día: el reloj simulado avanza con el reloj real (ritmo ×1), así que la fecha y hora de la operación coinciden con la actual.'
-                                 : `Operación día a día en ritmo de demostración (×${c.factor}): el reloj de la operación avanza ${c.factor} veces más rápido que el real.`;
+  $('#tbSimDia').textContent = (dia ? '' : finDe5 ? 'fin de los 5 días · ' : 'día ' + (Math.floor(tc / 1440) + 1) + ' · ') + semana;
+  $('#tbTurno').innerHTML = turnoDe(d) + (HORAS_ALIMENTACION.includes(d.getHours()) ? '<span class="tag-ali">alimentación</span>' : '');
+  $('#tbActFH').textContent = fmtFecha(new Date());
+  $('#tbActDur').textContent = fmtDurCorta((fin - c.inicio_real_ms) / 60000);
+  $('#tbIni').textContent = fmtFecha(new Date(c.inicio_ms));
+  $('#tbNota').hidden = !dia;
+  $('#tbNota').textContent = real ? 'La hora de la operación es la hora real.' : `Demostración: la operación va ${c.factor} veces más rápido que el reloj real.`;
   // avance dentro del horizonte
   const span = S.tab === 'SIM_5D' ? 5 * 1440 : S.tab === 'COLAPSO' ? Math.max(5, Math.ceil(tc / 1440) + 1) * 1440 : 1440;
   const t0 = S.tab === 'DIA_A_DIA' ? Math.floor(tc / 1440) * 1440 : 0;
   const pct = Math.min(100, 100 * (tc - t0) / span);
-  $('#pgFill').style.width = pct + '%'; $('#pgPct').textContent = pct.toFixed(1) + ' %';
-  $('#pgBar').classList.toggle('col', s.estado_corrida === 'COLAPSO');
-  const n = S.tab === 'DIA_A_DIA' ? 4 : span / 1440;
-  $('#pgTicks').innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${S.tab === 'DIA_A_DIA' ? pad(i * 6) + ' h' : (i < n ? 'D' + (i + 1) : 'fin')}</span>`).join('');
+  $('#tbPgFill').style.width = pct + '%'; $('#tbPg').classList.toggle('col', s.estado_corrida === 'COLAPSO');
+  $('#tbPg').title = (S.tab === 'SIM_5D' ? 'Avance de los 5 días' : S.tab === 'COLAPSO' ? 'Días simulados' : 'Avance del día') + ': ' + pct.toFixed(1) + ' %';
 }
 /* Indicadores globales (G01 a G04): ocupación de toda la flota operativa y llenado de los almacenes intermedios
    en conjunto, con el mismo semáforo de llenado (y vacío) que las unidades y los almacenes. */
@@ -1142,12 +1287,17 @@ function indicadoresGlobales(s){
 /* Cada indicador global va en la sección de su lista: la flota en Flota y los almacenes en Almacenes. */
 function pintarIndicadoresGlobales(s){
   const tarjeta = (l, pct, sem, sub) => `<div class="kpi ${sem ? 'sem ' + sem : ''}"><div class="l">${l}</div><div class="v">${pct}</div><div class="s" title="${sub}">${sub}</div></div>`;
+  const ind = (l, pct, sem, sub) => `<div class="tb-ind" style="--x:${sem ? colorSem(sem) : 'var(--border)'}" title="${sub}"><span class="l">${l}</span><span class="v">${pct}</span><span class="s">${sub}</span></div>`;
   if (!s){
+    $('#tbGlobal').innerHTML = ind('Flota', '—', '', '&nbsp;') + ind('Almacenes', '—', '', '&nbsp;');
     $('#flGlobal').innerHTML = tarjeta('Ocupación de la flota', '—', '', '&nbsp;');
     $('#whGlobal').innerHTML = tarjeta('Llenado de almacenes', '—', '', '&nbsp;');
     return;
   }
   const G = indicadoresGlobales(s);
+  // En el tablero, sobre el mapa (G01 a G04: «mapa: indicadores global»)
+  $('#tbGlobal').innerHTML = ind('Flota', G.flota.pct.toFixed(0) + ' %', G.flota.sem, `${num(G.flota.carga)}/${num(G.flota.cap)} paq.`)
+    + ind('Almacenes', G.almacenes.pct.toFixed(0) + ' %', G.almacenes.sem, `${num(G.almacenes.stock)}/${num(G.almacenes.cap)}`);
   $('#flGlobal').innerHTML = tarjeta('Ocupación de la flota', G.flota.pct.toFixed(0) + ' %', G.flota.sem, `${num(G.flota.carga)}/${num(G.flota.cap)} paq. · ${NOMBRE_SEM[G.flota.sem]}`);
   $('#whGlobal').innerHTML = tarjeta('Llenado de almacenes', G.almacenes.pct.toFixed(0) + ' %', G.almacenes.sem, `${num(G.almacenes.stock)}/${num(G.almacenes.cap)} · ${NOMBRE_SEM[G.almacenes.sem]}`);
 }
@@ -1207,16 +1357,19 @@ function pasaFiltroUnidad(u, s){
   if (F.estado){ const e = estadoVisible(u, s);
     if (F.estado === 'ruta' ? e.c !== 'ruta' && e.c !== 'ali' : F.estado === 'libre' ? !(u.estado === 'OPERATIVA' && e.c === '') : u.estado !== F.estado) return false; }
   if (F.distM){ const v = metricasUnidad(u, ahoraDe(s))[F.distM]; if (v === null || v === undefined) return false;
-    if (F.distOp === 'le' ? v > F.distV : v < F.distV) return false; }
+    if (F.distOp === 'entre' ? v < Math.min(F.distV, F.distV2) || v > Math.max(F.distV, F.distV2) : F.distOp === 'le' ? v > F.distV : v < F.distV) return false; }
   return true;
 }
 function filaUnidad(u, s, t){
-  const ocu = 100 * u.carga / u.capacidad, d = u.destino, o = u.origen || {}, det = [];
+  const ocu = 100 * u.carga / u.capacidad, d = u.destino, o = u.origen || {}, det = [], abierta = S.expUni.has(u.codigo), e = estadoVisible(u, s);
   if (d) det.push(`→ <b>${esc(d.lugar)}</b>${d.salida_min !== null && d.salida_min > t ? ` · sale ${hora(s, d.salida_min)} (en ${fmtMin(d.salida_min - t)})` : ''} · llega ${hora(s, d.llegada_min)} (en ${fmtMin(d.llegada_min - t)}, ${d.km} km)`);
   if (o.lugar) det.push(`desde <b>${esc(o.lugar)}</b>${o.salida_min !== null && o.salida_min !== undefined ? ` · salió ${hora(s, o.salida_min)} (hace ${fmtMin(t - o.salida_min)}, ${num(o.km)} km)` : o.llegada_min !== null && o.llegada_min !== undefined ? ` · llegó ${hora(s, o.llegada_min)}` : ''}`);
   det.push(`recorridos ${num(u.km)} km · por recorrer ${u.km_por_recorrer ?? 0} km · última recarga ${u.ultima_recarga || '—'}`);
-  return `<button class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}"><span class="uc">${svgVeh(u.tipo)}${u.codigo}</span><span class="ue">${estadoVisible(u, s).t}</span>`
-    + `<span class="bar" style="margin:0"><i class="${semLlenado(ocu)}" style="width:${ocu.toFixed(0)}%"></i></span><span class="mono uq">${u.carga}/${u.capacidad}</span><span class="ud">${det.join('<br>')}</span></button>`;
+  // Una línea: dibujo con el color de su estado, código, estado y próxima parada, carga y % sobre el semáforo
+  const resumen = e.t + (d ? ` · → ${esc(d.lugar)} ${hora(s, d.llegada_min)}` : '');
+  return `<div class="urow${S.sel === u.codigo ? ' sel' : ''}" data-u="${u.codigo}" role="button" tabindex="0"><span class="ug" style="--c:${estiloUnidad(claseUnidad(u)).c}">${svgVeh(u.tipo)}</span>`
+    + `<span class="uc">${u.codigo}</span><span class="ue" title="${resumen}">${resumen}</span><span class="mono uq">${u.carga}/${u.capacidad}${pctSem(ocu, semLlenado(ocu)).replace('class="pct"', 'class="pct chico"')}</span>`
+    + `<button class="umas" data-mas aria-expanded="${abierta}" title="${abierta ? 'Ocultar' : 'Ver'} el detalle"><i class="chev"></i></button>${abierta ? `<span class="ud">${det.join('<br>')}</span>` : ''}</div>`;
 }
 const abiertos = new Set(['AUTO']);
 function pintarFlota(s){
@@ -1224,6 +1377,7 @@ function pintarFlota(s){
   const t = ahoraDe(s), F = S.fl; const us = s.unidades.filter(u => pasaFiltroUnidad(u, s));
   $('#fleetTot').textContent = s.unidades.length + ' unidades';
   $('#flRes').textContent = `${us.length} de ${s.unidades.length} unidades cumplen los filtros`;
+  $('#flRes2').textContent = us.length === s.unidades.length ? `${us.length} unidades` : `${us.length} de ${s.unidades.length} cumplen los filtros`;
   if (!S.acc.flota) return;
   if (F.orden){   // con un orden activo, una sola lista (deja de agruparse por tipo)
     const v = u => metricasUnidad(u, t)[F.orden], sg = F.sentido === 'asc' ? 1 : -1;
@@ -1235,35 +1389,85 @@ function pintarFlota(s){
     const todas = s.unidades.filter(u => u.tipo === tp); if (!todas.length) return ''; const sel = us.filter(u => u.tipo === tp);
     const st = {}; todas.forEach(u => { const e = estadoVisible(u, s); const k = e.c === 'ruta' ? 'En ruta' : e.t.startsWith('Averiada') ? 'Averiada' : e.t; st[k] = st[k] || { n: 0, c: e.c }; st[k].n++; });
     const oper = todas.filter(u => u.estado === 'OPERATIVA'); const carga = oper.reduce((a, u) => a + u.carga, 0), cap = oper.reduce((a, u) => a + u.capacidad, 0); const occ = cap ? 100 * carga / cap : 0;
-    const badges = Object.entries(st).map(([k, v]) => `<span class="v-status st-${v.c === 'ruta' ? 'ruta' : v.c === 'ave' ? 'bad' : v.c === 'ali' ? 'warn' : 'dim'}">${v.n} ${k.toLowerCase()}</span>`).join(' ');
-    return `<div class="vehicle-card ${abiertos.has(tp) ? 'open' : ''}" data-tp="${tp}">
-      <div class="vehicle-top"><div class="v-icon" style="--c:var(--panel-raised)">${svgVeh(tp)}</div><div><div class="v-id">${TIPOS[tp].nombre} · ${sel.length} de ${todas.length}</div><div class="v-type">${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km</div></div><i class="chev"></i></div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;">${badges}</div>
-      <div class="v-occ">Ocupación<div class="bar"><i class="${semLlenado(occ)}" style="width:${occ.toFixed(0)}%"></i></div>${carga}/${cap} · ${occ.toFixed(0)} %</div>
+    // Encabezado del grupo en una línea (tipo, cuántas cumplen los filtros, ocupación) y sus estados en otra, con símbolos
+    const estados = Object.entries(st).map(([k, v]) => `<span class="${v.c}" title="${v.n} ${k.toLowerCase()}"><i></i>${v.n} ${k.toLowerCase()}</span>`).join('');
+    return `<div class="vehicle-card ${abiertos.has(tp) ? 'open' : ''}" data-tp="${tp}" title="${TIPOS[tp].cap} paq. · ${TIPOS[tp].vel} km/h · S/ ${TIPOS[tp].costo}/km">
+      <div class="vc-h"><span class="ug">${svgVeh(tp)}</span><b>${TIPOS[tp].nombre}</b><span class="vc-n">${sel.length}/${todas.length}</span><span class="bar"><i class="${semLlenado(occ)}" style="width:${occ.toFixed(0)}%"></i></span><span class="vc-o">${occ.toFixed(0)} %</span><i class="chev"></i></div>
+      <div class="vc-st">${estados}</div>
       <div class="ulist">${sel.length ? sel.map(u => filaUnidad(u, s, t)).join('') : '<p class="help">Ninguna cumple los filtros.</p>'}</div></div>`;
   }).join('');
 }
 $('#fleet').addEventListener('click', e => {
+  const mas = e.target.closest('[data-mas]'); if (mas){ const c = mas.closest('.urow').dataset.u; S.expUni.has(c) ? S.expUni.delete(c) : S.expUni.add(c); pintarFlota(S.snap[S.tab]); return; }
   const r = e.target.closest('.urow'); if (r){ abrirDetalle(r.dataset.u, true); return; }
   const c = e.target.closest('.vehicle-card'); if (c){ const tp = c.dataset.tp; abiertos.has(tp) ? abiertos.delete(tp) : abiertos.add(tp); pintarFlota(S.snap[S.tab]); }
 });
 /* Chips de semáforo (con el color de cada estado) para la flota y los almacenes. */
 function chipsSemaforo(id, lista, conjunto){
-  const color = k => k === 'av' ? COL.av1 : k === 'man' ? COL['u-mant'] : k === 'central' ? COL['alm-central'] : colorSem(k);
+  const color = k => k === 'av' ? COL.av1 : k === 'man' ? COL['u-mant'] : k === 'central' ? colorCentral() : colorSem(k);
   $(id).innerHTML = lista.map(([k, n]) => `<button class="fchip" data-v="${k}" aria-pressed="${conjunto.has(k)}"><i style="background:${color(k)}"></i>${n}</button>`).join('');
 }
-function refiltrar(){ const s = S.snap[S.tab]; pintarFlota(s); pintarAlmacenes(s); if (s) dibujarMapa(s); }
+function refiltrar(){ const s = S.snap[S.tab]; pintarFlota(s); pintarAlmacenes(s); if (s) dibujarMapa(s); pintarFiltroRapido(s); }
+/* Filtro rápido del tablero (etapa 38, indicación del profesor): una fila con los tipos de unidad y otra con los colores del
+   semáforo, a un clic. Es el MISMO filtro de la sección Flota (S.fl): se refleja en el mapa y en la lista. Desde «todos»,
+   un clic deja solo ese; después, cada clic agrega o quita; sin ninguno, vuelven todos. */
+const TIPOS_RAPIDO = ['AUTO', 'MOTO', 'BICICLETA'], SEM_RAPIDO = ['vacio', 'bad', 'warn', 'ok'], SEM_TODOS = SEM_UNI.map(x => x[0]);
+function pintarFiltroRapido(s){
+  const todosT = TIPOS_RAPIDO.every(t => S.fl.tipos.has(t)), todosS = SEM_TODOS.every(k => S.fl.sem.has(k));
+  const b = (attr, v, on, html, t) => `<button class="tb-btn" ${attr}="${v}" aria-pressed="${on}" title="${t}">${html}</button>`;
+  $('#tbTipos').classList.toggle('parcial', !todosT); $('#tbSem').classList.toggle('parcial', !todosS);
+  $('#tbTipos').innerHTML = b('data-t', 'ALL', todosT, 'Todos', 'Todos los tipos')
+    + TIPOS_RAPIDO.map(t => b('data-t', t, S.fl.tipos.has(t) && !todosT, svgVeh(t), TIPOS[t].nombre)).join('');
+  $('#tbSem').innerHTML = b('data-s', 'ALL', todosS, 'Todos', 'Todos los colores')
+    + SEM_RAPIDO.map(k => b('data-s', k, S.fl.sem.has(k) && !todosS, `<i style="background:${colorSem(k)}"></i>`, NOMBRE_SEM[k])).join('');
+  contarFiltroRapido(s);
+}
+/* Solo el contador (cada segundo): repintar los botones podría perder un clic a medio hacer. */
+function contarFiltroRapido(s){ $('#tbCuenta').textContent = s ? `${s.unidades.filter(u => pasaFiltroUnidad(u, s)).length} de ${s.unidades.length} unidades` : ''; }
+function elegirRapido(conj, todos, k){
+  if (k === 'ALL'){ todos.forEach(x => conj.add(x)); return; }
+  if (todos.every(x => conj.has(x))){ conj.clear(); conj.add(k); return; }
+  conj.has(k) ? conj.delete(k) : conj.add(k);
+  if (!conj.size) todos.forEach(x => conj.add(x));
+}
+$('#tbTipos').addEventListener('click', e => { const x = e.target.closest('[data-t]'); if (!x) return; elegirRapido(S.fl.tipos, TIPOS_RAPIDO, x.dataset.t);
+  $$('#flTipo .fchip').forEach(c => c.setAttribute('aria-pressed', S.fl.tipos.has(c.dataset.v))); refiltrar(); });
+$('#tbSem').addEventListener('click', e => { const x = e.target.closest('[data-s]'); if (!x) return; elegirRapido(S.fl.sem, SEM_TODOS, x.dataset.s);
+  chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); refiltrar(); });
+/* El tablero se mueve arrastrando su barra y se pliega; cada navegador recuerda dónde lo dejó (solo es una comodidad local). */
+(function tableroMovil(){
+  const el = $('#tablero'), asa = $('#tbAsa'), cont = $('#mapWrap'); let pendiente = null, ini = null;
+  try { pendiente = JSON.parse(localStorage.getItem('paqrap.tablero') || 'null'); } catch (e){ pendiente = null; }
+  const ubicar = (x, y) => { const mx = cont.clientWidth - el.offsetWidth, my = cont.clientHeight - el.offsetHeight;
+    el.style.left = Math.max(0, Math.min(mx, x)) + 'px'; el.style.top = Math.max(0, Math.min(my, y)) + 'px'; el.style.right = 'auto'; };
+  const guardar = () => { try { localStorage.setItem('paqrap.tablero', JSON.stringify({ x: el.offsetLeft, y: el.offsetTop, plegado: el.classList.contains('plegado'), movido: !!el.style.left })); } catch (e){ /* sin almacenamiento */ } };
+  const plegar = si => { el.classList.toggle('plegado', si); $('#tbCuerpo').hidden = si; $('#tbPlegar').setAttribute('aria-expanded', !si);
+    $('#tbPlegar').title = si ? 'Desplegar' : 'Plegar'; $('#tbPlegar').textContent = si ? '+' : '–'; };
+  if (pendiente && pendiente.plegado) plegar(true);
+  asa.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; ini = { px: e.clientX, py: e.clientY, x: el.offsetLeft, y: el.offsetTop }; asa.setPointerCapture(e.pointerId); });
+  asa.addEventListener('pointermove', e => { if (ini) ubicar(ini.x + e.clientX - ini.px, ini.y + e.clientY - ini.py); });
+  asa.addEventListener('pointerup', () => { if (ini){ ini = null; guardar(); } });
+  $('#tbPlegar').onclick = () => { plegar(!el.classList.contains('plegado')); guardar(); };
+  // La posición guardada se aplica cuando el mapa ya tiene tamaño; al cambiar el tamaño, el tablero no queda fuera
+  new ResizeObserver(() => { if (!cont.clientWidth) return;
+    if (pendiente){ if (pendiente.movido) ubicar(pendiente.x, pendiente.y); pendiente = null; }
+    else if (el.style.left) ubicar(el.offsetLeft, el.offsetTop); }).observe(cont);
+})();
 function alternarChip(conjunto, b){ const k = b.dataset.v; conjunto.has(k) ? conjunto.delete(k) : conjunto.add(k); b.setAttribute('aria-pressed', conjunto.has(k)); refiltrar(); }
 $('#flTipo').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.tipos, b); });
 $('#flSem').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.fl.sem, b); });
 $('#whSem').addEventListener('click', e => { const b = e.target.closest('.fchip'); if (b) alternarChip(S.wh.sem, b); });
 [['#flOrden', 'orden'], ['#flSentido', 'sentido'], ['#flOrigen', 'origen'], ['#flEstado', 'estado'], ['#flDistM', 'distM'], ['#flDistOp', 'distOp']].forEach(([id, k]) => $(id).onchange = () => { S.fl[k] = $(id).value; refiltrar(); });
 $('#flDistV').oninput = () => { S.fl.distV = +$('#flDistV').value || 0; refiltrar(); };
+$('#flToolsBtn').onclick = () => { const el = $('#flTools'); el.hidden = !el.hidden; $('#flToolsBtn').setAttribute('aria-expanded', !el.hidden); };
+$('#flDistV2').oninput = () => { S.fl.distV2 = +$('#flDistV2').value || 0; refiltrar(); };
+/* Rango cerrado [desde, hasta] (E11): con «entre» aparece el segundo valor */
+$('#flDistOp').addEventListener('change', () => { const r = $('#flDistOp').value === 'entre'; $('#flDistV2').hidden = !r; $('#flDistV').closest('.dist-row').classList.toggle('rango', r); });
 $('#flLimpiar').onclick = () => { S.fl = filtrosFlotaIniciales(); for (const [id, k] of [['#flOrden', 'orden'], ['#flSentido', 'sentido'], ['#flOrigen', 'origen'], ['#flEstado', 'estado'], ['#flDistM', 'distM'], ['#flDistOp', 'distOp']]) $(id).value = S.fl[k];
   $$('#flTipo .fchip').forEach(b => b.setAttribute('aria-pressed', true)); chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); refiltrar(); };
 $('#whTipo').onchange = () => { S.wh.tipo = $('#whTipo').value; refiltrar(); };
 $('#whX').onchange = () => { S.wh.x = +$('#whX').value; pintarAlmacenes(S.snap[S.tab]); };
-function filtrosFlotaIniciales(){ return { orden: '', sentido: 'asc', tipos: new Set(Object.keys(TIPOS)), sem: new Set(SEM_UNI.map(x => x[0])), origen: '', estado: '', distM: '', distOp: 'le', distV: 30 }; }
+function filtrosFlotaIniciales(){ return { orden: '', sentido: 'asc', tipos: new Set(Object.keys(TIPOS)), sem: new Set(SEM_UNI.map(x => x[0])), origen: '', estado: '', distM: '', distOp: 'le', distV: 30, distV2: 60 }; }
 
 /* =====================================================================
    ALMACENES (E18 a E22): llenado en número y %, semáforo con vacío, y desde cada tarjeta los envíos
@@ -1294,16 +1498,19 @@ function pintarAlmacenes(s){
   $('#whs').innerHTML = vis.length ? vis.map(a => { const nm = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
     const det = s ? enviosDeAlmacen(s, a.codigo) : { camino: [], salir: [], entregados: [] }; const pq = l => l.reduce((x, p) => x + p.cantidad, 0);
     const tab = S.wh.abierto[a.codigo]; const aqui = (S.enAlm && S.enAlm[a.codigo]) || [];
+    // Etapa 38 (profesor: registros compactos y poco texto): nombre, código y % en una línea; stock y unidades en otra.
+    // Las coordenadas y la hora de reposición quedan al pasar el mouse.
+    const det1 = `title="${a.codigo} · (${a.x}, ${a.y})${a.capacidad ? ' · se repone 23:59:59' : ''}"`;
+    const nUni = `${aqui.length} unid. aquí`;
     const llenado = a.capacidad ? (() => { const ll = 100 * a.stock / a.capacidad; const c = semLlenado(ll);
-        return `<div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div>`; })()
-      : `<div class="wh-top"><span class="wh-name">${nm}</span><span class="help">stock ilimitado (sin semáforo)</span></div>`;
+        return `<div class="wh-top" ${det1}><span class="wh-name">${nm} <span class="wh-cod">${a.codigo}</span></span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>${num(a.stock)} / ${num(a.capacidad)}</span><span>${nUni}</span></div>`; })()
+      : `<div class="wh-top" ${det1}><span class="wh-name">${nm} <span class="wh-cod">${a.codigo}</span></span><span class="help">ilimitado</span></div><div class="wh-meta"><span>sin semáforo</span><span>${nUni}</span></div>`;
     const X = S.wh.x;
     return `<div class="wh-card${S.wh.sel === a.codigo ? ' sel' : ''}" data-alm="${a.codigo}">${llenado}
-      <div class="wh-meta"><span>${a.codigo} · (${a.x}, ${a.y})</span><span>${aqui.length} unidad${aqui.length === 1 ? '' : 'es'} detenida${aqui.length === 1 ? '' : 's'}</span></div>
       <div class="wh-tabs">
-        <button class="wh-tab" data-tab="camino" aria-pressed="${tab === 'camino'}">En camino · ${det.camino.length} envíos, ${pq(det.camino)} paq.</button>
-        <button class="wh-tab" data-tab="salir" aria-pressed="${tab === 'salir'}">Por salir en ${X} h · ${det.salir.length}, ${pq(det.salir)} paq.</button>
-        <button class="wh-tab" data-tab="entregados" aria-pressed="${tab === 'entregados'}">Entregados en ${X} h · ${det.entregados.length}, ${pq(det.entregados)} paq.</button>
+        <button class="wh-tab" data-tab="camino" aria-pressed="${tab === 'camino'}" title="Envíos en camino que salieron de aquí">En camino ${det.camino.length} · ${pq(det.camino)} paq.</button>
+        <button class="wh-tab" data-tab="salir" aria-pressed="${tab === 'salir'}" title="Envíos que salen en las próximas ${X} h">Salen ${X} h ${det.salir.length} · ${pq(det.salir)}</button>
+        <button class="wh-tab" data-tab="entregados" aria-pressed="${tab === 'entregados'}" title="Envíos entregados en las últimas ${X} h">Entregados ${X} h ${det.entregados.length} · ${pq(det.entregados)}</button>
       </div>
       ${tab === 'camino' ? tablaEnvios(s, det.camino, ['Salió', 'salida_min']) : tab === 'salir' ? tablaEnvios(s, det.salir, ['Sale', 'salida_min']) : tab === 'entregados' ? tablaEnvios(s, det.entregados, ['Entregado', 'entregado_min']) : ''}
     </div>`; }).join('') : '<p class="help">Ningún almacén cumple los filtros.</p>';
@@ -1316,7 +1523,7 @@ $('#whs').addEventListener('click', e => {
 /* Selecciona un almacén: lo resalta en el panel y lo enfoca en el mapa. */
 function enfocarAlmacen(codigo, desdeMapa){
   S.wh.sel = codigo; const a = ALMACENES.find(v => v.codigo === codigo);
-  if (desdeMapa){ S.acc.alm = true; pintarSecciones(); }
+  if (desdeMapa) abrirPestana('alm');
   pintarAlmacenes(S.snap[S.tab]);
   if (a) map.flyTo([a.y, a.x], Math.max(map.getZoom(), 3.5), { duration: .6 });
   if (desdeMapa){ const el = document.querySelector(`.wh-card[data-alm="${codigo}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
@@ -1356,13 +1563,17 @@ function pintarEnvios(s){
     ps.sort((a, b) => a.id.localeCompare(b.id)); const total = ps.reduce((a, p) => a + p.cantidad, 0), p0 = ps[0];
     const cuenta = {}; ps.forEach(p => cuenta[p.estado] = (cuenta[p.estado] || 0) + 1);
     const holg = Math.min(...ps.filter(p => p.estado !== 'entregado').map(p => p.limite_min)) - t;
-    return `<div class="env"><div class="env-h"><b>${esc(ped)}</b><span class="env-m">${total} prod. · ${ps.length} parte${ps.length === 1 ? '' : 's'}</span></div>
-      <div class="env-m">Destino (${p0.x}, ${p0.y}) · plazo ${p0.plazo_h} h · límite ${hora(s, p0.limite_min)}${isFinite(holg) ? ` · holgura ${fmtMin(holg)}` : ''} · ${Object.entries(cuenta).map(([k, n]) => `${n} ${ESTADO_PARTE[k]}`).join(', ')}</div>
-      ${ps.map(p => `<div class="parte ${p.estado}" data-parte="${esc(p.id)}" title="Ver en el mapa"><div><b class="mono">${esc(p.id)}</b> · ${p.cantidad} prod. (<span class="mono">${esc(productos(p.id, p.cantidad))}</span>) · ${p.unidad ? `<span class="mono">${p.unidad}</span>` : 'sin unidad'} · ${ESTADO_PARTE[p.estado] || p.estado}</div>
-        <div class="r">Salida ${p.origen ? 'de ' + p.origen + ' ' : ''}${hora(s, p.salida_min)} · llegada ${p.estado === 'entregado' ? hora(s, p.entregado_min) : (p.llegada_min !== null ? '≈ ' + hora(s, p.llegada_min) : '—')}</div>
-        <div class="r">Ruta: ${esc(rutaParte(s, p))}</div></div>`).join('')}</div>`; }).join('')
+    // Etapa 38: compacto. Una línea por pedido y una por parte; productos, salida y ruta se despliegan con la flecha.
+    const abierto = S.expEnv.has(ped), U = umb(); const cH = isFinite(holg) ? sem(holg, U.holgV, U.holgA) : null;
+    const chip = cH ? `<span class="pct chico" style="background:${COL[cH === 'ok' ? 'ped-ok' : cH === 'warn' ? 'ped-warn' : 'ped-bad']}" title="Holgura">${fmtMin(holg)}</span>` : '';
+    return `<div class="env"><div class="env-h"><b>${esc(ped)}</b><span class="env-m">${total} prod. · (${p0.x}, ${p0.y}) · límite ${hora(s, p0.limite_min)}</span>${chip}<button class="umas" data-envmas="${esc(ped)}" aria-expanded="${abierto}" title="${abierto ? 'Ocultar' : 'Ver'} productos, salida y ruta"><i class="chev"></i></button></div>
+      ${ps.map(p => `<div class="parte ${p.estado}" data-parte="${esc(p.id)}" title="Ver en el mapa"><div><b class="mono">${esc(p.id)}</b> · ${p.cantidad} prod. · ${p.unidad ? `<span class="mono">${p.unidad}</span>` : 'sin unidad'} · ${ESTADO_PARTE[p.estado] || p.estado} · ${p.estado === 'entregado' ? 'llegó ' + hora(s, p.entregado_min) : p.llegada_min !== null ? 'llega ≈ ' + hora(s, p.llegada_min) : '—'}</div>
+        ${abierto ? `<div class="r">Productos <span class="mono">${esc(productos(p.id, p.cantidad))}</span> · plazo ${p0.plazo_h} h</div>
+        <div class="r">Salida ${p.origen ? 'de ' + p.origen + ' ' : ''}${hora(s, p.salida_min)} · ruta: ${esc(rutaParte(s, p))}</div>` : ''}</div>`).join('')}</div>`; }).join('')
     : '<p class="help">Ningún envío cumple el filtro.</p>') + (lista.length > MAX ? `<p class="help">Se muestran los ${MAX} con la hora límite más próxima de ${lista.length}; usa la búsqueda para ver otros.</p>` : '');
 }
+$('#envList').addEventListener('click', e => { const b = e.target.closest('[data-envmas]'); if (!b) return; e.stopPropagation();
+  const k = b.dataset.envmas; S.expEnv.has(k) ? S.expEnv.delete(k) : S.expEnv.add(k); pintarEnvios(S.snap[S.tab]); }, true);
 $$('#envFiltro .fchip').forEach(b => b.onclick = () => { $$('#envFiltro .fchip').forEach(x => x.setAttribute('aria-pressed', x === b)); S.env.filtro = b.dataset.f; pintarEnvios(S.snap[S.tab]); });
 $('#envX').onchange = () => { S.env.x = +$('#envX').value; pintarEnvios(S.snap[S.tab]); };
 $('#envBuscar').oninput = () => { S.env.q = $('#envBuscar').value; pintarEnvios(S.snap[S.tab]); };
@@ -1405,7 +1616,8 @@ function pintarLeyenda(){
   const el = $('#leyenda'); if (el.hidden) return; const U = umb();
   const fila = (sw, txt) => `<div class="lg-row">${sw}<span>${txt}</span></div>`;
   const sw = c => `<i class="lg-sw" style="background:${c}"></i>`;
-  const veh = tp => `<span class="u-badge" style="--c:var(--panel-raised);width:24px;height:24px">${svgVeh(tp)}</span>`;
+  const veh = tp => svgVeh(tp, 'lg-veh');
+  const alm = (c, central) => `<span class="lg-veh" style="color:${c}">${central ? ICONO_ALMACEN.replace('alm-borde"', 'alm-borde" style="stroke:#fff;stroke-width:2.2"') : ICONO_ALMACEN}</span>`;
   el.innerHTML = `<h4>Semáforo de llenado (unidades y almacenes)</h4>
     <p class="help">Llenado = carga / capacidad en las unidades y stock / capacidad en los almacenes intermedios. ${SENTIDO_SEMAFORO === 'jp' ? 'Verde = lleno; rojo = llegando a cero.' : 'Verde = poca carga; rojo = lleno.'}</p>
     ${rangosSemaforo().map(([c, r]) => fila(sw(colorSem(c)), `<b>${NOMBRE_SEM[c]}</b> · ${r}`)).join('')}
@@ -1414,9 +1626,10 @@ function pintarLeyenda(){
     ${[1, 2, 3].map(k => fila(sw(COLOR_AVERIA[k]), `<b>Avería ${k}</b> (marca «${k}») · ${TEXTO_AVERIA[k].split(' · ')[1]}`)).join('')}
     ${fila(sw(COL['u-mant']), '<b>Mantenimiento</b> preventivo (marca «M»)')}
     ${fila('<span style="width:16px;text-align:center;color:#fff">▶</span>', 'La flecha indica hacia dónde avanza la unidad')}
+    ${fila('<span style="width:16px;text-align:center;color:var(--text)">⋯</span>', '<b>Clic derecho</b> sobre un vehículo (o mantenerlo presionado): registrar una avería')}
     <h4>Mapa</h4>
-    ${fila(`<i class="lg-alm" style="background:${COL['alm-central']}"></i>`, '<b>Almacén central</b> · stock ilimitado')}
-    ${fila(`<i class="lg-alm" style="background:${colorSem('ok')}"></i>`, '<b>Almacén intermedio</b> · color del semáforo; el número son las unidades detenidas allí')}
+    ${fila(alm(colorCentral(), true), '<b>Almacén central</b> · stock ilimitado: siempre lleno, borde blanco')}
+    ${fila(alm(colorSem('warn')), '<b>Almacén intermedio</b> · color del semáforo; el número son las unidades detenidas allí')}
     ${fila('<i class="lg-rt"></i>', '<b>Ruta pendiente</b> (lo que falta recorrer)')}
     ${fila('<i class="lg-rt rec"></i>', '<b>Ruta recorrida</b> desde la última parada')}
     ${fila('<i class="lg-ln"></i>', '<b>Bloqueo</b> activo')}
@@ -1538,11 +1751,11 @@ function elegirResultado(r){
 $('#buscar').addEventListener('input', mostrarResultados);
 $('#buscar').addEventListener('keydown', e => { if (e.key === 'Enter'){ const res = $('#buscarRes')._res || []; elegirResultado(res[0]); } if (e.key === 'Escape') $('#buscarRes').hidden = true; });
 $('#buscarRes').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; elegirResultado(i >= 0 ? $('#buscarRes')._res[i] : null); });
-document.addEventListener('click', e => { if (!e.target.closest('.buscador')) $('#buscarRes').hidden = true; });
+document.addEventListener('click', e => { if (!e.target.closest('.tool-wrap')) $('#buscarRes').hidden = true; });
 /* F08: clic en el ícono de una unidad → su ficha, y en el panel se abre Flota con su fila a la vista. */
 function unidadDesdeMapa(codigo){
   const s = S.snap[S.tab]; const u = s && s.unidades.find(v => v.codigo === codigo);
-  if (u) abiertos.add(u.tipo); S.acc.flota = true; pintarSecciones(); abrirDetalle(codigo);
+  if (u) abiertos.add(u.tipo); abrirPestana('flota'); abrirDetalle(codigo);
   const fila = document.querySelector(`#fleet .urow[data-u="${codigo}"]`); if (fila) fila.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 /* F09: clic en una parte de la lista de envíos → su ruta en el mapa, enfocando su unidad (o el destino). */
@@ -1562,12 +1775,20 @@ function pintarLog(){
 $$('#logFiltros .fchip').forEach(b => b.onclick = () => { $$('#logFiltros .fchip').forEach(x => x.setAttribute('aria-pressed', x === b)); S.filtro = b.dataset.f; pintarLog(); });
 
 /* Secciones desplegables: cada nombre abre o cierra su sección. */
-function pintarSecciones(){ $$('.acc').forEach(a => { const on = !!S.acc[a.dataset.acc]; a.classList.toggle('open', on); a.querySelector('.acc-h').setAttribute('aria-expanded', on); }); }
-$$('.acc-h').forEach(h => h.onclick = () => { const k = h.closest('.acc').dataset.acc; S.acc[k] = !S.acc[k]; pintarSecciones(); if (k === 'log' && S.acc.log) pintarLog(); if (S.acc[k]) render(); });
+/* Pestañas (etapa 38): una sola sección a la vista; sin pestaña elegida, el panel queda plegado. */
+function pintarSecciones(){
+  for (const k of Object.keys(S.acc)) S.acc[k] = k === S.pestana;
+  $$('.acc').forEach(a => a.classList.toggle('open', !!S.acc[a.dataset.acc]));
+  $$('#tabs [data-tab]').forEach(t => t.setAttribute('aria-selected', t.dataset.tab === S.pestana));
+  $('#stage').classList.toggle('plegado', !S.pestana); $('#tgSide').textContent = S.pestana ? '›' : '‹';
+}
+function abrirPestana(k){ S.pestana = k; if (k) S.ultimaPestana = k; pintarSecciones(); if (k === 'log') pintarLog(); if (k) render(); }
+$('#tabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (t) abrirPestana(S.pestana === t.dataset.tab ? null : t.dataset.tab); });
+$('#tabPlegar').onclick = () => abrirPestana(null);
 
 function render(){
   if (!ESC_INFO[S.tab]) return;   // en el registro de pedidos no hay escenario que pintar
-  const s = S.snap[S.tab]; pintarSimulacion(); pintarIndicadoresGlobales(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
+  const s = S.snap[S.tab]; pintarSimulacion(); pintarIndicadoresGlobales(s); contarFiltroRapido(s); pintarKpis(s); pintarFlota(s); pintarAlmacenes(s); pintarEnvios(s); pintarRiesgo(s); pintarEvolucion(s); llenarSelectUnidades(s);
   if (s){ dibujarMapa(s); pintarDetalle(s); } if (S.acc.log) pintarLog(); pintarLeyenda();
   if (S.envSel){ if (performance.now() - S.envSel.recibido > 5000) seleccionarEnvio(S.envSel.id, false); else pintarEnvioSel(false); }
 }
@@ -1587,7 +1808,7 @@ async function actualizar(e){
   if (prev && prev.reloj.inicio_corrida_ms !== s.reloj.inicio_corrida_ms){ S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; S.rastro[e] = {}; delete S.tray[e]; }   // otra corrida
   if (prev && prev.reloj.inicio_corrida_ms === s.reloj.inicio_corrida_ms){ const dr = s.reloj.real_ms - prev.reloj.real_ms;
     if (dr > 0 && s.reloj.simulado_min > prev.reloj.simulado_min) S.K[e] = (s.reloj.simulado_min - prev.reloj.simulado_min) * 60000 / dr; }
-  S.prev[e] = prev; S.snap[e] = s; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
+  S.prev[e] = prev; S.snap[e] = s; S.iniciando[e] = false; S.corrida[e] = r.corrida; S.recv[e] = performance.now(); acumularSerie(e, s); acumularRastro(e, s, prev);
   if (s.plan){ const T = S.tray[e]; if (!T || T.version !== s.plan.version || (s.plan.siguiente_listo && !T.sig)) cargarTrayectorias(e); }
   // Mientras el planificador replanifica en el instante, se consulta cada 250 ms para retomar apenas termine
   if (s.reloj.pausado || (s.plan && S.tray[e] && S.tray[e].version !== s.plan.version)) consultaRapida(e);
@@ -1617,28 +1838,26 @@ function mostrarVista(v){ S.vista = v; $('#landing').classList.toggle('on', v ==
 function mostrarInicio(){ mostrarVista('inicio'); S.esc = null; $('#lnEsc').hidden = false; $('#lnIni').hidden = true; actualizarEscenarios(); }
 function elegirEscenario(e){
   S.esc = e; mostrarVista('inicio'); $('#lnEsc').hidden = true; $('#lnIni').hidden = false;
-  const info = ESC_INFO[e]; $('#mdIniT').textContent = info.titulo; $('#ciAyuda').textContent = info.ayuda; $('#ciMsg').innerHTML = '';
-  $('#ciRitmo').innerHTML = info.ritmos.map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+  $('#mdIniT').textContent = ESC_INFO[e].titulo; $('#ciMsg').innerHTML = '';
   const dia = e === 'DIA_A_DIA'; const ini = dia ? localISO(new Date()) : INICIO_SUGERIDO[e];
-  ponerInicio(ini); for (const id of ['#ciFecha', '#ciHora']){ $(id).readOnly = dia; $(id).classList.toggle('ro', dia); } archivosDe(ini);
-  if (S.datos && S.datos.desde) $('#ciRango').textContent = `Hay datos oficiales de ${S.datos.desde} a ${S.datos.hasta}.`;
-  $('#uAyuda').textContent = `Sentido del semáforo: ${SENTIDO_SEMAFORO === 'jp' ? 'llenado bajo = rojo, medio = ámbar, alto = verde' : 'llenado bajo = verde, medio = ámbar, alto = rojo'}; 0 % = vacío. Rige igual para unidades y almacenes.`;
+  ponerInicio(ini); for (const id of ['#ciFecha', '#ciHora']){ $(id).readOnly = dia; $(id).classList.toggle('ro', dia); }
   pintarPaso2(); actualizarEscenarios();
 }
 /* Paso 2: según haya o no una corrida del escenario, se ofrece iniciarla o verla. */
 function pintarPaso2(){
-  const e = S.esc; const est = S.lista[e]; const corre = est === 'EN_EJECUCION'; const obs = S.rol !== 'control';
+  const e = S.esc; const est = S.lista[e]; const corre = est === 'EN_EJECUCION'; const obs = S.rol !== 'control', dia = e === 'DIA_A_DIA';
   const [txt, cls] = estadoTxt(est); $('#lnChip').textContent = txt; $('#lnChip').className = 'chip ' + cls;
   $('#lnStatus').innerHTML = corre ? 'Hay una corrida <b>en ejecución</b>. Puedes verla; para iniciar otra, primero hay que finalizarla desde la barra lateral.'
     : est ? 'La última corrida ya terminó. Puedes ver su resultado o iniciar una nueva.'
     : obs ? 'Todavía no hay una corrida. El dispositivo con el control debe iniciarla; puedes entrar y esperar.'
-    : 'Elige la fecha de inicio, el ritmo y la flota. Todos los dispositivos conectados verán la misma corrida.';
+    : dia ? 'La operación empieza ahora, sin pedidos anteriores. Todos los dispositivos conectados la verán.'
+    : 'Elige la fecha y la hora de inicio. Todos los dispositivos conectados verán la misma corrida.';
   $('#lnCampos').hidden = corre; $('#ciGo').hidden = corre;
   $('#lnVer').hidden = !est && !obs; $('#lnVer').textContent = corre ? 'Ver la corrida en curso' : est ? 'Ver la última corrida' : 'Entrar y esperar';
   $('#lnVer').className = corre || obs ? 'btn-play' : 'btn-secondary';
 }
 function mostrarEscenario(e){
-  S.tab = e; mostrarVista('mon'); S.acc = { sim: true, res: false, flota: false, alm: false, env: false, log: false }; pintarSecciones();
+  S.tab = e; mostrarVista('mon'); S.acc = { sim: false, res: false, flota: false, alm: false, env: false, log: false }; S.pestana = null; pintarSecciones();   // plegado al inicio (etapa 38)
   S.sel = null; $('#drawer').classList.remove('on'); cerrarEnvio(); limpiarMapa(); render(); pintarLog(); setTimeout(encuadrar, 60); actualizar(e);
 }
 function mostrarRegistro(){ S.tab = 'REGISTRO'; mostrarVista('reg'); pintarRegistro(); actualizar('DIA_A_DIA'); }
@@ -1650,9 +1869,12 @@ $('#btnEscenarios').onclick = mostrarInicio;
 $('#btnRegistroLnk').onclick = mostrarRegistro;
 $('#regVolver').onclick = () => S.lista.DIA_A_DIA ? mostrarEscenario('DIA_A_DIA') : mostrarInicio();
 $('#emBtn').onclick = () => elegirEscenario(S.tab);
-$('#tgSide').onclick = () => { const st = $('#stage'); st.classList.toggle('noside'); $('#tgSide').textContent = st.classList.contains('noside') ? '‹' : '›'; };
+$('#tgSide').onclick = () => abrirPestana(S.pestana ? null : (S.ultimaPestana || 'sim'));
 $('#tgFit').onclick = encuadrar;
-$('#tgRutas').onclick = () => { S.rutas = S.rutas === 'pend' ? 'ambas' : S.rutas === 'ambas' ? 'ninguna' : 'pend'; $('#tgRutas').textContent = MODOS_RUTAS[S.rutas];
+$('#tgMas').onclick = () => map.zoomIn(0.5); $('#tgMenos').onclick = () => map.zoomOut(0.5);
+$('#tgBuscar').onclick = () => { const el = $('#buscador'); el.hidden = !el.hidden; $('#tgBuscar').setAttribute('aria-pressed', !el.hidden); if (!el.hidden) $('#buscar').focus(); };
+$('#tgRutas').onclick = () => { S.rutas = S.rutas === 'pend' ? 'ambas' : S.rutas === 'ambas' ? 'ninguna' : 'pend';
+  $('#tgRutas').title = MODOS_RUTAS[S.rutas] + ' (clic para cambiar)'; $('#tgRutas').setAttribute('aria-pressed', S.rutas !== 'ninguna'); toast(MODOS_RUTAS[S.rutas]);
   const s = S.snap[S.tab]; if (s) dibujarMapa(s); };
 $('#tgLey').onclick = () => { const el = $('#leyenda'); el.hidden = !el.hidden; $('#tgLey').setAttribute('aria-pressed', !el.hidden); pintarLeyenda(); };
 $$('.role-btn').forEach(b => b.onclick = () => { S.rol = S.rol === 'control' ? 'observador' : 'control'; document.body.classList.toggle('observer', S.rol !== 'control');
@@ -1666,7 +1888,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModale
    6. COMANDOS AL PLANIFICADOR
    ===================================================================== */
 function localISO(d){ return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-function archivosDe(iso){ const y = iso.slice(0, 4), m = iso.slice(5, 7); $('#ciVentas').value = `ventas.${y}${m}.txt`; $('#ciBloq').value = `bloqueo.${y.slice(2)}${m}.txt`; }
 /* Fecha y hora de inicio en campos propios (dd/mm/aaaa y hh:mm de 24 h). leerInicio devuelve aaaa-mm-ddThh:mm o null. */
 function ponerInicio(iso){ $('#ciFecha').value = `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; $('#ciHora').value = iso.slice(11, 16); }
 function leerInicio(){
@@ -1675,16 +1896,12 @@ function leerInicio(){
   const fecha = new Date(a, m - 1, d, hh, mi); if (fecha.getDate() !== d || fecha.getMonth() !== m - 1 || hh > 23 || mi > 59) return null;
   return `${a}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}`;
 }
-$('#ciFecha').addEventListener('input', () => { const iso = leerInicio(); if (iso) archivosDe(iso); });
 $('#ciGo').onclick = async () => {
   const e = S.esc; const iso = leerInicio(); if (!iso){ $('#ciMsg').innerHTML = '<span class="bad-t">Indica una fecha válida (dd/mm/aaaa) y una hora válida (hh:mm, de 00:00 a 23:59).</span>'; return; }
-  const l1 = Math.round(+$('#uL1').value), l2 = Math.round(+$('#uL2').value);
-  if (!(l1 >= 1 && l2 > l1 && l2 <= 100)){ $('#ciMsg').innerHTML = '<span class="bad-t">Los límites de llenado deben cumplir 1 ≤ bajo &lt; alto ≤ 100.</span>'; return; }
-  S.umbrales[e] = { ...UMB_DEF, holgV: +$('#uHv').value, holgA: +$('#uHa').value, ll1: l1, ll2: l2 };
-  $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Cargando datos oficiales y armando el primer plan…</span>';
+  $('#ciGo').disabled = true; $('#ciMsg').innerHTML = '<span class="help">Leyendo los datos y armando el primer plan…</span>';
   try {
-    await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime(), factor: $('#ciRitmo').value,
-      autos: $('#ciAutos').value, motos: $('#ciMotos').value, bicicletas: $('#ciBicis').value });
+    // La flota y el ritmo salen de «Parámetros» (etapa 38): aquí solo van la fecha y la hora
+    await api('POST', `/api/corridas/${e}`, { inicio: iso, inicio_ms: new Date(iso).getTime() }); S.iniciando[e] = true;
     S.logs[e] = []; S.serie[e] = {}; S.desde[e] = 0; S.reportado[e] = false; S.costoRef[e] = 0; delete S.snap[e]; delete S.tray[e]; S.rastro[e] = {}; S.tDisp = null; S.lista[e] = 'EN_EJECUCION';
     mostrarEscenario(e); toast('Corrida iniciada. Todos los dispositivos la verán.');
   } catch (err){ $('#ciMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
@@ -1703,7 +1920,39 @@ function abrirRegistroAveria(unidad, tipo){
   if (unidad){ $('#avUnidad').value = unidad; $('#avTipo').value = tipo; }
   abrirModal('mdAveria');
 }
-$('#btnAveriaMapa').onclick = () => abrirRegistroAveria();
+/* Avería desde el mapa (etapa 38, indicación del profesor: «solamente en el mapa, sin ningún panel adicional»): clic
+   derecho sobre el vehículo (o mantenerlo presionado en una pantalla táctil) abre, junto al ícono, un menú con los tres
+   tipos; la confirmación se hace ahí mismo. Solo para quien tiene el control y con la corrida en ejecución. */
+function cerrarMenuAveria(){ $('#menuAv').hidden = true; S.menuAv = null; }
+function abrirMenuAveria(codigo, ev){
+  if (ev && ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
+  const s = S.snap[S.tab]; const u = s && s.unidades.find(x => x.codigo === codigo);
+  if (S.rol !== 'control' || !u || s.estado_corrida !== 'EN_EJECUCION') return;
+  S.menuAv = { codigo, tipo: null }; pintarMenuAveria(u);
+  const el = $('#menuAv'), cont = $('#mapWrap'); el.hidden = false;
+  const p = map.latLngToContainerPoint(mUni[codigo] ? mUni[codigo].getLatLng() : [u.y, u.x]);
+  el.style.left = Math.max(4, Math.min(cont.clientWidth - el.offsetWidth - 4, p.x + 16)) + 'px';
+  el.style.top = Math.max(4, Math.min(cont.clientHeight - el.offsetHeight - 4, p.y - 20)) + 'px';
+}
+function pintarMenuAveria(u){
+  const M = S.menuAv, el = $('#menuAv'), cab = t => `<div class="mh">${t}<button class="x" data-cerrar title="Cerrar">×</button></div>`;
+  if (u.estado !== 'OPERATIVA'){ el.innerHTML = cab(`<b>${u.codigo}</b>`) + `<p class="help">${u.estado === 'AVERIADA' ? 'Ya está averiada' : 'Está en mantenimiento'}: no se le puede registrar otra avería.</p>`; return; }
+  if (!M.tipo){ el.innerHTML = cab(`<b>Avería en ${u.codigo}</b>`) + [1, 2, 3].map(k =>
+      `<button class="tipo" data-tipo="${k}"><b class="n" style="background:${COLOR_AVERIA[k]}">${k}</b><span>${TEXTO_AVERIA[k].split(' · ')[1]}</span></button>`).join(''); return; }
+  el.innerHTML = cab(`<b class="n" style="background:${COLOR_AVERIA[M.tipo]}">${M.tipo}</b><b>¿Avería tipo ${M.tipo} en ${u.codigo}?</b>`)
+    + `<p class="help">Se aplica ahora y el planificador replanifica.</p><div class="acciones"><button class="btn-secondary" data-atras>Atrás</button><button class="btn-play danger" data-confirmar>Confirmar avería</button></div>`;
+}
+$('#menuAv').addEventListener('click', async e => {
+  const M = S.menuAv; if (!M) return; const s = S.snap[S.tab]; const u = s && s.unidades.find(x => x.codigo === M.codigo);
+  if (e.target.closest('[data-cerrar]') || !u){ cerrarMenuAveria(); return; }
+  const t = e.target.closest('[data-tipo]'); if (t){ M.tipo = +t.dataset.tipo; pintarMenuAveria(u); return; }
+  if (e.target.closest('[data-atras]')){ M.tipo = null; pintarMenuAveria(u); return; }
+  if (e.target.closest('[data-confirmar]')){ const tipo = M.tipo; cerrarMenuAveria();
+    try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad: u.codigo, tipo }); toast(`Avería tipo ${tipo} registrada en ${u.codigo}; el planificador replanifica.`); consultaRapida(S.tab); }
+    catch (err){ toast(err.message, true); } }
+});
+map.on('click movestart zoomstart', cerrarMenuAveria);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.menuAv) cerrarMenuAveria(); });
 $('#drAveria').addEventListener('click', e => { const b = e.target.closest('[data-tipo]'); if (b && S.sel) abrirRegistroAveria(S.sel, b.dataset.tipo); });
 $('#btnAveria').onclick = async () => { const unidad = $('#avUnidad').value, tipo = $('#avTipo').value; if (!unidad){ toast('Elige una unidad operativa.', true); return; } cerrarModales();
   try { await api('POST', `/api/corridas/${S.tab}/averias`, { unidad, tipo }); toast(`Avería tipo ${tipo} registrada en ${unidad}; el planificador replanifica.`); } catch (err){ toast(err.message, true); } };
@@ -1712,6 +1961,68 @@ $('#btnVel').onclick = async () => { const tp = $('#velTipo').value, v = +$('#ve
   if (!(v >= 1 && v <= 80)){ $('#velMsg').innerHTML = '<span class="bad-t">Entre 1 y 80 km/h.</span>'; return; }
   try { await api('POST', `/api/corridas/${S.tab}/velocidades`, { tipo: tp, kmh: v }); $('#velMsg').innerHTML = `<span class="ok-t">${tp.toLowerCase()} a ${v} km/h desde la próxima planificación.</span>`; }
   catch (err){ $('#velMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; } };
+
+/* =====================================================================
+   OPCIONES DEL SISTEMA (etapa 38): «Parámetros» y «Carga de archivos». El profesor pidió que la pantalla de
+   inicio solo tenga la fecha, la hora e Iniciar; lo demás se configura una vez, aquí, y vale para todos.
+   ===================================================================== */
+async function cargarParametros(){
+  try { const p = await api('GET', '/api/parametros'); const cambio = JSON.stringify(p) !== JSON.stringify(S.param); S.param = p;
+    if (cambio && S.vista === 'mon' && S.snap[S.tab]) render(); } catch (err){ /* sin conexión: se reintenta */ }
+}
+/* El ritmo de cada escenario es fijo (el profesor: «nadie les ha pedido ritmos»; 5 días en 60 min, 1 s = 10 min y tiempo
+   real): no se ofrece aquí y el formulario no lo envía, así que el servidor conserva el suyo. */
+async function abrirParametros(){
+  await cargarParametros(); const p = S.param; if (!p){ toast('Sin conexión con el planificador.', true); return; }
+  $('#pAutos').value = p.autos; $('#pMotos').value = p.motos; $('#pBicis').value = p.bicicletas;
+  $('#pL1').value = p.llenado_bajo; $('#pL2').value = p.llenado_alto; $('#pHv').value = p.holgura_verde; $('#pHa').value = p.holgura_ambar;
+  $('#pSentido').textContent = 'Llenado bajo = rojo, medio = ámbar, alto = verde; 0 % = vacío. Rige igual para unidades y almacenes.';
+  const obs = S.rol !== 'control'; $$('#mdParam input, #mdParam select').forEach(i => i.disabled = obs);
+  $('#pMsg').innerHTML = obs ? '<p class="help">Solo el dispositivo con el control puede cambiarlos.</p>' : ''; abrirModal('mdParam');
+}
+$('#pGuardar').onclick = async () => {
+  const d = { autos: $('#pAutos').value, motos: $('#pMotos').value, bicicletas: $('#pBicis').value,
+    llenado_bajo: $('#pL1').value, llenado_alto: $('#pL2').value, holgura_verde: $('#pHv').value, holgura_ambar: $('#pHa').value };
+  try { S.param = await api('POST', '/api/parametros', d); $('#pMsg').innerHTML = '<span class="ok-t">Parámetros guardados.</span>'; toast('Parámetros guardados para todos los navegadores.');
+    if (S.vista === 'mon' && S.snap[S.tab]) render(); }
+  catch (err){ $('#pMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
+};
+const MES_TXT = /^(\d{1,2})\/(\d{4})$/;
+async function pintarArchivos(){
+  let l; try { l = await api('GET', '/api/archivos'); } catch (err){ $('#arLista').innerHTML = `<tr><td colspan="3" class="bad-t">${esc(err.message)}</td></tr>`; return; }
+  const ctrl = S.rol === 'control';
+  const celda = (mes, tipo, f) => !f ? '<span class="help">—</span>' : `<span class="fuente ${f}">${f}</span>`
+    + (f === 'cargado' && ctrl ? ` <button class="link-btn" data-quitar="${tipo}" data-mes="${mes}">quitar</button>` : '');
+  const mmaaaa = m => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
+  $('#arLista').innerHTML = l.meses.map(m => `<tr><td class="mono">${mmaaaa(m.mes)}</td><td>${celda(m.mes, 'ventas', m.ventas)}</td><td>${celda(m.mes, 'bloqueos', m.bloqueos)}</td></tr>`).join('');
+  $('#arMant').innerHTML = '· mantenimiento preventivo: ' + (l.mantenimiento ? `<span class="fuente ${l.mantenimiento}">${l.mantenimiento}</span>` : '—')
+    + (l.mantenimiento === 'cargado' && ctrl ? ' <button class="link-btn" data-quitar="mantenimiento">quitar</button>' : '');
+}
+function abrirArchivos(){ $('#arMsg').innerHTML = ''; $('#arMesL').hidden = $('#arTipo').value === 'mantenimiento'; pintarArchivos(); abrirModal('mdArchivos'); }
+$('#arTipo').onchange = () => $('#arMesL').hidden = $('#arTipo').value === 'mantenimiento';
+$('#arElegir').onclick = () => $('#arArchivo').click();
+$('#arArchivo').onchange = () => { const f = $('#arArchivo').files[0]; $('#arNombre').textContent = f ? f.name : 'Ningún archivo elegido'; };
+$('#arCargar').onclick = async () => {
+  const tipo = $('#arTipo').value, f = $('#arArchivo').files[0]; let mes = '';
+  if (tipo !== 'mantenimiento'){ const m = $('#arMes').value.trim().match(MES_TXT);
+    if (!m || +m[1] < 1 || +m[1] > 12){ $('#arMsg').innerHTML = '<span class="bad-t">Indica el mes como mm/aaaa.</span>'; return; } mes = `${m[2]}-${pad(+m[1])}`; }
+  if (!f){ $('#arMsg').innerHTML = '<span class="bad-t">Elige el archivo.</span>'; return; }
+  $('#arCargar').disabled = true; $('#arMsg').innerHTML = '<span class="help">Validando…</span>';
+  try {
+    const r = await api('POST', '/api/archivos', { tipo, mes, texto: await f.text() });
+    const lista = xs => `<ul class="arch-err">${xs.map(a => `<li>${esc(a)}</li>`).join('')}</ul>`;
+    $('#arMsg').innerHTML = r.guardado
+      ? `<span class="ok-t">Cargado como ${esc(r.archivo)}: ${r.validas} líneas válidas.</span>` + (r.avisos.length ? lista(r.avisos) : '')
+      : `<span class="bad-t">No se cargó: ${r.errores_total} errores en ${r.lineas} líneas. Corrige el archivo y vuelve a intentarlo.</span>` + lista(r.errores);
+    pintarArchivos(); api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
+  } catch (err){ $('#arMsg').innerHTML = `<span class="bad-t">${esc(err.message)}</span>`; }
+  finally { $('#arCargar').disabled = false; }
+};
+$('#mdArchivos').addEventListener('click', async e => { const b = e.target.closest('[data-quitar]'); if (!b) return;
+  try { await api('POST', '/api/archivos/eliminacion', { tipo: b.dataset.quitar, mes: b.dataset.mes || '' }); toast('Se quitó el archivo cargado: vuelve a regir el oficial.'); pintarArchivos(); }
+  catch (err){ toast(err.message, true); } });
+$('#lnParam').onclick = abrirParametros;
+$('#lnArchivos').onclick = abrirArchivos;
 
 /* Reporte de cierre: resumen del planificador + última instantánea. */
 $('#btnReporte').onclick = () => abrirReporte(S.tab);
@@ -1821,9 +2132,10 @@ $('#btnEjemplo').onclick = () => { const s = diaActivo(); const d = s ? aFecha(s
 
 /* ===== Arranque: primero se elige el escenario ===== */
 S.fl = filtrosFlotaIniciales(); S.wh.sem = new Set(SEM_ALM.map(x => x[0]));
-chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem);
+chipsSemaforo('#flSem', SEM_UNI, S.fl.sem); chipsSemaforo('#whSem', SEM_ALM, S.wh.sem); pintarFiltroRapido(null);
 render(); pintarRegistro(); mostrarInicio();
 api('GET', '/api/datos').then(d => S.datos = d).catch(() => {});
+cargarParametros(); setInterval(cargarParametros, 10000);
 </script>
 </body>
 </html>
