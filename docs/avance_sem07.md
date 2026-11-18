@@ -660,4 +660,4 @@ En la reunión del 14-nov-2026 (1 h 05 min, grabada; la transcripción la tiene 
 | Quedaba el ritmo: «mostrados en 60 o 30 minutos» en la tarjeta de inicio y un selector en «Parámetros» | Se quitó la frase y el selector; el ritmo es fijo (SI-36) |
 | Envíos abría con un párrafo explicativo | Plegado en «¿Cómo leer los identificadores?» |
 | Tarjetas de almacén de cuatro líneas | Nombre, código y % en una línea; stock y unidades en otra; coordenadas y reposición al pasar el mouse; botones con rótulos cortos |
-| `CLAUDE.md` y `docs/despliegue_aws.md` decían que en la máquina virtual estaba la etapa 35 | Corregido: etapa 37 (`e445491`, 4-nov-2026), como en `feature/JL` |
+| Las notas internas del repositorio y `docs/despliegue_aws.md` decían que en la máquina virtual estaba la etapa 35 | Corregido: etapa 37 (`e445491`, 4-nov-2026), como en `feature/JL` |
