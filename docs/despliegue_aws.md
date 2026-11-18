@@ -56,6 +56,7 @@ La sección de Ingeniería Informática asignó al equipo una máquina virtual: 
 |---|---|---|
 | 21-oct-2026 | Etapa 34 (commit `7bdde4f`) | Instalación (abajo) |
 | 28-oct-2026 | Etapa 35 (`main` en `d9674a6`) | Actualización (abajo). Se comprobó desde fuera que la página servida trae las funciones de la etapa 35 y que la API responde |
+| 4-nov-2026 | Etapa 37 (`main` en `e445491`) | Actualización (abajo). Se comprobó desde fuera que la página servida es idéntica a la de `main` y que la API responde. No se probó registrar una avería en la máquina, para no dejar una corrida en el servidor compartido |
 
 **Instalación (hecha el 21-oct-2026):**
 1. En la PC, generar el paquete desde el último commit. Los archivos internos del repositorio marcados con `export-ignore` en `.gitattributes` quedan fuera solos; además se excluyen los ZIP de entregas anteriores:
