@@ -291,6 +291,9 @@ button{cursor:pointer;}
 .wh-top{display:flex;justify-content:space-between;align-items:center;}
 .wh-name{font-size:11.5px;font-weight:600;} .wh-pct{font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
 .wh-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);font-family:var(--font-mono);}
+.wh-cod{font-family:var(--font-mono);font-size:10px;font-weight:400;color:var(--text-faint);margin-left:4px;}
+.ayuda-env summary{cursor:pointer;font-size:11px;color:var(--text-faint);}
+.ayuda-env p{margin-top:4px;}
 .bar{height:5px;background:var(--panel-raised);border-radius:3px;overflow:hidden;margin:4px 0 2px;} .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
 .bar i.warn{background:var(--amber);} .bar i.bad{background:var(--red);} .bar i.ok{background:var(--sem-ok);} .bar i.vacio{background:transparent;}
 .semtag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;border:1px solid var(--border);white-space:nowrap;}
@@ -454,7 +457,7 @@ body.observer .ctrl-only{display:none !important;}
           </button>
           <button class="ln-card" data-esc="SIM_5D">
             <span class="ln-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><span class="ln-t">Simulación de 5 días</span>
-            <span class="ln-d">Cinco días de operación con los datos oficiales, mostrados en 60 o 30 minutos.</span>
+            <span class="ln-d">Cinco días de operación con los datos oficiales.</span>
             <span class="ln-st"><i class="dot" id="dot-SIM_5D"></i><span id="st-SIM_5D">Sin corrida</span></span>
           </button>
           <button class="ln-card" data-esc="COLAPSO">
@@ -699,7 +702,7 @@ body.observer .ctrl-only{display:none !important;}
             <button class="fchip" data-f="sin_unidad" aria-pressed="false">Sin unidad</button>
           </div>
           <label class="fl">X (horas)<select id="envX"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option><option>24</option></select></label>
-          <p class="help">Cada producto se identifica con el id de su parte y su número (p. ej., <span class="mono">c1234-L55+3·p2</span>). Un pedido repartido entre unidades muestra cada parte con su unidad, su ruta y sus horas.</p>
+          <details class="ayuda-env"><summary>¿Cómo leer los identificadores?</summary><p class="help">Cada producto se identifica con el id de su parte y su número (p. ej., <span class="mono">c1234-L55+3·p2</span>). Un pedido repartido entre unidades muestra cada parte con su unidad, su ruta y sus horas.</p></details>
           <div id="envList" style="display:grid;gap:8px;"></div>
         </div>
       </section>
@@ -791,15 +794,11 @@ body.observer .ctrl-only{display:none !important;}
   <div class="mbox">
     <div class="mh"><h3>Parámetros</h3><button class="mx" data-close>×</button></div>
     <div class="mb">
-      <p class="help">Valen para todos los navegadores. La flota y el ritmo rigen desde la próxima corrida; el semáforo, de inmediato.</p>
+      <p class="help">Valen para todos los navegadores. La flota rige desde la próxima corrida; el semáforo, de inmediato.</p>
       <fieldset><legend>Flota</legend><div class="g3">
         <label class="fl">Autos (24 paq.)<input type="number" id="pAutos" min="0" max="30"></label>
         <label class="fl">Motos (8 paq.)<input type="number" id="pMotos" min="0" max="30"></label>
         <label class="fl">Bicicletas (4 paq.)<input type="number" id="pBicis" min="0" max="30"></label></div></fieldset>
-      <fieldset><legend>Ritmo</legend><div class="g3">
-        <label class="fl">Simulación de 5 días<select id="pRitmoSIM_5D"></select></label>
-        <label class="fl">Hasta el colapso<select id="pRitmoCOLAPSO"></select></label>
-        <label class="fl">Día a día<select id="pRitmoDIA_A_DIA"></select></label></div></fieldset>
       <fieldset><legend>Semáforo</legend><div class="g2">
         <label class="fl">Llenado bajo: menos de (%)<input type="number" id="pL1" min="1" max="99"></label>
         <label class="fl">Llenado alto: desde (%)<input type="number" id="pL2" min="2" max="100"></label>
@@ -891,9 +890,9 @@ const ALMACENES = [
 const HORAS_ALIMENTACION = [3, 11, 19];
 const SIGLA = { AUTO: 'A', MOTO: 'M', BICICLETA: 'B' };   // letra del ícono de cada tipo de unidad
 const ESC_INFO = {
-  DIA_A_DIA: { titulo: 'Operación día a día', ritmos: [[1, 'Tiempo real (×1)'], [10, 'Demostración (×10)']] },
-  SIM_5D:    { titulo: 'Simulación de 5 días', ritmos: [[120, '5 días en 60 min'], [240, '5 días en 30 min']] },
-  COLAPSO:   { titulo: 'Simulación hasta el colapso', ritmos: [[600, '1 s = 10 min'], [300, '1 s = 5 min']] }
+  DIA_A_DIA: { titulo: 'Operación día a día' },
+  SIM_5D:    { titulo: 'Simulación de 5 días' },
+  COLAPSO:   { titulo: 'Simulación hasta el colapso' }
 };
 /* Inicio sugerido: ventanas con los datos oficiales que terminaron sin colapso. */
 const INICIO_SUGERIDO = { SIM_5D: '2026-09-16T00:00', COLAPSO: '2027-01-01T00:00' };
@@ -971,7 +970,6 @@ function sem(v, a, r, invert){ if (invert) return v >= r ? 'bad' : v >= a ? 'war
 function turnoDe(d){ const h = d.getHours(); return h >= 7 && h < 15 ? 'Turno 1 · 07–15 h' : h >= 15 && h < 23 ? 'Turno 2 · 15–23 h' : 'Turno 3 · 23–07 h'; }
 function estadoTxt(est){ return !est ? ['Sin corrida', ''] : est === 'EN_EJECUCION' ? ['En ejecución', 'run'] : est === 'COLAPSO' ? ['Colapso logístico', 'col']
   : est === 'ERROR' ? ['Error', 'col'] : ['Finalizada', 'fin']; }
-function ritmoTxt(e, k){ const r = (ESC_INFO[e] || { ritmos: [] }).ritmos.find(([f]) => +f === +k); return r ? `${r[1]} (×${k})` : `×${k}`; }
 function toast(msg, malo){ const t = $('#toast'); t.textContent = msg; t.style.background = malo ? '#2A1218' : '#0F2A20'; t.style.color = malo ? '#FCA5A5' : '#6EE7B7';
   t.style.border = '1px solid ' + (malo ? '#7F1D1D' : '#1F5C44'); t.style.opacity = '1'; clearTimeout(t._k); t._k = setTimeout(() => t.style.opacity = '0', 3500); }
 function estadoVisible(u, s){
@@ -992,8 +990,11 @@ const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 
    abajo, los números de los ejes siempre visibles y la columna de acciones a la izquierda, fuera de la retícula.
    Los márgenes van en píxeles, así no dependen del zoom. */
 const MARGEN = { izq: 52 + 26, arr: 15, der: 24, aba: 15 + 16 };   // acciones + números del eje Y; números del eje X
+/* Mientras el tablero siga en su lugar de siempre (arriba a la derecha, sin moverlo), el encuadre le reserva su ancho,
+   para que no tape ningún nodo de la retícula. Si el usuario lo mueve, es su decisión y no se reserva nada. */
+function reservaTablero(){ const t = $('#tablero'); return t && t.offsetParent && !t.style.left ? t.offsetWidth + 30 + 8 : 0; }
 function encuadrar(){ map.invalidateSize({ animate: false });
-  map.fitBounds([[0, 0], [H, W]], { paddingTopLeft: [MARGEN.izq, MARGEN.arr], paddingBottomRight: [MARGEN.der, MARGEN.aba], animate: false }); actualizarCelda(); }
+  map.fitBounds([[0, 0], [H, W]], { paddingTopLeft: [MARGEN.izq, MARGEN.arr], paddingBottomRight: [Math.max(MARGEN.der, reservaTablero()), MARGEN.aba], animate: false }); actualizarCelda(); }
 /* Lado de una cuadrícula en píxeles: fija el tamaño de los íconos (menos de 2 cuadrículas, para no tapar los nodos vecinos). */
 function actualizarCelda(){ const a = map.latLngToContainerPoint([0, 0]), b = map.latLngToContainerPoint([0, 1]);
   $('#map').style.setProperty('--cel', Math.max(1, b.x - a.x).toFixed(2) + 'px'); }
@@ -1497,16 +1498,19 @@ function pintarAlmacenes(s){
   $('#whs').innerHTML = vis.length ? vis.map(a => { const nm = (ALMACENES.find(v => v.codigo === a.codigo) || {}).nombre || a.codigo;
     const det = s ? enviosDeAlmacen(s, a.codigo) : { camino: [], salir: [], entregados: [] }; const pq = l => l.reduce((x, p) => x + p.cantidad, 0);
     const tab = S.wh.abierto[a.codigo]; const aqui = (S.enAlm && S.enAlm[a.codigo]) || [];
+    // Etapa 38 (profesor: registros compactos y poco texto): nombre, código y % en una línea; stock y unidades en otra.
+    // Las coordenadas y la hora de reposición quedan al pasar el mouse.
+    const det1 = `title="${a.codigo} · (${a.x}, ${a.y})${a.capacidad ? ' · se repone 23:59:59' : ''}"`;
+    const nUni = `${aqui.length} unid. aquí`;
     const llenado = a.capacidad ? (() => { const ll = 100 * a.stock / a.capacidad; const c = semLlenado(ll);
-        return `<div class="wh-top"><span class="wh-name">${nm}</span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>Stock ${num(a.stock)} / ${num(a.capacidad)}</span><span>se repone 23:59:59</span></div>`; })()
-      : `<div class="wh-top"><span class="wh-name">${nm}</span><span class="help">stock ilimitado (sin semáforo)</span></div>`;
+        return `<div class="wh-top" ${det1}><span class="wh-name">${nm} <span class="wh-cod">${a.codigo}</span></span><span class="wh-pct">${ll.toFixed(0)} % ${semTag(c)}</span></div><div class="bar"><i class="${c}" style="width:${ll}%"></i></div><div class="wh-meta"><span>${num(a.stock)} / ${num(a.capacidad)}</span><span>${nUni}</span></div>`; })()
+      : `<div class="wh-top" ${det1}><span class="wh-name">${nm} <span class="wh-cod">${a.codigo}</span></span><span class="help">ilimitado</span></div><div class="wh-meta"><span>sin semáforo</span><span>${nUni}</span></div>`;
     const X = S.wh.x;
     return `<div class="wh-card${S.wh.sel === a.codigo ? ' sel' : ''}" data-alm="${a.codigo}">${llenado}
-      <div class="wh-meta"><span>${a.codigo} · (${a.x}, ${a.y})</span><span>${aqui.length} unidad${aqui.length === 1 ? '' : 'es'} detenida${aqui.length === 1 ? '' : 's'}</span></div>
       <div class="wh-tabs">
-        <button class="wh-tab" data-tab="camino" aria-pressed="${tab === 'camino'}">En camino · ${det.camino.length} envíos, ${pq(det.camino)} paq.</button>
-        <button class="wh-tab" data-tab="salir" aria-pressed="${tab === 'salir'}">Por salir en ${X} h · ${det.salir.length}, ${pq(det.salir)} paq.</button>
-        <button class="wh-tab" data-tab="entregados" aria-pressed="${tab === 'entregados'}">Entregados en ${X} h · ${det.entregados.length}, ${pq(det.entregados)} paq.</button>
+        <button class="wh-tab" data-tab="camino" aria-pressed="${tab === 'camino'}" title="Envíos en camino que salieron de aquí">En camino ${det.camino.length} · ${pq(det.camino)} paq.</button>
+        <button class="wh-tab" data-tab="salir" aria-pressed="${tab === 'salir'}" title="Envíos que salen en las próximas ${X} h">Salen ${X} h ${det.salir.length} · ${pq(det.salir)}</button>
+        <button class="wh-tab" data-tab="entregados" aria-pressed="${tab === 'entregados'}" title="Envíos entregados en las últimas ${X} h">Entregados ${X} h ${det.entregados.length} · ${pq(det.entregados)}</button>
       </div>
       ${tab === 'camino' ? tablaEnvios(s, det.camino, ['Salió', 'salida_min']) : tab === 'salir' ? tablaEnvios(s, det.salir, ['Sale', 'salida_min']) : tab === 'entregados' ? tablaEnvios(s, det.entregados, ['Entregado', 'entregado_min']) : ''}
     </div>`; }).join('') : '<p class="help">Ningún almacén cumple los filtros.</p>';
@@ -1966,14 +1970,11 @@ async function cargarParametros(){
   try { const p = await api('GET', '/api/parametros'); const cambio = JSON.stringify(p) !== JSON.stringify(S.param); S.param = p;
     if (cambio && S.vista === 'mon' && S.snap[S.tab]) render(); } catch (err){ /* sin conexión: se reintenta */ }
 }
-function opcionesRitmo(e, actual){
-  const ops = ESC_INFO[e].ritmos.slice(); if (!ops.some(([k]) => +k === +actual)) ops.push([actual, '×' + (+actual)]);
-  return ops.map(([k, t]) => `<option value="${k}" ${+k === +actual ? 'selected' : ''}>${t}</option>`).join('');
-}
+/* El ritmo de cada escenario es fijo (el profesor: «nadie les ha pedido ritmos»; 5 días en 60 min, 1 s = 10 min y tiempo
+   real): no se ofrece aquí y el formulario no lo envía, así que el servidor conserva el suyo. */
 async function abrirParametros(){
   await cargarParametros(); const p = S.param; if (!p){ toast('Sin conexión con el planificador.', true); return; }
   $('#pAutos').value = p.autos; $('#pMotos').value = p.motos; $('#pBicis').value = p.bicicletas;
-  for (const e of ['SIM_5D', 'COLAPSO', 'DIA_A_DIA']) $('#pRitmo' + e).innerHTML = opcionesRitmo(e, p.ritmo[e]);
   $('#pL1').value = p.llenado_bajo; $('#pL2').value = p.llenado_alto; $('#pHv').value = p.holgura_verde; $('#pHa').value = p.holgura_ambar;
   $('#pSentido').textContent = 'Llenado bajo = rojo, medio = ámbar, alto = verde; 0 % = vacío. Rige igual para unidades y almacenes.';
   const obs = S.rol !== 'control'; $$('#mdParam input, #mdParam select').forEach(i => i.disabled = obs);
@@ -1981,7 +1982,6 @@ async function abrirParametros(){
 }
 $('#pGuardar').onclick = async () => {
   const d = { autos: $('#pAutos').value, motos: $('#pMotos').value, bicicletas: $('#pBicis').value,
-    ritmo_SIM_5D: $('#pRitmoSIM_5D').value, ritmo_COLAPSO: $('#pRitmoCOLAPSO').value, ritmo_DIA_A_DIA: $('#pRitmoDIA_A_DIA').value,
     llenado_bajo: $('#pL1').value, llenado_alto: $('#pL2').value, holgura_verde: $('#pHv').value, holgura_ambar: $('#pHa').value };
   try { S.param = await api('POST', '/api/parametros', d); $('#pMsg').innerHTML = '<span class="ok-t">Parámetros guardados.</span>'; toast('Parámetros guardados para todos los navegadores.');
     if (S.vista === 'mon' && S.snap[S.tab]) render(); }

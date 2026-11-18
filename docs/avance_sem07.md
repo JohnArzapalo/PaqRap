@@ -651,3 +651,13 @@ En la reunión del 14-nov-2026 (1 h 05 min, grabada; la transcripción la tiene 
 - **Pendiente:** el profesor dijo que mandaría un correo con todos los comentarios y que, con los ajustes, se puede presentar otra vez.
 - **Pruebas:** 5 nuevas en `CargaYParametrosTest`: los archivos cargados reemplazan a los oficiales del mes y al quitarlos vuelven los oficiales; un archivo con errores no se guarda; los bloqueos y el mantenimiento cargados los usa la corrida; los parámetros se guardan y sobreviven al reinicio, y un cambio inválido se rechaza sin guardar. **Total: 124 pruebas, todas pasan.**
 - **Verificado en Chromium** con una SIM_5D desde el 16/09/2026 (capturas en `salidas/capturas_etapa38/`, local): inicio, parámetros y carga de archivos; encuadre y tamaño de los íconos; tablero, filtro rápido y su posición recordada; avería desde el menú; pestañas, filas compactas y el rango de km. Sin errores en la consola.
+
+**Ajustes del 18-nov-2026** (revisión de la rama frente a la transcripción de la reunión; solo `web/index.html` y documentación):
+
+| Detalle encontrado | Ajuste |
+|---|---|
+| El tablero, en su lugar inicial (arriba a la derecha), tapaba la esquina noreste de la retícula (x 63-70, y 30-50) | Mientras no se mueva, el encuadre le reserva su ancho a la derecha (`reservaTablero`). Con el panel plegado la retícula no se achica; con el panel abierto se achica para que nada la tape. Si el usuario mueve el tablero, no se reserva nada |
+| Quedaba el ritmo: «mostrados en 60 o 30 minutos» en la tarjeta de inicio y un selector en «Parámetros» | Se quitó la frase y el selector; el ritmo es fijo (SI-36) |
+| Envíos abría con un párrafo explicativo | Plegado en «¿Cómo leer los identificadores?» |
+| Tarjetas de almacén de cuatro líneas | Nombre, código y % en una línea; stock y unidades en otra; coordenadas y reposición al pasar el mouse; botones con rótulos cortos |
+| `CLAUDE.md` y `docs/despliegue_aws.md` decían que en la máquina virtual estaba la etapa 35 | Corregido: etapa 37 (`e445491`, 4-nov-2026), como en `feature/JL` |
