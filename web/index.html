@@ -990,18 +990,33 @@ const map = L.map('map', { crs: L.CRS.Simple, minZoom: 1, maxZoom: 6, zoomSnap: 
    abajo, los números de los ejes siempre visibles y la columna de acciones a la izquierda, fuera de la retícula.
    Los márgenes van en píxeles, así no dependen del zoom. */
 const MARGEN = { izq: 52 + 26, arr: 15, der: 24, aba: 15 + 16 };   // acciones + números del eje Y; números del eje X
-/* Mientras el tablero siga en su lugar de siempre (arriba a la derecha, sin moverlo), el encuadre le reserva su ancho,
-   para que no tape ningún nodo de la retícula. Si el usuario lo mueve, es su decisión y no se reserva nada. */
-function reservaTablero(){ const t = $('#tablero'); return t && t.offsetParent && !t.style.left ? t.offsetWidth + 30 + 8 : 0; }
-function encuadrar(){ map.invalidateSize({ animate: false });
-  map.fitBounds([[0, 0], [H, W]], { paddingTopLeft: [MARGEN.izq, MARGEN.arr], paddingBottomRight: [Math.max(MARGEN.der, reservaTablero()), MARGEN.aba], animate: false }); actualizarCelda(); }
+/* El encuadre le reserva al tablero su ancho, del lado del mapa en que esté (a la derecha por defecto, o donde el
+   usuario lo haya dejado), para que no tape ningún nodo de la retícula. Nunca reserva más del 45 % del ancho. */
+function reservaTablero(){
+  const t = $('#tablero'), w = $('#mapWrap').clientWidth; if (!t || !t.offsetParent || !w) return { izq: 0, der: 0 };
+  const ini = t.offsetLeft, fin = ini + t.offsetWidth, max = w * .45, holgura = 8;
+  return (ini + fin) / 2 >= w / 2 ? { izq: 0, der: Math.min(max, w - ini + holgura) } : { izq: Math.min(max, fin + holgura), der: 0 };
+}
+/* Encuadre automático (ajuste del 18-nov-2026): mientras el usuario no haga zoom ni mueva el mapa, la retícula se vuelve a
+   encuadrar sola cuando cambia el espacio (abrir o cerrar el panel lateral, cambiar el tamaño de la ventana). Si hizo zoom,
+   movió el mapa o enfocó algo, se respeta su vista; el botón Encuadrar vuelve al modo automático. */
+let encuadrado = true, encuadrando = false;
+function encuadrar(){ map.invalidateSize({ animate: false }); const r = reservaTablero(); encuadrando = true;
+  try { map.fitBounds([[0, 0], [H, W]], { paddingTopLeft: [Math.max(MARGEN.izq, r.izq), MARGEN.arr], paddingBottomRight: [Math.max(MARGEN.der, r.der), MARGEN.aba], animate: false }); }
+  finally { encuadrando = false; }
+  encuadrado = true; actualizarCelda(); }
+map.on('zoomstart movestart', () => { if (!encuadrando) encuadrado = false; });
 /* Lado de una cuadrícula en píxeles: fija el tamaño de los íconos (menos de 2 cuadrículas, para no tapar los nodos vecinos). */
 function actualizarCelda(){ const a = map.latLngToContainerPoint([0, 0]), b = map.latLngToContainerPoint([0, 1]);
   $('#map').style.setProperty('--cel', Math.max(1, b.x - a.x).toFixed(2) + 'px'); }
 map.on('zoom zoomend', actualizarCelda);
 map.setMaxBounds([[-40, -40], [H + 40, W + 40]]);   // margen amplio: al enfocar algo cerca del borde, queda centrado (F05, F07, F09)
 encuadrar();
-new ResizeObserver(() => { if ($('#mapWrap').clientWidth) encuadrar(); }).observe($('#mapWrap'));
+// Al cambiar el espacio del mapa: si estaba encuadrado, se reencuadra (después de que el tablero se reubique); si el
+// usuario tenía su propia vista, solo se ajusta el tamaño, sin mover lo que ya se veía (pan: false).
+new ResizeObserver(() => { if (!$('#mapWrap').clientWidth) return;
+  requestAnimationFrame(() => { if (encuadrado) encuadrar(); else { map.invalidateSize({ animate: false, pan: false }); actualizarCelda(); } });
+}).observe($('#mapWrap'));
 const gGrid = L.layerGroup().addTo(map), gRutas = L.layerGroup().addTo(map), gBloq = L.layerGroup().addTo(map),
       gEnvio = L.layerGroup().addTo(map), gPed = L.layerGroup().addTo(map), gAlm = L.layerGroup().addTo(map), gUni = L.layerGroup().addTo(map);
 (function dibujarReticula(){
@@ -1647,8 +1662,7 @@ function pintarRiesgo(s){
   const ref = S.costoRef[S.tab]; const r3 = ref ? Math.max(0, 100 * (cpe - ref) / ref) : 0;
   const n = (v, u) => Math.min(100, 100 * v / u); const idx = Math.min(100, .5 * n(r1, U.rP) + .25 * n(r2, U.rF) + .25 * n(r3, U.rC));
   const row = (l, v, u) => `<div class="risk-row"><span>${l}</span><div class="bar"><i class="${sem(v, u * .5, u, true)}" style="width:${Math.min(100, 100 * v / u)}%"></i></div><b>${v.toFixed(0)} %</b></div>`;
-  el.innerHTML = `<div class="risk-top"><span class="rv">${idx.toFixed(0)}</span><span class="help">índice 0–100 · aviso desde ${U.rI}</span></div>${row('Pedidos en riesgo', r1, U.rP)}${row('Flota averiada', r2, U.rF)}${row('Alza costo/entrega', r3, U.rC)}
-    <p class="help">Solo avisa: el colapso lo declara el planificador cuando un producto supera su hora límite.</p>`;
+  el.innerHTML = `<div class="risk-top"><span class="rv">${idx.toFixed(0)}</span><span class="help">índice 0–100 · aviso desde ${U.rI}</span></div>${row('Pedidos en riesgo', r1, U.rP)}${row('Flota averiada', r2, U.rF)}${row('Alza costo/entrega', r3, U.rC)}`;
 }
 function acumularSerie(e, s){
   const bucket = e === 'DIA_A_DIA' ? 60 : 1440; const k = Math.floor(minCorrida(s) / bucket); const ser = S.serie[e]; const prev = S.prev[e];

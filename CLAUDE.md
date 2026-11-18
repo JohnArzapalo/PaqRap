@@ -105,7 +105,7 @@ Fuentes: enunciado, hoja de preguntas y respuestas (P&R) e indicaciones del prof
 - **Etapa 38, revisión del profesor del 14-nov-2026** (rama `feature/etapa38-revision-profesor`, fusionada a `main` el 18-nov-2026; detalle en `docs/avance_sem07.md`):
   - inicio de cada escenario con solo fecha y hora; opciones **Parámetros** (flota y semáforo en el servidor, `config/sistema.properties`; el ritmo es fijo y no se ofrece; SI-36) y **Carga de archivos** (validados y guardados en `datos_cargados/`, sin tocar `juego_de_datos/`; SI-37). Ambos archivos son del servidor y git los ignora;
   - mapa sin nada encima de la retícula: acciones en una columna a la izquierda, márgenes de 3-4 mm y números de los ejes visibles; íconos sin fondo de 1.6 cuadrículas que cambian con el zoom; bicicleta delgada y moto gruesa; central con el color de «lleno»; rutas finas, tenues y segmentadas;
-  - **tablero flotante** (se mueve y se pliega) con los tiempos («F/H» y «Duración»), los indicadores globales y el filtro rápido por tipo y color; mientras no se mueva, el encuadre le reserva su ancho y no tapa la retícula;
+  - **tablero flotante** (se mueve y se pliega) con los tiempos («F/H» y «Duración»), los indicadores globales y el filtro rápido por tipo y color; el encuadre le reserva espacio del lado en que esté y no tapa la retícula. Abrir o cerrar el panel reencuadra solo si el usuario no hizo zoom ni movió el mapa (ajuste del 18-nov);
   - avería desde un menú sobre el vehículo (clic derecho), con la confirmación ahí mismo;
   - panel con pestañas, plegado al inicio y de 420 px; filas compactas en Flota, Almacenes y Envíos; rango de km en el filtro de distancia.
   - Hay 124 pruebas.
