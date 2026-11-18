@@ -661,3 +661,13 @@ En la reunión del 14-nov-2026 (1 h 05 min, grabada; la transcripción la tiene 
 | Envíos abría con un párrafo explicativo | Plegado en «¿Cómo leer los identificadores?» |
 | Tarjetas de almacén de cuatro líneas | Nombre, código y % en una línea; stock y unidades en otra; coordenadas y reposición al pasar el mouse; botones con rótulos cortos |
 | Las notas internas del repositorio y `docs/despliegue_aws.md` decían que en la máquina virtual estaba la etapa 35 | Corregido: etapa 37 (`e445491`, 4-nov-2026), como en `feature/JL` |
+
+**Ajustes del equipo, 18-nov-2026** (después de fusionar la etapa 38 a `main` en `f4bd756`; solo `web/index.html`):
+
+| Pedido del equipo | Ajuste |
+|---|---|
+| Al cerrar el panel lateral, el tablero quedaba sobre la retícula y había que pulsar Encuadrar. Pasaba sobre todo si el tablero se había arrastrado alguna vez: el navegador recuerda esa posición y desde ahí no se le reservaba espacio | El encuadre le reserva espacio al tablero **del lado en que esté** (derecha por defecto o donde el usuario lo dejó; nunca más del 45 % del ancho). Mientras el usuario no haga zoom ni mueva el mapa, abrir o cerrar el panel (o cambiar el tamaño de la ventana) reencuadra solo. Si hizo zoom, movió el mapa o enfocó algo, se respeta su vista: solo se ajusta el tamaño, sin mover lo que se veía. El botón Encuadrar vuelve al modo automático |
+| En Resumen → Riesgo de colapso, la nota «Solo avisa: el colapso lo declara el planificador…» no corresponde a un producto terminado | Se quitó |
+| ¿Llevar los tiempos del tablero a una subsección de Resumen? | No: el profesor pidió expresamente que no estén en el panel lateral sino en un control flotante que se mueva y se pliegue (reunión del 14-nov, minuto 33) |
+
+Verificado con una SIM_5D local desde el 16/09/2026 a 1600 × 900: con el tablero en su lugar y arrastrado a la izquierda, abrir y cerrar el panel nunca deja la retícula debajo del tablero; tras un zoom, la vista no se mueve; Encuadrar vuelve al modo automático.
